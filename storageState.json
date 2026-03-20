@@ -1,0 +1,54 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "https://admin-dev.mediplanner.mx",
+      "localStorage": [
+        {
+          "name": "theme",
+          "value": "light"
+        },
+        {
+          "name": "token",
+          "value": "7b54a2c7-2821-43e6-a532-74f73ac8b747"
+        },
+        {
+          "name": "doctor_id",
+          "value": "467"
+        },
+        {
+          "name": "padre",
+          "value": "0"
+        },
+        {
+          "name": "nombreCompleto",
+          "value": "Walter Hartwell White"
+        },
+        {
+          "name": "nombre",
+          "value": "Walter"
+        },
+        {
+          "name": "paterno",
+          "value": "Hartwell"
+        },
+        {
+          "name": "nombrePadre",
+          "value": "Walter Hartwell White"
+        },
+        {
+          "name": "userId",
+          "value": "467"
+        },
+        {
+          "name": "materno",
+          "value": "White"
+        },
+        {
+          "name": "iUsuarioTipoId",
+          "value": "3"
+        }
+      ]
+    }
+  ]
+}
