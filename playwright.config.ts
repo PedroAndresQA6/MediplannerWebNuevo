@@ -79,6 +79,17 @@ export default defineConfig({
       dependencies: ['setup'],
       timeout: 30000,
     },
+    {
+      name: 'ingresos',
+      testMatch: /ingresos\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'storageState.json',
+        viewport: { width: 1920, height: 1080 },
+      },
+      dependencies: ['doctor-consultation'],
+      timeout: 300000,
+    },
   ],
   globalSetup: undefined,
   globalTeardown: undefined,
