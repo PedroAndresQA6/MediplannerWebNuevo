@@ -90,6 +90,16 @@ export default defineConfig({
       dependencies: ['doctor-consultation'],
       timeout: 300000,
     },
+    {
+      name: 'subir-estudios',
+      testMatch: /subir-estudios\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'storageState.json',
+        viewport: { width: 1920, height: 1080 },
+      },
+      timeout: 120000,
+    },
   ],
   globalSetup: undefined,
   globalTeardown: undefined,
