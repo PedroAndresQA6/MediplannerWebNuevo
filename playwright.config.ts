@@ -60,6 +60,11 @@ export default defineConfig({
     {
       name: 'doctor-consultation',
       testMatch: /consultation\.start\.spec\.(js|ts)/,
+    },
+    {
+      name: 'stress-test',
+      testMatch: /Consultation\.stress\.test\.spec\.ts/,
+      timeout: 600000,
       use: {
         ...devices['Desktop Chrome'],
         storageState: 'storageState.json',
@@ -91,14 +96,62 @@ export default defineConfig({
       timeout: 300000,
     },
     {
+<<<<<<< Updated upstream
       name: 'subir-estudios',
       testMatch: /subir-estudios\.spec\.ts/,
+=======
+      name: 'stress-citas',
+      testMatch: /stress tests[/\\]citas\.stress\.test\.ts/,
+>>>>>>> Stashed changes
       use: {
         ...devices['Desktop Chrome'],
         storageState: 'storageState.json',
         viewport: { width: 1920, height: 1080 },
       },
+<<<<<<< Updated upstream
       timeout: 120000,
+=======
+      dependencies: ['setup'],
+      timeout: 300000,
+    },
+    {
+      name: 'stress-pacientes',
+      testMatch: /stress tests[/\\]pacientes\.stress\.test\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'storageState.json',
+        viewport: { width: 1920, height: 1080 },
+      },
+      dependencies: ['setup'],
+      timeout: 300000,
+    },
+    {
+      name: 'stress-ingresos',
+      testMatch: /stress tests[/\\]ingresos\.stress\.test\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'storageState.json',
+        viewport: { width: 1920, height: 1080 },
+      },
+      dependencies: ['setup'],
+      timeout: 300000,
+    },
+    {
+      name: 'stress-login',
+      testMatch: /stress tests[/\\]login\.stress\.test\.ts/,
+      timeout: 300000,
+    },
+    {
+      name: 'stress-configuracion',
+      testMatch: /stress tests[/\\]configuracion\.stress\.test\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'storageState.json',
+        viewport: { width: 1920, height: 1080 },
+      },
+      dependencies: ['setup'],
+      timeout: 300000,
+>>>>>>> Stashed changes
     },
   ],
   globalSetup: undefined,

@@ -14,7 +14,8 @@
   "devDependencies": {
     "@playwright/test": "^1.58.2",
     "@types/node": "^25.5.0",
-    "dotenv-cli": "^11.0.0"
+    "dotenv-cli": "^11.0.0",
+    "pdfkit": "^0.18.0"
   },
   "dependencies": {
     "dotenv": "^17.3.1"
