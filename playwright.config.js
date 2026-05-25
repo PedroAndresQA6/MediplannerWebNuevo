@@ -48,6 +48,9 @@ module.exports = defineConfig({
     {
       name: 'doctor-consultation',
       testMatch: /consultation\.start\.spec\.(js|ts)/,
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1920, height: 1080 } },
+      dependencies: ['setup'],
+      timeout: 300000,
     },
     {
       name: 'stress-test',

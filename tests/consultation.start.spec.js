@@ -1474,13 +1474,22 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
   await signosButton.click();
     
   console.log('💉 Llenando signos vitales...');
+  await page.waitForTimeout(1000);
+  
+  const allInputs = page.locator('input:not([disabled]):not([readonly])');
+  const inputCount = await allInputs.count();
+  console.log(`📝 Encontrados ${inputCount} inputs en signos vitales`);
+  
   await page.locator('input[name="peso"]').fill('70');
   
   const tallaInput = page.locator('input[name*="talla" i]');
   if (await tallaInput.count() > 0) await tallaInput.first().fill('170');
   
-  const presionInput = page.locator('input[placeholder="000/00 mmHg"]');
-  if (await presionInput.isVisible().catch(() => false)) await presionInput.fill('120/80');
+  const presionInput = page.locator('input[placeholder="000/000 mmHg"]');
+  if (await presionInput.isVisible().catch(() => false)) {
+    await presionInput.fill('120/80');
+    console.log('💓 Presión arterial: 120/80');
+  }
   
   const tempInput = page.locator('input[name*="temp" i]');
   if (await tempInput.count() > 0) await tempInput.first().fill('36.6');
@@ -1496,6 +1505,26 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
   
   const glucosaInput = page.locator('input[name="glucosa"]');
   if (await glucosaInput.count() > 0) await glucosaInput.first().fill('95');
+  
+  const fechaUltimoCicloInput = page.locator('input[placeholder="dd/mm/yyyy"]');
+  if (await fechaUltimoCicloInput.count() > 0) {
+    const now = new Date();
+    const fechaSemanaPasada = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const dia = String(fechaSemanaPasada.getDate()).padStart(2, '0');
+    const mes = String(fechaSemanaPasada.getMonth() + 1).padStart(2, '0');
+    const anio = fechaSemanaPasada.getFullYear();
+    const fechaFormateada = `${dia}/${mes}/${anio}`;
+    await fechaUltimoCicloInput.first().fill(fechaFormateada);
+    console.log(`📅 Fecha último ciclo: ${fechaFormateada}`);
+  }
+  
+  await page.waitForTimeout(1500);
+  
+  await page.waitForFunction(() => {
+    const btns = Array.from(document.querySelectorAll('button'));
+    const btn = btns.find(b => b.textContent.trim().toLowerCase().includes('guardar'));
+    return btn && !btn.disabled;
+  }, { timeout: 10000 });
   
   await page.getByRole('button', { name: /^Guardar$/i }).click();
   

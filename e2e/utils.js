@@ -210,10 +210,8 @@ async function createAppointment(page) {
   await expect(combosA1.first()).toBeVisible();
   
   const patientCombo = combosA1.nth(0);
-  await page.waitForFunction(
-    (el) => el && el.options.length > 1,
-    await patientCombo.elementHandle()
-  );
+  await patientCombo.waitFor({ state: 'visible' });
+  await page.waitForTimeout(1000);
   
   const patientOptions = await patientCombo.locator('option').count();
   const randomPatient = Math.floor(Math.random() * (patientOptions - 1)) + 1;
@@ -228,20 +226,16 @@ async function createAppointment(page) {
   await expect(combosA2.first()).toBeVisible({ timeout: 10000 });
   
   const typeCombo = combosA2.nth(0);
-  await page.waitForFunction(
-    (el) => el && el.options.length > 1,
-    await typeCombo.elementHandle()
-  );
+  await typeCombo.waitFor({ state: 'visible' });
+  await page.waitForTimeout(1000);
   
   const typeOptions = await typeCombo.locator('option').count();
   const randomType = Math.floor(Math.random() * (typeOptions - 1)) + 1;
   await typeCombo.selectOption({ index: randomType });
   
   const hospitalCombo = combosA2.nth(1);
-  await page.waitForFunction(
-    (el) => el && el.options.length > 1,
-    await hospitalCombo.elementHandle()
-  );
+  await hospitalCombo.waitFor({ state: 'visible' });
+  await page.waitForTimeout(1000);
   
   const hospitalOptions = await hospitalCombo.locator('option').count();
   const randomHospital = Math.floor(Math.random() * (hospitalOptions - 1)) + 1;
