@@ -1707,10 +1707,15 @@ test('Start a scheduled consultation - Stress Test', async ({ page }) => {
     await testFieldValidation('Talla (extremo)', 'input[name*="talla" i]', '999', 'Valor irreal');
   }
   
-  const presionInput = page.locator('input[placeholder="000/00 mmHg"]');
+  const presionInput = page.locator('input[placeholder*="mmHg"], input[placeholder*="mm/Hg"], input[name*="presion" i], input[name*="presión" i]');
   if (await presionInput.count() > 0) {
-    await testFieldValidation('Presión Arterial', 'input[placeholder="000/00 mmHg"]', 'abc/def', 'Letras en presión');
-    await testFieldValidation('Presión (extremo)', 'input[placeholder="000/00 mmHg"]', '999/999', 'Presión lethal');
+    await testFieldValidation('Presión Arterial', 'input[placeholder*="mmHg"]', 'abc/def', 'Letras en presión');
+    await testFieldValidation('Presión (extremo)', 'input[placeholder*="mmHg"]', '999/999', 'Presión lethal');
+  }
+  const cefalicaInput = page.locator('input[name*="cefal" i], input[name*="circunferencia" i], input[placeholder*="cefálic" i]');
+  if (await cefalicaInput.count() > 0) {
+    await testFieldValidation('Circunferencia Cefálica', 'input[name*="cefal" i]', 'abc', 'Debe ser numérico');
+    await testFieldValidation('CC (extremo)', 'input[name*="cefal" i]', '999', 'Valor irreal');
   }
   
   const tempInput = page.locator('input[name*="temp" i]');
@@ -1776,8 +1781,10 @@ test('Start a scheduled consultation - Stress Test', async ({ page }) => {
     await page.locator('input[name*="talla" i]').first().fill('170');
   }
   
-  if (await presionInput.isVisible().catch(() => false)) {
-    await presionInput.fill('120/80');
+  const presionActual = page.locator('input[placeholder*="mmHg"], input[placeholder*="mm/Hg"], input[name*="presion" i], input[name*="presión" i]');
+  if (await presionActual.first().isVisible().catch(() => false)) {
+    await presionActual.first().fill('120/80');
+    console.log('💓 Presión arterial: 120/80');
   }
   
   if (await tempInput.count() > 0) {
@@ -1798,6 +1805,13 @@ test('Start a scheduled consultation - Stress Test', async ({ page }) => {
   
   if (await glucosaInput.count() > 0) {
     await glucosaInput.first().fill('95');
+  }
+  
+  // Circunferencia cefálica (requerida para pacientes infantiles)
+  const cefalicaVal = page.locator('input[name*="cefal" i], input[name*="circunferencia" i], input[placeholder*="cefálic" i]');
+  if (await cefalicaVal.first().isVisible().catch(() => false)) {
+    await cefalicaVal.first().fill('34');
+    console.log('📏 Circunferencia cefálica: 34 cm');
   }
   
   await page.getByRole('button', { name: /^Guardar$/i }).click();
@@ -1913,132 +1927,8 @@ test('Start a scheduled consultation - Stress Test', async ({ page }) => {
       console.log('📋 Sección Diagnóstico: Completando información correcta sin tests...');
       await fillDiagnosticoSection(page);
     } else if (tabName === 'Tratamiento') {
-      console.log('📋 Sección Tratamiento: Testeando medicamentos y solicitud...');
-      await fillTreatmentSection(page);
-      
-      console.log('  💊 Testeando campo de medicamento...');
-      const medInput = page.locator('input[placeholder*="medic" i], input[autocomplete="off"]:visible').first();
-      if (await medInput.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await medInput.fill('Paracetamol');
-        await page.waitForTimeout(500);
-        
-        const selectMed = page.locator('div[id*="medicamento"] button, div[id*="suggestions"] button').first();
-        if (await selectMed.isVisible({ timeout: 2000 }).catch(() => false)) {
-          await selectMed.click();
-          await page.waitForTimeout(1500);
-          
-          console.log('  💊 Seleccionando vía del medicamento...');
-          const viaSelect = page.locator('select[name*="via" i], select[id*="via" i], select:visible').first();
-          if (await viaSelect.isVisible({ timeout: 2000 }).catch(() => false)) {
-            const options = await viaSelect.locator('option').count();
-            if (options > 1) {
-              await viaSelect.selectOption({ index: 1 });
-              console.log('  ✅ Vía seleccionada');
-              await page.waitForTimeout(500);
-            }
-          }
-          
-          console.log('  💊 Intentando guardar con medicamento...');
-          const guardarBtn = page.locator('button:has-text("Guardar"), button:has-text("Guardar cambios")').first();
-          if (await guardarBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-            await guardarBtn.click();
-            await page.waitForTimeout(1500);
-          }
-        }
-      }
-      
-      console.log('  🔬 Buscando dropdown de solicitud...');
-      
-      const solicitudLabel = page.locator('label:has-text("Solicitud")');
-      const labelCount = await solicitudLabel.count();
-      
-      if (labelCount > 0) {
-        console.log(`  ✅ Label "Solicitud" encontrado`);
-        
-        const solicitudInput = page.locator('label:has-text("Solicitud") ~ div input[role="combobox"], label:has-text("Solicitud") + div input[role="combobox"]');
-        
-        if (await solicitudInput.count() > 0 && await solicitudInput.first().isVisible({ timeout: 2000 }).catch(() => false)) {
-          await solicitudInput.first().click();
-          console.log('  ✅ Click en input de solicitud');
-          await page.waitForTimeout(1000);
-          
-          const options = page.locator('[role="option"]:visible');
-          const optionCount = await options.count();
-          console.log(`  📋 Dropdown de solicitud abierto con ${optionCount} opciones`);
-          
-          if (optionCount > 0) {
-            const randomIndex = Math.floor(Math.random() * Math.min(optionCount, 10));
-            const optionText = await options.nth(randomIndex).textContent().catch(() => 'Estudio');
-            await options.nth(randomIndex).click();
-            console.log(`  ✅ Estudio seleccionado: "${optionText.trim().substring(0, 40)}..."`);
-          } else {
-            await solicitudInput.first().type('Biometría', { delay: 80 });
-            await page.waitForTimeout(1000);
-            
-            const searchOptions = page.locator('[role="option"]:visible');
-            const searchCount = await searchOptions.count();
-            
-            if (searchCount > 0) {
-              await searchOptions.first().click();
-              console.log('  ✅ Estudio seleccionado por búsqueda');
-            }
-          }
-        } else {
-          const reactSelectInput = page.locator('#react-select-4-input');
-          if (await reactSelectInput.count() > 0) {
-            await reactSelectInput.click();
-            console.log('  ✅ Click en react-select-4-input');
-            await page.waitForTimeout(1000);
-            
-            const options = page.locator('[role="option"]:visible');
-            const optionCount = await options.count();
-            console.log(`  📋 Dropdown abierto con ${optionCount} opciones`);
-            
-            if (optionCount > 0) {
-              await options.first().click();
-              console.log('  ✅ Estudio seleccionado');
-            }
-          } else {
-            console.log('  ⚠️ Dropdown de solicitud no encontrado');
-          }
-        }
-      } else {
-        console.log('  ⚠️ Label "Solicitud" no encontrado');
-      }
-      
-      console.log('  📝 Los estudios se guardarán al hacer clic en Continuar');
-      
-      console.log('  💾 Buscando botón guardar de laboratorios...');
-      
-      const guardarLabCount = await page.evaluate(() => {
-        const buttons = document.querySelectorAll('button');
-        let lastGuardar: HTMLButtonElement | null = null;
-        buttons.forEach((btn: Element) => {
-          if (btn.textContent?.trim().toLowerCase().includes('guardar cambios')) {
-            lastGuardar = btn as HTMLButtonElement;
-          }
-        });
-        if (lastGuardar) {
-          lastGuardar.click();
-          return 1;
-        }
-        return 0;
-      });
-      
-      if (guardarLabCount > 0) {
-        console.log('  ✅ Guardar cambios de laboratorios clickeado');
-        await page.waitForTimeout(2000);
-        
-        await page.evaluate(() => {
-          const modals = document.querySelectorAll('.swal2-confirm, .swal2-popup button');
-          modals.forEach((btn: Element) => {
-            if ((btn as HTMLElement).offsetParent !== null) btn.click();
-          });
-        });
-        await page.waitForTimeout(1000);
-      } else {
-        console.log('  ⚠️ Botón guardar de laboratorios no encontrado');
-      }
+      console.log('📋 Sección Tratamiento: Llenando campos editables...');
+      await fillTabFields(page, tabName);
     } else if (tabName === 'Notas del Médico') {
       console.log('📋 Sección Notas del Médico: Sin tests...');
       await fillNotasMedicoSection(page);

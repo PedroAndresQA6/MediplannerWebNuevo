@@ -81,7 +81,7 @@ test.describe('Schedule Appointment Flow', () => {
     }
 
     if (!citaEncontrada) {
-      logger.warn('No se encontraron citas agendadas en 4 semanas');
+      logger.warning('No se encontraron citas agendadas en 4 semanas');
     }
 
   });

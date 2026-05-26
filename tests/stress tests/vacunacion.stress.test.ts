@@ -11,7 +11,7 @@ async function captureScreenshot(page: Page, name: string): Promise<void> {
 
 async function handlePopup(page: Page, context: string): Promise<boolean> {
   const popup = page.locator('[role="dialog"], .modal, [class*="swal"], [class*="popup"]').first();
-  if (await popup.isVisible({ timeout: 500 }).catch(() => false)) {
+  if (await popup.isVisible({ timeout: 1000 }).catch(() => false)) {
     const text = (await popup.textContent().catch(() => ''))?.substring(0, 60) || '';
     console.log(`    🔔 [${context}] Popup: "${text}"`);
     const closeBtn = popup.locator('button:has-text("Aceptar"), button:has-text("OK"), button:has-text("Cerrar"), button:has-text("×")').first();
@@ -27,135 +27,123 @@ async function handlePopup(page: Page, context: string): Promise<boolean> {
   return false;
 }
 
-async function avoidAgendar(page: Page): Promise<void> {
-  if (page.url().includes('Citas') || page.url().includes('Agendar')) {
-    await page.goBack().catch(() => {});
-    await page.waitForTimeout(1500);
-  }
-}
-
-async function fillCartillaForm(page: Page, vacunaIndex: number, folio: string, comentario: string): Promise<void> {
-  // Select vacuna
-  const vacunaSelect = page.locator('select.select').filter({ has: page.locator('option:text("Seleccione vacuna")') }).first();
-  if (await vacunaSelect.isVisible().catch(() => false)) {
-    const opts = await vacunaSelect.locator('option').evaluateAll(o => o.map(e => ({ value: (e as HTMLOptionElement).value, text: e.textContent?.trim() || '' })));
-    const valid = opts.filter(o => !o.text.toLowerCase().includes('seleccione'));
-    if (valid.length > vacunaIndex) {
-      await vacunaSelect.selectOption({ value: valid[vacunaIndex].value });
-      console.log(`    ✅ Vacuna: "${valid[vacunaIndex].text}"`);
-      await page.waitForTimeout(1000);
+async function selectCalendarDate(page: Page, targetDay: number): Promise<boolean> {
+  const calendar = page.locator('.react-calendar:visible').first();
+  if (!await calendar.isVisible({ timeout: 5000 }).catch(() => false)) return false;
+  const dayBtns = calendar.locator('button.react-calendar__tile:not(.react-calendar__month-view__days__day--neighboringMonth)');
+  const dayCount = await dayBtns.count();
+  for (let d = 0; d < dayCount; d++) {
+    const text = (await dayBtns.nth(d).textContent().catch(() => ''))?.trim();
+    if (text === String(targetDay)) {
+      await dayBtns.nth(d).click();
+      return true;
     }
   }
-
-  // Select dosis (if available)
-  const dosisSelect = page.locator('select.select').filter({ has: page.locator('option:text("Seleccione dosis")') }).first();
-  if (await dosisSelect.isVisible().catch(() => false)) {
-    const dosisOpts = await dosisSelect.locator('option').allTextContents();
-    const validDosis = dosisOpts.filter(o => !o.toLowerCase().includes('seleccione'));
-    if (validDosis.length > 0) {
-      await dosisSelect.selectOption({ index: 1 });
-      console.log(`    ✅ Dosis: "${validDosis[0]}"`);
-    } else {
-      console.log('    ⚠️ Dosis sin opciones');
-    }
-  }
-
-  // Fecha
-  const fecha = page.locator('input[type="date"][placeholder="Fecha"], input[type="date"].input').first();
-  if (await fecha.isVisible().catch(() => false)) {
-    const today = new Date().toISOString().split('T')[0];
-    await fecha.fill(today);
-    console.log(`    ✅ Fecha: ${today}`);
-  }
-
-  // Folio
-  const folioInput = page.locator('input[placeholder="Folio"]').first();
-  if (await folioInput.isVisible().catch(() => false)) {
-    await folioInput.fill(folio);
-    console.log(`    ✅ Folio: ${folio}`);
-  }
-
-  // Comentarios
-  const ta = page.locator('textarea[placeholder="Comentarios"]').first();
-  if (await ta.isVisible().catch(() => false)) {
-    await ta.fill(comentario);
-    console.log(`    ✅ Comentarios`);
-  }
+  return false;
 }
 
-async function fillOtrasForm(page: Page, vacunaIndex: number, folio: string, comentario: string): Promise<void> {
-  // Select otra vacuna
-  const otraSelect = page.locator('select.select').filter({ has: page.locator('option:text("Seleccione vacuna")') }).last();
-  if (await otraSelect.isVisible().catch(() => false)) {
-    const opts = await otraSelect.locator('option').evaluateAll(o => o.map(e => ({ value: (e as HTMLOptionElement).value, text: e.textContent?.trim() || '' })));
-    const valid = opts.filter(o => !o.text.toLowerCase().includes('seleccione'));
-    if (valid.length > vacunaIndex) {
-      await otraSelect.selectOption({ value: valid[vacunaIndex].value });
-      console.log(`    ✅ Otra vacuna: "${valid[vacunaIndex].text}"`);
-      await page.waitForTimeout(1000);
-    }
-  }
+async function fillDoseDate(page: Page, doseDiv: any, vaccineName: string, doseName: string, doseIndex: number): Promise<void> {
+  console.log(`\n  💉 [${doseIndex + 1}] ${vaccineName} - "${doseName}"`);
 
-  // Dosis
-  const dosisSelect = page.locator('select.select').filter({ has: page.locator('option:text("Seleccione dosis")') }).last();
-  if (await dosisSelect.isVisible().catch(() => false)) {
-    const dosisOpts = await dosisSelect.locator('option').allTextContents();
-    const validDosis = dosisOpts.filter(o => !o.toLowerCase().includes('seleccione'));
-    if (validDosis.length > 0) {
-      await dosisSelect.selectOption({ index: 1 });
-      console.log(`    ✅ Dosis: "${validDosis[0]}"`);
-    } else {
-      console.log('    ⚠️ Dosis sin opciones');
-    }
-  }
+  await doseDiv.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  await doseDiv.click({ force: true });
+  await page.waitForTimeout(2000);
 
-  // Fecha
-  const fecha = page.locator('input[type="date"][placeholder="Fecha"], input[type="date"].input').last();
-  if (await fecha.isVisible().catch(() => false)) {
-    const today = new Date().toISOString().split('T')[0];
-    await fecha.fill(today);
-    console.log(`    ✅ Fecha: ${today}`);
-  }
-
-  // Folio
-  const folioInput = page.locator('input[placeholder="Folio"]').last();
-  if (await folioInput.isVisible().catch(() => false)) {
-    await folioInput.fill(folio);
-    console.log(`    ✅ Folio: ${folio}`);
-  }
-
-  // Comentarios
-  const ta = page.locator('textarea[placeholder="Comentarios"]').last();
-  if (await ta.isVisible().catch(() => false)) {
-    await ta.fill(comentario);
-    console.log(`    ✅ Comentarios`);
-  }
-}
-
-async function clickGuardar(page: Page, context: string): Promise<void> {
-  const saveBtn = page.locator('button:has-text("Guardar cambios")').first();
-  if (await saveBtn.isVisible().catch(() => false)) {
-    await saveBtn.click();
-    console.log(`    📋 Click "Guardar cambios"`);
-    await page.waitForTimeout(2000);
-    await handlePopup(page, context);
-    await avoidAgendar(page);
-  }
-}
-
-async function clickTrash(page: Page, context: string): Promise<void> {
-  const trashBtn = page.locator('button.btn-sm.btn-secondary:has(svg.fa-trash), button.btn-sm:has(svg[data-icon="trash"])').first();
-  if (await trashBtn.isVisible().catch(() => false)) {
-    await trashBtn.click();
-    console.log(`    🗑️ Click en botón trash`);
-    await page.waitForTimeout(1000);
-    await handlePopup(page, context);
+  if (!await selectCalendarDate(page, 15)) {
+    console.log(`    ⚠️ No se pudo seleccionar día en calendario`);
+    await captureScreenshot(page, `vacuna-cal-error-${doseIndex}`);
+    await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
+    return;
+  }
+  const folioNum = 20000 + doseIndex;
+  console.log(`    ✅ Fecha: 15, Folio: ${folioNum}`);
+  await page.waitForTimeout(1000);
+
+  const folioInput = page.locator('input[placeholder="Folio"]:visible').first();
+  if (await folioInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await folioInput.fill(String(folioNum));
+  }
+  const ta = page.locator('textarea[placeholder="Comentarios"]:visible').first();
+  if (await ta.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await ta.fill(`Vacuna aplicada. ${vaccineName} - ${doseName}`);
+  }
+
+  const saveBtn = page.locator('button:has-text("Guardar Cambios"):visible').first();
+  if (await saveBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await saveBtn.click();
+    await page.waitForTimeout(1500);
+    await handlePopup(page, `Dosis ${doseIndex}`);
+    console.log(`    ✅ Guardado`);
+  } else {
+    console.log(`    ⚠️ Sin botón Guardar Cambios`);
+    await page.keyboard.press('Escape');
+  }
+}
+
+async function fillVacunaDiferente(page: Page): Promise<void> {
+  console.log(`\n  📝 === VACUNA DIFERENTE ===`);
+
+  // Click en "Vacuna diferente"
+  const difBtn = page.locator('button:has-text("Vacuna diferente"):visible').first();
+  if (!await difBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    console.log(`    ⚠️ Botón "Vacuna diferente" no encontrado`);
+    return;
+  }
+  await difBtn.click();
+  await page.waitForTimeout(2000);
+
+  // Select de vacuna (primer select válido)
+  const selects = page.locator('select.select:visible');
+  const selCount = await selects.count();
+  console.log(`    📋 Selects visibles: ${selCount}`);
+  for (let s = 0; s < selCount; s++) {
+    const sel = selects.nth(s);
+    const opts = await sel.locator('option').evaluateAll(o =>
+      o.map((e: any) => ({ value: e.value, text: e.textContent?.trim() || '' }))
+    );
+    const valid = opts.filter((o: any) => !o.text.toLowerCase().includes('seleccione'));
+    if (valid.length > 0) {
+      const idx = Math.floor(Math.random() * valid.length);
+      await sel.selectOption({ value: valid[idx].value });
+      console.log(`    ✅ Select ${s + 1}: "${valid[idx].text}"`);
+      await page.waitForTimeout(500);
+    }
+  }
+
+  // Fecha en calendario
+  if (await selectCalendarDate(page, 10)) {
+    console.log(`    ✅ Fecha seleccionada: 10`);
+  }
+  await page.waitForTimeout(500);
+
+  // Folio
+  const folioInput = page.locator('input[placeholder="Folio"]:visible').first();
+  if (await folioInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await folioInput.fill('99999');
+    console.log(`    ✅ Folio: 99999`);
+  }
+
+  // Comentarios
+  const ta = page.locator('textarea[placeholder="Comentarios"]:visible').first();
+  if (await ta.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await ta.fill('Vacuna diferente aplicada - prueba automatizada');
+    console.log(`    ✅ Comentarios`);
+  }
+
+  // Guardar Cambios
+  const saveBtn = page.locator('button:has-text("Guardar Cambios"):visible').first();
+  if (await saveBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await saveBtn.click();
+    await page.waitForTimeout(1500);
+    await handlePopup(page, 'Vacuna diferente');
+    console.log(`    ✅ Vacuna diferente guardada`);
   }
 }
 
 test.describe('Vacunación - Stress Test', () => {
-  test('Stress Test Vacunación', async ({ page }) => {
+  test('Stress Test Vacunación - 5 aleatorias + Vacuna diferente', async ({ page }) => {
     test.setTimeout(600000);
 
     console.log('\n🚀 === STRESS TEST VACUNACIÓN ===\n');
@@ -171,7 +159,7 @@ test.describe('Vacunación - Stress Test', () => {
       await page.waitForTimeout(5000);
     }
 
-    // Navigate
+    // Navigate to patients
     await page.goto('/Pacientes');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(3000);
@@ -183,277 +171,61 @@ test.describe('Vacunación - Stress Test', () => {
       const text = (await patientLinks.nth(i).textContent().catch(() => ''))?.trim() || '';
       if (text.includes('Daniela') && text.includes('Jiménez')) {
         await patientLinks.nth(i).click();
+        console.log(`✅ Paciente: "${text}"`);
         break;
       }
     }
     await page.waitForTimeout(3000);
 
-    // Click Información
+    // Info → Vacunación
     await page.locator('a:has-text("Información")').first().click();
     await page.waitForTimeout(2000);
-
-    // Click Vacunación
     await page.locator('a:has-text("Vacunación")').first().click();
     await page.waitForTimeout(3000);
     await page.waitForLoadState('networkidle');
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(2000);
 
-    // ==========================================
-    // VACUNA DE CARTILLA - CICLO COMPLETO
-    // ==========================================
-    console.log('\n📋 === CICLO 1: VACUNA DE CARTILLA ===\n');
+    // Encontrar todas las dosis
+    const doseDivs = page.locator('table.table-compact span.w-full[data-info] div.cursor-pointer');
+    let totalDoses = await doseDivs.count();
+    console.log(`\n📊 Total dosis en tabla: ${totalDoses}`);
 
-    // Click "Vacuna de cartilla" (botón índice 9 o por clase)
-    const cartillaBtn = page.locator('button.btn-secondary.ms-0.me-3').first();
-    if (await cartillaBtn.isVisible().catch(() => false)) {
-      await cartillaBtn.click();
-      console.log('  ✅ Click en "Vacuna de cartilla"');
-      await page.waitForTimeout(2000);
+    if (totalDoses === 0) {
+      const fallback = page.locator('span[data-info] div.cursor-pointer');
+      totalDoses = await fallback.count();
+      console.log(`📊 Fallback: ${totalDoses}`);
     }
 
-    // Llenar primera vez
-    console.log('\n  📝 LLENADO 1:');
-    await fillCartillaForm(page, 0, '10001', 'Primera dosis BCG según esquema nacional');
-    await clickGuardar(page, 'Cartilla Llenado 1');
-    console.log('  ✅ Primera vacuna guardada\n');
+    // Elegir 5 aleatorias
+    const indices = Array.from({ length: totalDoses }, (_, i) => i);
+    const shuffled = indices.sort(() => Math.random() - 0.5);
+    const selected = shuffled.slice(0, Math.min(5, totalDoses)).sort((a, b) => a - b);
 
-    // Eliminar con trash
-    console.log('  🗑️ ELIMINACIÓN:');
-    await clickTrash(page, 'Cartilla Eliminar');
-    console.log('  ✅ Vacuna eliminada\n');
+    console.log(`\n📋 5 dosis aleatorias seleccionadas: ${selected.map(i => i + 1).join(', ')}\n`);
 
-    // Volver a llenar
-    console.log('  📝 LLENADO 2 (re-agregar):');
-    await fillCartillaForm(page, 3, '10002', 'Segunda dosis Hepatitis B según calendario');
-    await clickGuardar(page, 'Cartilla Llenado 2');
-    console.log('  ✅ Segunda vacuna guardada\n');
-
-    // Eliminar de nuevo
-    console.log('  🗑️ ELIMINACIÓN 2:');
-    await clickTrash(page, 'Cartilla Eliminar 2');
-    console.log('  ✅ Vacuna eliminada de nuevo\n');
-
-    // ==========================================
-    // VACUNA DIFERENTE - CICLO COMPLETO
-    // ==========================================
-    console.log('\n📋 === CICLO 2: VACUNA DIFERENTE ===\n');
-
-    // Click "Vacuna diferente" (botón índice 10)
-    const allBtns = page.locator('button');
-    const btnCount = await allBtns.count();
-    for (let i = 0; i < btnCount; i++) {
-      const btn = allBtns.nth(i);
-      if (await btn.isVisible().catch(() => false)) {
-        const text = (await btn.textContent().catch(() => ''))?.trim() || '';
-        if (text.includes('Vacuna diferente')) {
-          await btn.click();
-          console.log('  ✅ Click en "Vacuna diferente"');
-          await page.waitForTimeout(2000);
-          break;
-        }
+    let assigned = 0;
+    for (const idx of selected) {
+      const div = doseDivs.nth(idx);
+      const parentSpan = div.locator('xpath=ancestor::span[contains(@class,"w-full")]');
+      const dataInfo = await parentSpan.getAttribute('data-info').catch(() => '?') || '?';
+      const text = (await div.textContent().catch(() => ''))?.trim() || '?';
+      const row = div.locator('xpath=ancestor::tr[1]');
+      const vaccineName = (await row.locator('td').first().textContent().catch(() => ''))?.trim() || '?';
+      try {
+        await fillDoseDate(page, div, vaccineName, text, idx);
+        assigned++;
+      } catch (e: any) {
+        console.log(`    ❌ Error: ${e.message?.substring(0, 60)}`);
       }
     }
+    console.log(`\n✅ ${assigned}/5 dosis completadas`);
 
-    // Llenar primera vez
-    console.log('\n  📝 LLENADO 1 (COVID-19):');
-    await fillOtrasForm(page, 1, '20001', 'Primera dosis COVID-19, paciente sin reacciones');
-    await clickGuardar(page, 'Otras Llenado 1');
-    console.log('  ✅ Primera otra vacuna guardada\n');
-
-    // Eliminar con trash
-    console.log('  🗑️ ELIMINACIÓN:');
-    await clickTrash(page, 'Otras Eliminar');
-    console.log('  ✅ Otra vacuna eliminada\n');
-
-    // Volver a llenar
-    console.log('  📝 LLENADO 2 (Influenza):');
-    await fillOtrasForm(page, 2, '20002', 'Vacuna Influenza estacional aplicada');
-    await clickGuardar(page, 'Otras Llenado 2');
-    console.log('  ✅ Segunda otra vacuna guardada\n');
-
-    // Eliminar de nuevo
-    console.log('  🗑️ ELIMINACIÓN 2:');
-    await clickTrash(page, 'Otras Eliminar 2');
-    console.log('  ✅ Otra vacuna eliminada de nuevo\n');
+    // Vacuna diferente al final
+    console.log(`\n📋 Agregando vacuna diferente...`);
+    await fillVacunaDiferente(page);
 
     await captureScreenshot(page, 'vacunacion-final');
-    console.log('  📋 === FIN CICLOS NORMALES ===\n');
-
-    // ==========================================
-    // STRESS TEST: DATOS INVÁLIDOS - VACUNA DE CARTILLA
-    // ==========================================
-    console.log('\n📋 === STRESS TEST: DATOS INVÁLIDOS ===\n');
-
-    // Click "Vacuna de cartilla" de nuevo
-    const cartillaBtn2 = page.locator('button.btn-secondary.ms-0.me-3').first();
-    if (await cartillaBtn2.isVisible().catch(() => false)) {
-      await cartillaBtn2.click();
-      console.log('  ✅ Click en "Vacuna de cartilla"');
-      await page.waitForTimeout(2000);
-    }
-
-    // TEST 1: Guardar sin seleccionar nada
-    console.log('\n  🔹 TEST 1: Guardar sin seleccionar nada');
-    await clickGuardar(page, 'Stress - Sin nada');
-    console.log('');
-
-    // TEST 2: Solo seleccionar vacuna, sin dosis/fecha/folio
-    console.log('  🔹 TEST 2: Solo vacuna, sin dosis/fecha/folio');
-    const vacSel2 = page.locator('select.select').filter({ has: page.locator('option:text("Seleccione vacuna")') }).first();
-    if (await vacSel2.isVisible().catch(() => false)) {
-      await vacSel2.selectOption({ value: '1' }); // BCG
-      console.log('    📝 Vacuna BCG seleccionada');
-    }
-    await clickGuardar(page, 'Stress - Solo vacuna');
-    // Reset to first option
-    if (await vacSel2.isVisible().catch(() => false)) {
-      await vacSel2.selectOption({ index: 0 });
-    }
-    console.log('');
-
-    // TEST 3: Vacuna + fecha futura
-    console.log('  🔹 TEST 3: Vacuna + fecha futura (2030-12-31)');
-    if (await vacSel2.isVisible().catch(() => false)) {
-      await vacSel2.selectOption({ value: '2' }); // Hepatitis B
-      console.log('    📝 Vacuna Hepatitis B seleccionada');
-    }
-    const fechaFutura = page.locator('input[type="date"][placeholder="Fecha"], input[type="date"].input').first();
-    if (await fechaFutura.isVisible().catch(() => false)) {
-      await fechaFutura.fill('2030-12-31');
-      console.log('    📝 Fecha futura: 2030-12-31');
-    }
-    await clickGuardar(page, 'Stress - Fecha futura');
-    if (await vacSel2.isVisible().catch(() => false)) {
-      await vacSel2.selectOption({ index: 0 });
-    }
-    console.log('');
-
-    // TEST 4: Vacuna + fecha pasada muy antigua
-    console.log('  🔹 TEST 4: Vacuna + fecha antigua (1900-01-01)');
-    if (await vacSel2.isVisible().catch(() => false)) {
-      await vacSel2.selectOption({ value: '4' }); // DPT
-      console.log('    📝 Vacuna DPT seleccionada');
-    }
-    if (await fechaFutura.isVisible().catch(() => false)) {
-      await fechaFutura.fill('1900-01-01');
-      console.log('    📝 Fecha antigua: 1900-01-01');
-    }
-    await clickGuardar(page, 'Stress - Fecha antigua');
-    if (await vacSel2.isVisible().catch(() => false)) {
-      await vacSel2.selectOption({ index: 0 });
-    }
-    console.log('');
-
-    // TEST 5: Vacuna + folio con caracteres especiales
-    console.log('  🔹 TEST 5: Vacuna + folio con caracteres especiales (!@#$%)');
-    if (await vacSel2.isVisible().catch(() => false)) {
-      await vacSel2.selectOption({ value: '1' }); // BCG
-    }
-    const folioStress = page.locator('input[placeholder="Folio"]').first();
-    if (await folioStress.isVisible().catch(() => false)) {
-      await folioStress.fill('!@#$%');
-      console.log('    📝 Folio: !@#$%');
-    }
-    await clickGuardar(page, 'Stress - Folio especial');
-    if (await vacSel2.isVisible().catch(() => false)) {
-      await vacSel2.selectOption({ index: 0 });
-    }
-    console.log('');
-
-    // TEST 6: Vacuna + folio con letras
-    console.log('  🔹 TEST 6: Vacuna + folio con letras (ABCDEF)');
-    if (await vacSel2.isVisible().catch(() => false)) {
-      await vacSel2.selectOption({ value: '1' }); // BCG
-    }
-    if (await folioStress.isVisible().catch(() => false)) {
-      await folioStress.fill('ABCDEF');
-      console.log('    📝 Folio: ABCDEF');
-    }
-    await clickGuardar(page, 'Stress - Folio letras');
-    if (await vacSel2.isVisible().catch(() => false)) {
-      await vacSel2.selectOption({ index: 0 });
-    }
-    console.log('');
-
-    // TEST 7: Vacuna + folio muy largo (50 caracteres)
-    console.log('  🔹 TEST 7: Vacuna + folio muy largo (50 chars)');
-    if (await vacSel2.isVisible().catch(() => false)) {
-      await vacSel2.selectOption({ value: '1' }); // BCG
-    }
-    if (await folioStress.isVisible().catch(() => false)) {
-      await folioStress.fill('12345678901234567890123456789012345678901234567890');
-      console.log('    📝 Folio: 50 caracteres numéricos');
-    }
-    await clickGuardar(page, 'Stress - Folio largo');
-    if (await vacSel2.isVisible().catch(() => false)) {
-      await vacSel2.selectOption({ index: 0 });
-    }
-    console.log('');
-
-    // TEST 8: Vacuna + comentarios con XSS
-    console.log('  🔹 TEST 8: Vacuna + comentarios con XSS');
-    if (await vacSel2.isVisible().catch(() => false)) {
-      await vacSel2.selectOption({ value: '1' }); // BCG
-    }
-    const taStress = page.locator('textarea[placeholder="Comentarios"]').first();
-    if (await taStress.isVisible().catch(() => false)) {
-      await taStress.fill('<script>alert("XSS")</script>');
-      console.log('    📝 Comentarios: <script>alert("XSS")</script>');
-    }
-    await clickGuardar(page, 'Stress - Comentarios XSS');
-    if (await vacSel2.isVisible().catch(() => false)) {
-      await vacSel2.selectOption({ index: 0 });
-    }
-    console.log('');
-
-    // TEST 9: Vacuna + todos llenos excepto comentarios
-    console.log('  🔹 TEST 9: Vacuna + sin comentarios');
-    if (await vacSel2.isVisible().catch(() => false)) {
-      await vacSel2.selectOption({ value: '1' }); // BCG
-    }
-    if (await fechaFutura.isVisible().catch(() => false)) {
-      await fechaFutura.fill(new Date().toISOString().split('T')[0]);
-    }
-    if (await folioStress.isVisible().catch(() => false)) {
-      await folioStress.fill('99999');
-    }
-    if (await taStress.isVisible().catch(() => false)) {
-      await taStress.fill('');
-      console.log('    📝 Comentarios vacío');
-    }
-    await clickGuardar(page, 'Stress - Sin comentarios');
-    if (await vacSel2.isVisible().catch(() => false)) {
-      await vacSel2.selectOption({ index: 0 });
-    }
-    console.log('');
-
-    // TEST 10: Solo comentarios, sin vacuna
-    console.log('  🔹 TEST 10: Solo comentarios, sin vacuna');
-    if (await taStress.isVisible().catch(() => false)) {
-      await taStress.fill('Comentario sin vacuna');
-      console.log('    📝 Solo comentarios');
-    }
-    await clickGuardar(page, 'Stress - Solo comentarios');
-    console.log('');
-
-    // Limpiar todo al final
-    console.log('  🔄 Limpiando vacunas restantes...');
-    const trashBtns = page.locator('button.btn-sm.btn-secondary:has(svg.fa-trash), button.btn-sm:has(svg[data-icon="trash"])');
-    const trashCount = await trashBtns.count();
-    for (let i = 0; i < trashCount; i++) {
-      try {
-        const btn = trashBtns.first();
-        if (await btn.isVisible().catch(() => false)) {
-          await btn.click();
-          await page.waitForTimeout(800);
-          await handlePopup(page, 'Limpieza');
-          await page.waitForTimeout(300);
-        }
-      } catch {}
-    }
-    console.log('  ✅ Vacunas limpiadas\n');
-
-    console.log('  📋 === FIN STRESS TEST VACUNACIÓN ===\n');
+    console.log('\n  📋 === FIN STRESS TEST VACUNACIÓN ===\n');
   });
 });

@@ -1619,7 +1619,7 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     } else if (tabName === 'Diagnóstico') {
       await fillDiagnosticoSection(page);
     } else if (tabName === 'Tratamiento') {
-      await fillTreatmentSection(page);
+      await fillTabFields(page, tabName);
     } else if (tabName === 'Notas del Médico') {
       await fillNotasMedicoSection(page);
     } else if (tabName === 'Servicios') {

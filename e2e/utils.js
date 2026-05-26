@@ -21,7 +21,7 @@ async function fillTabFields(page, tabName) {
     if (isVisible && !isDisabled) {
       const currentValue = await textarea.inputValue().catch(() => '');
       if (!currentValue || currentValue.trim() === '') {
-        const placeholder = await textarea.getAttribute('placeholder').catch(() => '');
+        const placeholder = (await textarea.getAttribute('placeholder').catch(() => '')) || '';
         
         if (placeholder.toLowerCase().includes('motivo')) {
           await textarea.fill('Consulta de control rutinario para evaluación de estado de salud general');
@@ -155,6 +155,25 @@ async function handleModals(page) {
 async function checkNextDaysForIniciarButton(page) {
   logger.info('Buscando botón Iniciar en los próximos 5 días...');
   
+  // Primero asegurarnos de estar en la página correcta de citas/agenda
+  const currentUrl = page.url();
+  if (!currentUrl.includes('/Citas') && !currentUrl.includes('/Dashboard')) {
+    await page.goto('/Citas');
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+  }
+  
+  // Intentar cambiar a vista de Agenda si existe
+  try {
+    const agendaLink = page.getByRole('link', { name: /agenda/i });
+    if (await agendaLink.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await agendaLink.click();
+      await page.waitForTimeout(2000);
+    }
+  } catch (e) {
+    // Continuar sin vista agenda
+  }
+  
   for (let dayOffset = 0; dayOffset <= 5; dayOffset++) {
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() + dayOffset);
@@ -162,31 +181,50 @@ async function checkNextDaysForIniciarButton(page) {
     
     logger.info(`Revisando fecha: ${dateStr}`);
     
-    // Intentar navegar a la fecha
+    // Buscar botones Iniciar en la página actual
+    let iniciarButtons = page.getByRole('button', { name: /iniciar/i });
+    let count = await iniciarButtons.count();
+    
+    if (count > 0) {
+      // Verificar que sean botones visibles (no ocultos en modales)
+      let visibleCount = 0;
+      for (let i = 0; i < count; i++) {
+        if (await iniciarButtons.nth(i).isVisible().catch(() => false)) {
+          visibleCount++;
+        }
+      }
+      if (visibleCount > 0) {
+        logger.success(`Encontrados ${visibleCount} botones Iniciar visibles en ${dateStr}`);
+        await iniciarButtons.first().click();
+        return true;
+      }
+    }
+    
+    // Si no hay botones, intentar cambiar la fecha del datepicker
     try {
-      const dateInput = page.locator('input[type="date"]');
-      if (await dateInput.isVisible()) {
+      const dateInput = page.locator('input[type="date"]').first();
+      if (await dateInput.isVisible({ timeout: 2000 }).catch(() => false)) {
         await dateInput.fill(dateStr);
         await page.waitForTimeout(2000);
-      } else {
-        logger.warning('No se encontró input de fecha');
         continue;
       }
     } catch (error) {
-      logger.error(`Error al cambiar fecha: ${error.message}`);
-      continue;
+      logger.warning(`No se pudo cambiar fecha: ${error.message}`);
     }
     
-    // Buscar botones Iniciar
-    const iniciarButtons = page.getByRole('button', { name: /iniciar/i });
-    const count = await iniciarButtons.count();
-    
-    if (count > 0) {
-      logger.success(`Encontrados ${count} botones Iniciar en ${dateStr}`);
-      await iniciarButtons.first().click();
-      return true;
-    } else {
-      logger.warning(`No hay botones Iniciar en ${dateStr}`);
+    // Si no hay input de fecha, navegar a la fecha usando botones de siguiente día
+    try {
+      const nextDayBtn = page.locator('button.fc-next-button, button[title*="siguiente"], button:has-text("Siguiente")').first();
+      if (await nextDayBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await nextDayBtn.click();
+        await page.waitForTimeout(1500);
+      } else {
+        logger.warning(`No hay botón para avanzar fecha, recargando página...`);
+        await page.reload();
+        await page.waitForTimeout(2000);
+      }
+    } catch (error) {
+      logger.error(`Error al cambiar fecha: ${error.message}`);
     }
   }
   
@@ -196,52 +234,114 @@ async function checkNextDaysForIniciarButton(page) {
 async function createAppointment(page) {
   logger.info('Explorando próximos 5 días para registrar una cita...');
   
+  // Navegar a la página de citas usando el sidebar "Agendar"
   await page.goto('/Citas');
-  await expect(page).toHaveURL(/Citas/);
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(2000);
   
-  // Abrir Wizard
-  await page.getByRole('button', { name: /agendar cita/i }).click();
+  // Intentar verificar que estamos en la página correcta
+  try {
+    await expect(page).toHaveURL(/Citas/);
+  } catch (e) {
+    // Si falló, intentar click en "Agendar" en la barra lateral
+    logger.info('Navegando desde la barra lateral...');
+    const sidebarAgendar = page.locator('a:has-text("Agendar"), a[href*="Citas"], a:has-text("Citas")').first();
+    if (await sidebarAgendar.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await sidebarAgendar.click();
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(2000);
+    }
+  }
+  
+  // Abrir Wizard - botón "Agendar cita" en la parte superior derecha
+  logger.info('Buscando botón "Agendar cita"...');
+  const agendarButton = page.getByRole('button', { name: /agendar cita/i }).first();
+  if (!await agendarButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+    // Intentar otros selectores
+    const altBtn = page.locator('button:has-text("Agendar cita"), button:has-text("Nueva cita")').first();
+    if (await altBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await altBtn.click();
+    } else {
+      throw new Error('No se encontró el botón "Agendar cita"');
+    }
+  } else {
+    await agendarButton.click();
+  }
   
   const wizard = page.locator('div.bg-white.shadow-md.rounded.p-5');
   await expect(wizard).toBeVisible();
   
-  // Paciente
-  const combosA1 = wizard.getByRole('combobox');
-  await expect(combosA1.first()).toBeVisible();
+  // Helper para seleccionar en React-Select
+  async function selectReactOption(inputLoc, searchText = '') {
+    await inputLoc.waitFor({ state: 'visible' });
+    await page.waitForTimeout(500);
+    await inputLoc.click();
+    if (searchText) {
+      await inputLoc.fill(searchText);
+      logger.info(`Buscando: "${searchText}"...`);
+      await page.waitForTimeout(1500);
+    } else {
+      logger.info('Esperando 2s a que carguen opciones...');
+      await page.waitForTimeout(2000);
+    }
+    const opciones = page.locator('[id*="react-select"][id*="option"], [role="option"], [class*="option"], li:visible');
+    const count = await opciones.count();
+    logger.info(`Opciones encontradas: ${count}`);
+    if (count > 0) {
+      await opciones.first().click();
+      logger.success('Opción seleccionada');
+    } else if (!searchText) {
+      // Reintentar con búsqueda genérica
+      logger.info('Sin opciones, reintentando con búsqueda...');
+      await inputLoc.fill('a');
+      await page.waitForTimeout(1500);
+      const opts2 = page.locator('[id*="react-select"][id*="option"], [role="option"], [class*="option"]');
+      const cnt2 = await opts2.count();
+      logger.info(`Opciones con búsqueda: ${cnt2}`);
+      if (cnt2 > 0) {
+        await opts2.first().click();
+        logger.success('Opción seleccionada con búsqueda');
+      }
+    }
+    await page.waitForTimeout(500);
+  }
   
-  const patientCombo = combosA1.nth(0);
-  await patientCombo.waitFor({ state: 'visible' });
+  // Debug: ver cuántos combobox hay en el wizard
+  const combos = wizard.getByRole('combobox');
+  const combosCount = await combos.count();
+  logger.info(`Comboboxes en wizard: ${combosCount}`);
+  
+  // Paciente - React-Select
+  await expect(combos.first()).toBeVisible();
+  await selectReactOption(combos.nth(0));
+  
+  const continueBtn = page.getByRole('button', { name: /continuar/i });
   await page.waitForTimeout(1000);
+  await expect(continueBtn).toBeEnabled({ timeout: 15000 });
+  await continueBtn.click();
+  await page.waitForTimeout(1500);
   
-  const patientOptions = await patientCombo.locator('option').count();
-  const randomPatient = Math.floor(Math.random() * (patientOptions - 1)) + 1;
-  await patientCombo.selectOption({ index: randomPatient });
-  
-  const continueA1 = page.getByRole('button', { name: /continuar/i });
-  await expect(continueA1).toBeEnabled({ timeout: 10000 });
-  await continueA1.click();
-  
-  // Tipo + Hospital
-  const combosA2 = page.getByRole('combobox');
-  await expect(combosA2.first()).toBeVisible({ timeout: 10000 });
-  
-  const typeCombo = combosA2.nth(0);
-  await typeCombo.waitFor({ state: 'visible' });
+  // Paso 2: Tipo de Consulta + Hospital (ambos selects nativos)
+  const selectsStep2 = page.locator('select:visible');
+  const selCount = await selectsStep2.count();
+  logger.info(`Selects en paso 2: ${selCount}`);
+  if (selCount > 0) {
+    const opts0 = await selectsStep2.nth(0).locator('option').count();
+    logger.info(`Opciones tipo consulta: ${opts0}`);
+    if (opts0 > 1) await selectsStep2.nth(0).selectOption({ index: 1 });
+  }
+  // Hospital se habilita tras elegir tipo consulta
+  if (selCount > 1) {
+    await page.waitForTimeout(1500);
+    const opts1 = await selectsStep2.nth(1).locator('option').count();
+    logger.info(`Opciones hospital: ${opts1}`);
+    if (opts1 > 1) await selectsStep2.nth(1).selectOption({ index: 1 });
+  }
   await page.waitForTimeout(1000);
-  
-  const typeOptions = await typeCombo.locator('option').count();
-  const randomType = Math.floor(Math.random() * (typeOptions - 1)) + 1;
-  await typeCombo.selectOption({ index: randomType });
-  
-  const hospitalCombo = combosA2.nth(1);
-  await hospitalCombo.waitFor({ state: 'visible' });
-  await page.waitForTimeout(1000);
-  
-  const hospitalOptions = await hospitalCombo.locator('option').count();
-  const randomHospital = Math.floor(Math.random() * (hospitalOptions - 1)) + 1;
-  await hospitalCombo.selectOption({ index: randomHospital });
-  
-  await page.getByRole('button', { name: /continuar/i }).click();
+  const continueBtn2 = page.getByRole('button', { name: /continuar/i });
+  if (await continueBtn2.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await continueBtn2.click();
+  }
   
   // Esperar y buscar el input de fecha de manera más específica
   logger.info('Buscando input de fecha...');

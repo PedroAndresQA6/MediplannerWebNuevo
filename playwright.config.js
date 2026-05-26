@@ -113,5 +113,19 @@ module.exports = defineConfig({
       dependencies: ['setup'],
       timeout: 300000,
     },
+    {
+      name: 'stress-facturacion',
+      testMatch: '**/facturacion.stress.test.ts',
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1920, height: 1080 } },
+      dependencies: ['setup'],
+      timeout: 600000,
+    },
+    {
+      name: 'stress-vacunacion',
+      testMatch: '**/vacunacion.stress.test.ts',
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1920, height: 1080 } },
+      dependencies: ['setup'],
+      timeout: 600000,
+    },
   ],
 });

@@ -2,40 +2,50 @@
   "cookies": [
     {
       "name": "_ga",
-      "value": "GA1.1.852328001.1778174585",
+      "value": "GA1.1.585614300.1779740637",
       "domain": ".mediplanner.mx",
       "path": "/",
-      "expires": 1812734588.004706,
+      "expires": 1814300636.814602,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "CLID",
-      "value": "371d6356e7e040f58802abc11702e449.20260507.20270507",
+      "value": "53ce1cfa382c433eb2b54016f0f62906.20260525.20270525",
       "domain": "www.clarity.ms",
       "path": "/",
-      "expires": 1809710585.146431,
+      "expires": 1811276636.833988,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None"
     },
     {
       "name": "_clck",
-      "value": "cn7fbg%5E2%5Eg5u%5E0%5E2318",
+      "value": "1ggk8p4%5E2%5Eg6c%5E0%5E2336",
       "domain": ".mediplanner.mx",
       "path": "/",
-      "expires": 1809710585,
+      "expires": 1811276636,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_clsk",
+      "value": "brihdg%5E1779740637500%5E1%5E1%5Ek.clarity.ms%2Fcollect",
+      "domain": ".mediplanner.mx",
+      "path": "/",
+      "expires": 1779827037,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "MUID",
-      "value": "0C289AD94CA3659822408D8B4D576410",
+      "value": "02A0741938B366281F6C637D39CA67AF",
       "domain": ".bing.com",
       "path": "/",
-      "expires": 1811870585.96435,
+      "expires": 1813436638.536429,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None"
@@ -45,17 +55,17 @@
       "value": "0",
       "domain": ".c.bing.com",
       "path": "/",
-      "expires": 1778779385.96444,
+      "expires": 1780345438.536515,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None"
     },
     {
       "name": "SRM_B",
-      "value": "0C289AD94CA3659822408D8B4D576410",
+      "value": "02A0741938B366281F6C637D39CA67AF",
       "domain": ".c.bing.com",
       "path": "/",
-      "expires": 1811870585.964468,
+      "expires": 1813436638.536544,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None"
@@ -72,10 +82,10 @@
     },
     {
       "name": "MUID",
-      "value": "0C289AD94CA3659822408D8B4D576410",
+      "value": "02A0741938B366281F6C637D39CA67AF",
       "domain": ".clarity.ms",
       "path": "/",
-      "expires": 1811870586.02835,
+      "expires": 1813436637.592392,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None"
@@ -85,7 +95,7 @@
       "value": "0",
       "domain": ".c.clarity.ms",
       "path": "/",
-      "expires": 1778779386.028423,
+      "expires": 1780345437.592443,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None"
@@ -95,40 +105,30 @@
       "value": "0",
       "domain": ".c.clarity.ms",
       "path": "/",
-      "expires": 1778175186.028457,
-      "httpOnly": false,
-      "secure": true,
-      "sameSite": "None"
-    },
-    {
-      "name": "AWSALBCORS",
-      "value": "u3eX67gQrniZZS9WwGIxVkVRjbOgYL/HLv/kKWBlz8LxBkBz66zhh/2qSfSImihx5Uo8ccwyJdS5kOXvqoAfoE6rBWqKw5kCoYiKaBOmcS3h76jd5HvT6xHgTsNg",
-      "domain": "widget-mediator.zopim.com",
-      "path": "/",
-      "expires": 1778779386.123185,
+      "expires": 1779741237.592462,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None"
     },
     {
       "name": "_ga_ZVKJ9CWYCW",
-      "value": "GS2.1.s1778174584$o1$g1$t1778174588$j56$l0$h0",
+      "value": "GS2.1.s1779740636$o1$g0$t1779740638$j58$l0$h0",
       "domain": ".mediplanner.mx",
       "path": "/",
-      "expires": 1812734588.007903,
+      "expires": 1814300638.061703,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
-      "name": "_clsk",
-      "value": "8tm4vp%5E1778174588199%5E2%5E1%5Ei.clarity.ms%2Fcollect",
-      "domain": ".mediplanner.mx",
+      "name": "AWSALBCORS",
+      "value": "AHwPS17DL7OFZv4B9F6fOTDxml76pFWsYhphkxlydjCCQdRAQCGn0lQIcbf+Ogc0so5ICqopvreDlRQYg947FxHWr2ZsDUXvBnK391zvrgAEHFGEwWK5UJJ3n1HP",
+      "domain": "widget-mediator.zopim.com",
       "path": "/",
-      "expires": 1778260988,
+      "expires": 1780345438.165659,
       "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
+      "secure": true,
+      "sameSite": "None"
     }
   ],
   "origins": [
@@ -144,6 +144,10 @@
           "value": "0"
         },
         {
+          "name": "email",
+          "value": "dr.walterwhite.mediplanner@gmail.com"
+        },
+        {
           "name": "nombrePadre",
           "value": "Walter Hartwell White"
         },
@@ -153,15 +157,19 @@
         },
         {
           "name": "ZD-store",
-          "value": "{\"activeEmbed\":\"nilEmbed\",\"widgetShown\":false,\"is_chatting\":false}"
+          "value": "{\"activeEmbed\":\"chat\",\"widgetShown\":false,\"is_chatting\":false}"
         },
         {
           "name": "ZD-suid",
-          "value": "{\"id\":\"5f4b2d46a09f4c7e98a9dbf8dc800ae2\",\"expiry\":1778175487907,\"tabs\":{\"count\":1,\"expiry\":0}}"
+          "value": "{\"id\":\"dab392004e854652ace408fbb0906d7a\",\"expiry\":1779741537754,\"tabs\":{\"count\":1,\"expiry\":0}}"
         },
         {
           "name": "token",
           "value": "7b54a2c7-2821-43e6-a532-74f73ac8b747"
+        },
+        {
+          "name": "googleAccess",
+          "value": "false"
         },
         {
           "name": "doctor_id",
@@ -174,6 +182,10 @@
         {
           "name": "nombre",
           "value": "Walter"
+        },
+        {
+          "name": "ZD-buid",
+          "value": "8f27948b8569430b8abea1ff4615e6a2"
         },
         {
           "name": "paterno",
@@ -189,7 +201,7 @@
         },
         {
           "name": "__zlcstore",
-          "value": "{\"tnyjLzvH53HkIv0Xreht7YOTcdXRB09X\":{\"web_sdk_last_host\":\"widget-mediator.zopim.com\",\"timestamp\":1778174586245,\"account_status\":\"invalid_account_key\"}}"
+          "value": "{\"tnyjLzvH53HkIv0Xreht7YOTcdXRB09X\":{\"web_sdk_last_host\":\"widget-mediator.zopim.com\",\"timestamp\":1779740638315,\"account_status\":\"invalid_account_key\"}}"
         }
       ]
     }
