@@ -271,36 +271,60 @@ async function createAppointment(page) {
   const wizard = page.locator('div.bg-white.shadow-md.rounded.p-5');
   await expect(wizard).toBeVisible();
   
-  // Helper para seleccionar en React-Select
   async function selectReactOption(inputLoc, searchText = '') {
     await inputLoc.waitFor({ state: 'visible' });
     await page.waitForTimeout(500);
-    await inputLoc.click();
-    if (searchText) {
-      await inputLoc.fill(searchText);
-      logger.info(`Buscando: "${searchText}"...`);
-      await page.waitForTimeout(1500);
+
+    const tagName = await inputLoc.evaluate(el => el.tagName.toLowerCase());
+
+    if (tagName === 'select') {
+      const options = await inputLoc.locator('option').all();
+      logger.info(`Select nativo con ${options.length} opciones`);
+      if (options.length > 0) {
+        const firstValue = await options[0].getAttribute('value');
+        const firstText = await options[0].textContent();
+        if (firstValue && firstValue !== '') {
+          await inputLoc.selectOption(firstValue);
+          logger.success(`Opción seleccionada: "${firstText}" (${firstValue})`);
+        } else if (options.length > 1) {
+          const secondValue = await options[1].getAttribute('value');
+          const secondText = await options[1].textContent();
+          await inputLoc.selectOption(secondValue);
+          logger.success(`Opción seleccionada: "${secondText}" (${secondValue})`);
+        }
+      }
     } else {
-      logger.info('Esperando 2s a que carguen opciones...');
-      await page.waitForTimeout(2000);
-    }
-    const opciones = page.locator('[id*="react-select"][id*="option"], [role="option"], [class*="option"], li:visible');
-    const count = await opciones.count();
-    logger.info(`Opciones encontradas: ${count}`);
-    if (count > 0) {
-      await opciones.first().click();
-      logger.success('Opción seleccionada');
-    } else if (!searchText) {
-      // Reintentar con búsqueda genérica
-      logger.info('Sin opciones, reintentando con búsqueda...');
-      await inputLoc.fill('a');
-      await page.waitForTimeout(1500);
-      const opts2 = page.locator('[id*="react-select"][id*="option"], [role="option"], [class*="option"]');
-      const cnt2 = await opts2.count();
-      logger.info(`Opciones con búsqueda: ${cnt2}`);
-      if (cnt2 > 0) {
-        await opts2.first().click();
-        logger.success('Opción seleccionada con búsqueda');
+      await inputLoc.click();
+      if (searchText) {
+        await inputLoc.fill(searchText);
+        logger.info(`Buscando: "${searchText}"...`);
+        await page.waitForTimeout(1500);
+      } else {
+        logger.info('Esperando 2s a que carguen opciones...');
+        await page.waitForTimeout(2000);
+      }
+      const opciones = page.locator('[id*="react-select"][id*="option"], [role="option"], [class*="option"], li:visible');
+      const count = await opciones.count();
+      logger.info(`Opciones encontradas: ${count}`);
+      if (count > 0) {
+        await opciones.first().click();
+        logger.success('Opción seleccionada');
+      } else if (!searchText) {
+        logger.info('Sin opciones, reintentando con búsqueda...');
+        try {
+          await inputLoc.fill('a');
+        } catch {
+          logger.info('Elemento no admite fill, usando click');
+          await inputLoc.click();
+        }
+        await page.waitForTimeout(1500);
+        const opts2 = page.locator('[id*="react-select"][id*="option"], [role="option"], [class*="option"]');
+        const cnt2 = await opts2.count();
+        logger.info(`Opciones con búsqueda: ${cnt2}`);
+        if (cnt2 > 0) {
+          await opts2.first().click();
+          logger.success('Opción seleccionada con búsqueda');
+        }
       }
     }
     await page.waitForTimeout(500);
