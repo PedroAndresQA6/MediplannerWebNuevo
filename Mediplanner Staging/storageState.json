@@ -1,61 +1,41 @@
 {
   "cookies": [
     {
-      "name": "_ga",
-      "value": "GA1.1.532438857.1779991100",
-      "domain": ".mediplanner.mx",
-      "path": "/",
-      "expires": 1814551103.045566,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
       "name": "CLID",
-      "value": "8bd63e0a3feb4669857f9c870650f62a.20260528.20270528",
+      "value": "bdbd4dc930bc472590a665e782b2c47b.20260528.20270528",
       "domain": "www.clarity.ms",
       "path": "/",
-      "expires": 1811527099.867074,
+      "expires": 1811525013.62766,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None"
+    },
+    {
+      "name": "_ga",
+      "value": "GA1.1.1936636024.1779989014",
+      "domain": ".mediplanner.mx",
+      "path": "/",
+      "expires": 1814549017.21374,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
     },
     {
       "name": "_clck",
-      "value": "eb7fqs%5E2%5Eg6f%5E0%5E2339",
+      "value": "1frltx3%5E2%5Eg6f%5E0%5E2339",
       "domain": ".mediplanner.mx",
       "path": "/",
-      "expires": 1811527100,
+      "expires": 1811525014,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
-      "name": "__cf_bm",
-      "value": "ZnCPrNLxMlitqXlNyMTcuWEDaPQ4NomPVIzwgrEf3HQ-1779991100-1.0.1.1-rEqhu.symbEd8RzDkc6E6DFy5y0cGOwfSgxyp4xQ2EXmH1Bt7b1qbsQvSuAiKgQuant0vZ4yqQR.EddbN4iYjWfNuCvfKNVKmcjxWEepLuEkm2_jp4pFSGbugXs6mYCf",
-      "domain": ".zendesk.com",
-      "path": "/",
-      "expires": 1779992900.7392,
-      "httpOnly": true,
-      "secure": true,
-      "sameSite": "None"
-    },
-    {
-      "name": "_cfuvid",
-      "value": "1f6tBDRZis4CEGtb1JzOubE.fyHjjInlvfEHIY2YhF8-1779991100930-0.0.1.1-604800000",
-      "domain": ".zendesk.com",
-      "path": "/",
-      "expires": -1,
-      "httpOnly": true,
-      "secure": true,
-      "sameSite": "None"
-    },
-    {
       "name": "MUID",
-      "value": "26C540D01AD26974261457B71B26687D",
+      "value": "1124727AC68B69783A9A651DC77F68C8",
       "domain": ".bing.com",
       "path": "/",
-      "expires": 1813687100.796578,
+      "expires": 1813685015.855482,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None"
@@ -65,18 +45,38 @@
       "value": "0",
       "domain": ".c.bing.com",
       "path": "/",
-      "expires": 1780595900.796662,
+      "expires": 1780593815.855587,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None"
     },
     {
       "name": "SRM_B",
-      "value": "26C540D01AD26974261457B71B26687D",
+      "value": "1124727AC68B69783A9A651DC77F68C8",
       "domain": ".c.bing.com",
       "path": "/",
-      "expires": 1813687100.796683,
+      "expires": 1813685015.855619,
       "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__cf_bm",
+      "value": "tMMo1CLPHsPsds0exXixRisS3G9EdtlZU1fV1jY72Wg-1779989015-1.0.1.1-pjx1VNnwlSruD_._A_UCDPphKMJOtw0JkjHzoPIuXfgVNU2EeuWtH6231nVXpiMJWePZMIgKHebKZxWNaEdPV1ffpaUTOhaux.biIkvZLvBijXWJiJGRYOEUAUivGccb",
+      "domain": ".zendesk.com",
+      "path": "/",
+      "expires": 1779990814.897205,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_cfuvid",
+      "value": "OV0JHByFRxb30D1jLRtDXEikffHBxxKXqFFOSqwhwZs-1779989015218-0.0.1.1-604800000",
+      "domain": ".zendesk.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
       "secure": true,
       "sameSite": "None"
     },
@@ -92,10 +92,10 @@
     },
     {
       "name": "MUID",
-      "value": "26C540D01AD26974261457B71B26687D",
+      "value": "1124727AC68B69783A9A651DC77F68C8",
       "domain": ".clarity.ms",
       "path": "/",
-      "expires": 1813687100.861737,
+      "expires": 1813685014.930385,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None"
@@ -105,7 +105,7 @@
       "value": "0",
       "domain": ".c.clarity.ms",
       "path": "/",
-      "expires": 1780595900.861801,
+      "expires": 1780593814.930433,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None"
@@ -115,37 +115,37 @@
       "value": "0",
       "domain": ".c.clarity.ms",
       "path": "/",
-      "expires": 1779991700.861834,
+      "expires": 1779989614.930456,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None"
     },
     {
       "name": "AWSALBCORS",
-      "value": "+hDntcOQQdZIIateUMLQZWwWwsXp7LJozF9sBtaKXSbCR0gNiqnXB/7Y5vgRVbhF6JvXBY5rI6v5VY5nm5eNDBMdaEi025R9z/Ry5JYAdQ32fALMIhjOgCMiD3j1",
+      "value": "+ygZjESypIR1LfI0uATS7bt17E3+oRLlR47CJM16jZ0Us+Vnq8X3AaNr0KQI3txvU2O6cjJMOuCd5YfnB4PDUjyRjTsf3y/KK4rAh7NTh4O8cxm1HPO9PDhy5aap",
       "domain": "widget-mediator.zopim.com",
       "path": "/",
-      "expires": 1780595901.001551,
+      "expires": 1780593815.146056,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None"
     },
     {
       "name": "_ga_ZVKJ9CWYCW",
-      "value": "GS2.1.s1779991099$o1$g1$t1779991103$j56$l0$h0",
+      "value": "GS2.1.s1779989013$o1$g1$t1779989017$j56$l0$h0",
       "domain": ".mediplanner.mx",
       "path": "/",
-      "expires": 1814551103.048983,
+      "expires": 1814549017.217806,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "_clsk",
-      "value": "ulm1xd%5E1779991103234%5E2%5E1%5Ek.clarity.ms%2Fcollect",
+      "value": "tpkyb9%5E1779989017397%5E2%5E1%5Ek.clarity.ms%2Fcollect",
       "domain": ".mediplanner.mx",
       "path": "/",
-      "expires": 1780077503,
+      "expires": 1780075417,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
@@ -177,7 +177,7 @@
         },
         {
           "name": "ZD-suid",
-          "value": "{\"id\":\"7ec0df6c6f154077af2c60cd2dccaf81\",\"expiry\":1779992002970,\"tabs\":{\"count\":1,\"expiry\":0}}"
+          "value": "{\"id\":\"94bd5fc93d86464abb44eac9258cc05c\",\"expiry\":1779989917136,\"tabs\":{\"count\":1,\"expiry\":0}}"
         },
         {
           "name": "token",
@@ -209,7 +209,7 @@
         },
         {
           "name": "__zlcstore",
-          "value": "{\"tnyjLzvH53HkIv0Xreht7YOTcdXRB09X\":{\"web_sdk_last_host\":\"widget-mediator.zopim.com\",\"timestamp\":1779991101138,\"account_status\":\"invalid_account_key\"}}"
+          "value": "{\"tnyjLzvH53HkIv0Xreht7YOTcdXRB09X\":{\"web_sdk_last_host\":\"widget-mediator.zopim.com\",\"timestamp\":1779989015457,\"account_status\":\"invalid_account_key\"}}"
         }
       ]
     }

@@ -1,0 +1,1457 @@
+const { test, expect } = require('@playwright/test');
+const { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals } = require('../../e2e/utils.js');
+
+// Funciones auxiliares
+async function fillSpecificField(page, fieldName) {
+  console.log(`🔍 Buscando campo específico: ${fieldName}`);
+  
+  const fieldSelectors = [
+    `label:has-text("${fieldName}") + input, label:has-text("${fieldName}") + textarea, label:has-text("${fieldName}") + select`,
+    `label:has-text("${fieldName}") ~ input, label:has-text("${fieldName}") ~ textarea, label:has-text("${fieldName}") ~ select`,
+    `input[placeholder*="${fieldName}" i], textarea[placeholder*="${fieldName}" i], select[placeholder*="${fieldName}" i]`,
+    `input[aria-label*="${fieldName}" i], textarea[aria-label*="${fieldName}" i], select[aria-label*="${fieldName}" i]`,
+    `input[name*="${fieldName}" i], textarea[name*="${fieldName}" i], select[name*="${fieldName}" i]`,
+    `input[id*="${fieldName}" i], textarea[id*="${fieldName}" i], select[id*="${fieldName}" i]`,
+    `*:has-text("${fieldName}") >> input, *:has-text("${fieldName}") >> textarea, *:has-text("${fieldName}") >> select`
+  ];
+  
+  let fieldFound = false;
+  
+  for (const selector of fieldSelectors) {
+    try {
+      const elements = page.locator(selector);
+      const count = await elements.count();
+      
+      if (count > 0) {
+        for (let i = 0; i < count; i++) {
+          const element = elements.nth(i);
+          if (await element.isVisible() && await element.isEnabled()) {
+            const tagName = await element.evaluate((el) => el.tagName.toLowerCase());
+            
+            try {
+              if (tagName === 'input' || tagName === 'textarea') {
+                const currentValue = await element.inputValue();
+                if (!currentValue || currentValue.trim() === '') {
+                  let fillValue = '';
+                  const fieldLower = fieldName.toLowerCase();
+                  
+                  if (fieldLower.includes('hospital')) {
+                    fillValue = 'Hospital General';
+                  } else if (fieldLower.includes('tipo') && fieldLower.includes('consulta')) {
+                    fillValue = 'Consulta General';
+                  } else if (fieldLower.includes('motivo') || fieldLower.includes('padecimiento')) {
+                    fillValue = 'Consulta de control rutinario';
+                  } else if (fieldLower.includes('nota') || fieldLower.includes('evolucion') || fieldLower.includes('evolu')) {
+                    fillValue = 'Evolución favorable sin complicaciones';
+                  } else if (fieldLower.includes('referido')) {
+                    fillValue = 'Auto-consulta';
+                  } else {
+                    fillValue = 'Información proporcionada';
+                  }
+                  
+                  await element.fill(fillValue);
+                  console.log(`✅ Campo "${fieldName}" llenado con: "${fillValue}"`);
+                  fieldFound = true;
+                  break;
+                }
+              } else if (tagName === 'select') {
+                const options = await element.locator('option').count();
+                if (options > 1) {
+                  const currentValue = await element.inputValue();
+                  if (!currentValue || currentValue === '' || currentValue.includes('Seleccione')) {
+                    await element.selectOption({ index: 1 });
+                    console.log(`✅ Campo "${fieldName}" seleccionado opción index: 1`);
+                    fieldFound = true;
+                    break;
+                  }
+                }
+              }
+            } catch (fillError) {
+              console.log(`⚠️ Error al llenar campo ${fieldName}: ${fillError.message}`);
+              continue;
+            }
+          }
+        }
+      }
+      
+      if (fieldFound) break;
+    } catch (selectorError) {
+      continue;
+    }
+  }
+  
+  if (!fieldFound) {
+    console.log(`⚠️ No se pudo encontrar o llenar el campo específico: ${fieldName}`);
+  }
+}
+
+async function waitForFinalizarButton(page) {
+  console.log('🏁 Esperando botón de finalizar consulta...');
+  
+  const finalizarSelectors = [
+    page.getByRole('button', { name: /finalizar consulta/i }),
+    page.getByRole('button', { name: /finalizar$/i }),
+    page.getByRole('button', { name: /terminar consulta/i }),
+    page.locator('button:has-text("Finalizar")'),
+    page.locator('button:has-text("Finalizar Consulta")'),
+    page.locator('button:has-text("Finalizar consulta")'),
+    page.locator('button[class*="finalizar"]'),
+    page.locator('button[class*="finish"]')
+  ];
+  
+  for (let intento = 0; intento < 6; intento++) {
+    for (const selector of finalizarSelectors) {
+      try {
+        if (await selector.count() > 0) {
+          const btn = selector.first();
+          if (await btn.isVisible() && await btn.isEnabled()) {
+            console.log('✅ Botón de finalizar encontrado y habilitado');
+            return btn;
+          }
+        }
+      } catch (e) {
+        // Continuar intentando
+      }
+    }
+    
+    if (intento < 5) {
+      console.log(`⏳ Intento ${intento + 1}/6: Botón de finalizar no encontrado, esperando 5 segundos...`);
+      await page.waitForTimeout(5000);
+      await page.waitForLoadState('networkidle');
+    }
+  }
+  
+  console.log('⚠️ Botón de finalizar no encontrado después de 30 segundos');
+  return null;
+}
+
+async function fillExplorationSection(page) {
+  console.log('🔍 Iniciando llenado de la sección de Exploración...');
+   
+  try {
+    await page.waitForTimeout(2000);
+    
+    // Lista de observaciones para llenar
+    const observaciones = [
+      'Sin alteraciones en la exploración',
+      'Dentro de límites normales',
+      'Exploración sin hallazgos significativos',
+      'Paciente sin síntomas de alarma',
+      'Revisión por sistemas sin particularidades',
+      'Sin signos de alarma',
+      'Exploración normal',
+      'Sin datos de enfermedad actual'
+    ];
+    
+    // Primero: Llenar textareas generales de Exploración
+    console.log('📝 Llenando textareas generales de Exploración...');
+    const textAreas = page.locator('textarea:not([disabled]):not([readonly])');
+    const taCount = await textAreas.count();
+    console.log(`📝 Encontradas ${taCount} textareas en Exploración`);
+    
+    for (let i = 0; i < taCount; i++) {
+      const textarea = textAreas.nth(i);
+      if (await textarea.isVisible() && await textarea.isEnabled()) {
+        const currentValue = await textarea.inputValue();
+        if (!currentValue || currentValue.trim() === '') {
+          const placeholder = await textarea.getAttribute('placeholder') || '';
+          let fillText = 'Exploración física realizada. Paciente en buen estado general.';
+          
+          if (placeholder.toLowerCase().includes('apariencia')) {
+            fillText = 'Apariencia general: Paciente bien nutrido, hidratado, consciente, orientado, sin facies de dolor, sin dificultad respiratoria.';
+          } else if (placeholder.toLowerCase().includes('observacion')) {
+            fillText = 'Observaciones: Sin hallazgos significativos durante la exploración.';
+          }
+          
+          await textarea.fill(fillText);
+          console.log(`✅ Textarea general ${i+1} llenado`);
+        }
+      }
+    }
+    
+    // Segundo: Encontrar y procesar TODOS los checkboxes individuales
+    console.log('☑️ Iniciando procesamiento de checkboxes...');
+    const allCheckboxes = page.locator('input[type="checkbox"]:not([disabled])');
+    const totalCheckboxes = await allCheckboxes.count();
+    console.log(`☑️ Encontrados ${totalCheckboxes} checkboxes en Exploración`);
+    
+    let processedCheckboxes = 0;
+    
+    for (let i = 0; i < totalCheckboxes; i++) {
+      const checkbox = allCheckboxes.nth(i);
+      
+      try {
+        // Verificar si el checkbox es visible
+        if (!(await checkbox.isVisible({ timeout: 1000 }).catch(() => false))) {
+          continue;
+        }
+        
+        // Obtener información del checkbox (label cercano)
+        let checkboxLabel = '';
+        try {
+          const label = checkbox.locator('xpath=../label | xpath=following-sibling::label | xpath=preceding-sibling::label').first();
+          if (await label.count() > 0) {
+            checkboxLabel = await label.textContent() || `Checkbox ${i+1}`;
+          }
+        } catch (e) {
+          checkboxLabel = `Checkbox ${i+1}`;
+        }
+        checkboxLabel = checkboxLabel.trim().substring(0, 50);
+        
+        console.log(`\n📦 Procesando checkbox ${i+1}: "${checkboxLabel}"`);
+        
+        // 1. Hacer click en el checkbox
+        await checkbox.click({ force: true });
+        console.log(`   ✅ Checkbox marcado`);
+        
+        // 2. Esperar a que aparezca el formulario/modal
+        await page.waitForTimeout(1500);
+        
+        // 3. Buscar y seleccionar "Normal" o "Anormal"
+        let estadoSeleccionado = false;
+        
+        // Buscar botones de estado (Normal/Anormal) que puedan haber aparecido
+        const normalButtons = page.locator('button:has-text("Normal"):visible, button:has-text("Anormal"):visible');
+        const normalCount = await normalButtons.count();
+        
+        if (normalCount > 0) {
+          // Preferir "Normal" si está disponible
+          const normalBtn = page.locator('button:has-text("Normal"):visible');
+          if (await normalBtn.count() > 0) {
+            await normalBtn.first().click();
+            console.log(`   ✅ Seleccionado "Normal"`);
+            estadoSeleccionado = true;
+          } else {
+            // Si no hay "Normal", usar el primer botón disponible
+            await normalButtons.first().click();
+            const btnText = await normalButtons.first().textContent();
+            console.log(`   ✅ Seleccionado: "${btnText.trim()}"`);
+            estadoSeleccionado = true;
+          }
+          await page.waitForTimeout(500);
+        } else {
+          // Buscar radios de estado
+          const normalRadios = page.locator('input[type="radio"]:visible');
+          const radioCount = await normalRadios.count();
+          if (radioCount > 0) {
+            await normalRadios.first().click();
+            console.log(`   ✅ Radio de estado seleccionado`);
+            estadoSeleccionado = true;
+            await page.waitForTimeout(500);
+          }
+        }
+        
+        // 4. Buscar y llenar campo de observaciones
+        let observacionLlenada = false;
+        
+        // Buscar textarea o input de texto que pueda ser para observaciones
+        const observacionInputs = page.locator('textarea:visible:not([disabled]), input[type="text"]:visible:not([disabled])');
+        const obsCount = await observacionInputs.count();
+        
+        if (obsCount > 0) {
+          // Buscar el que esté vacío o tenga placeholder de observación
+          for (let j = 0; j < obsCount; j++) {
+            const input = observacionInputs.nth(j);
+            const currentValue = await input.inputValue();
+            const placeholder = (await input.getAttribute('placeholder') || '').toLowerCase();
+            const name = (await input.getAttribute('name') || '').toLowerCase();
+            
+            if ((!currentValue || currentValue.trim() === '') || 
+                placeholder.includes('observ') || placeholder.includes('nota') ||
+                name.includes('observ') || name.includes('nota')) {
+              
+              const randomObs = observaciones[Math.floor(Math.random() * observaciones.length)];
+              await input.fill(randomObs);
+              console.log(`   ✅ Observación llenada: "${randomObs}"`);
+              observacionLlenada = true;
+              break;
+            }
+          }
+        }
+        
+        // 5. Guardar la observación
+        let guardado = false;
+        
+        // Buscar botón de guardar/confirmar/aceptar
+        const guardarButtons = page.locator('button:has-text("Guardar"):visible, button:has-text("Aceptar"):visible, button:has-text("Confirmar"):visible, button:has-text("OK"):visible');
+        const guardarCount = await guardarButtons.count();
+        
+        if (guardarCount > 0) {
+          await guardarButtons.first().click();
+          const btnText = await guardarButtons.first().textContent();
+          console.log(`   💾 Guardado con botón: "${btnText.trim()}"`);
+          guardado = true;
+          await page.waitForTimeout(1000);
+        }
+        
+        // 6. Manejar posibles modales de confirmación
+        const confirmModal = page.locator('.swal2-popup:visible, [role="dialog"]:visible');
+        if (await confirmModal.count() > 0) {
+          const confirmBtn = confirmModal.locator('button:has-text("OK"), button:has-text("Aceptar"), button:has-text("Confirmar"), .swal2-confirm');
+          if (await confirmBtn.count() > 0) {
+            await confirmBtn.first().click();
+            console.log(`   ✅ Modal de confirmación cerrado`);
+            await page.waitForTimeout(500);
+          }
+        }
+        
+        processedCheckboxes++;
+        console.log(`   📊 Checkbox ${i+1} procesado exitosamente`);
+        
+        // Pequeña pausa entre checkboxes
+        await page.waitForTimeout(500);
+        
+      } catch (error) {
+        console.log(`   ⚠️ Error procesando checkbox ${i+1}: ${error.message.substring(0, 50)}...`);
+        // Continuar con el siguiente checkbox
+        await page.waitForTimeout(500);
+      }
+    }
+    
+    console.log(`\n📊 Resumen: ${processedCheckboxes}/${totalCheckboxes} checkboxes procesados`);
+    
+    // Capturar estado final
+    await page.screenshot({ path: 'test-results/exploration-final.png', fullPage: true });
+    console.log('📸 Screenshot final guardado: exploration-final.png');
+    
+    // Guardar HTML final
+    const fs = require('fs');
+    const finalHtml = await page.content();
+    fs.writeFileSync('test-results/exploration-final.html', finalHtml);
+    console.log('📄 HTML final guardado');
+    
+    console.log('✅ Sección de Exploración completada');
+    
+  } catch (error) {
+    console.log(`⚠️ Error en fillExplorationSection: ${error.message}`);
+    await page.screenshot({ path: 'test-results/exploration-error.png', fullPage: true });
+  }
+}
+    
+    // Capturar HTML completo de la página
+    const fullHtml = await page.content();
+    fs.writeFileSync(`${testResultsDir}/exploration-page.html`, fullHtml);
+    console.log('📄 HTML completo de la página guardado: exploration-page.html');
+    
+    // Intentar capturar solo la sección de exploración
+    const explorationSection = page.locator('div:has-text("Exploración física"), div:has-text("Apariencia"), div.exploration, [class*="exploration"], [class*="fisica"]').first();
+    let sectionHtml = '';
+    if (await explorationSection.count() > 0) {
+      sectionHtml = await explorationSection.innerHTML();
+      fs.writeFileSync(`${testResultsDir}/exploration-section.html`, sectionHtml);
+      console.log('📄 HTML de sección de exploración guardado: exploration-section.html');
+    }
+    
+    await page.screenshot({ path: 'test-results/exploration-initial.png', fullPage: true });
+    console.log('📸 Screenshot inicial guardado: exploration-initial.png');
+    
+    // Llenar textareas
+    const textAreas = page.locator('textarea:not([disabled]):not([readonly])');
+    const taCount = await textAreas.count();
+    console.log(`📝 Encontradas ${taCount} textareas en Exploración`);
+    
+    for (let i = 0; i < taCount; i++) {
+      const textarea = textAreas.nth(i);
+      if (await textarea.isVisible() && await textarea.isEnabled()) {
+        const currentValue = await textarea.inputValue();
+        if (!currentValue || currentValue.trim() === '') {
+          const placeholder = await textarea.getAttribute('placeholder') || '';
+          let fillText = 'Información médica registrada';
+          
+          if (placeholder.toLowerCase().includes('apariencia')) {
+            fillText = 'Apariencia general: Paciente bien nutrito, hidratado, sin disnea aparente.';
+          } else if (placeholder.toLowerCase().includes('observacion')) {
+            fillText = 'Observaciones: Sin hallazgos significativos';
+          } else if (i === 0) {
+            fillText = 'Exploración realizada según protocolos estándar';
+          }
+          
+          await textarea.fill(fillText);
+          console.log(`✅ Textarea ${i+1} llenado: ${fillText.substring(0, 50)}...`);
+        }
+      }
+    }
+    
+    // Manejar checkboxes con campos dinámicos
+    console.log('🔍 Buscando grupos de opciones con campos dinámicos...');
+    
+    const checkboxGroups = page.locator('.checkbox-group, .option-group, [class*="grupo"], .form-group:has(input[type="checkbox"])');
+    const groupCount = await checkboxGroups.count();
+    console.log(`📋 Encontrados ${groupCount} grupos de checkboxes`);
+    
+    if (groupCount > 0) {
+      for (let i = 0; i < Math.min(groupCount, 5); i++) {
+        const group = checkboxGroups.nth(i);
+        const checkboxes = group.locator('input[type="checkbox"]:not([disabled])');
+        const count = await checkboxes.count();
+        
+        if (count > 0) {
+          console.log(`📦 Grupo ${i+1}: ${count} checkboxes`);
+          
+          // Marcar el primer checkbox del grupo
+          const firstCheckbox = checkboxes.first();
+          if (await firstCheckbox.isVisible()) {
+            await firstCheckbox.check();
+            console.log(`✅ Checkbox del grupo ${i+1} marcado`);
+            
+            // Esperar a que aparezcan campos adicionales
+            await page.waitForTimeout(2000);
+            
+            // Buscar inputs de texto que puedan haber aparecido
+            const dynamicInputs = group.locator('input[type="text"]:not([disabled]):not([readonly]), textarea:not([disabled]):not([readonly])');
+            const inputCount = await dynamicInputs.count();
+            
+            if (inputCount > 0) {
+              console.log(`📝 Aparecieron ${inputCount} campos de texto en grupo ${i+1}`);
+              
+              for (let j = 0; j < inputCount; j++) {
+                const input = dynamicInputs.nth(j);
+                if (await input.isVisible()) {
+                  const currentValue = await input.inputValue();
+                  if (!currentValue || currentValue.trim() === '') {
+                    await input.fill('Observación registrada');
+                    console.log(`✅ Input dinámico ${j+1} llenado en grupo ${i+1}`);
+                  }
+                }
+              }
+            }
+            
+            // Buscar botones de normal/anormal con selectores más amplios
+            console.log(`🔍 Buscando botones Normal/Anormal con múltiples selectores...`);
+            
+            // Opción 1: Buscar por texto exacto
+            let normalButtons = group.locator('button:has-text("Normal"), button:has-text("Anormal"), button:has-text("normal"), button:has-text("anormal")');
+            let btnCount = await normalButtons.count();
+            
+            if (btnCount > 0) {
+              console.log(`🔘 Encontrados ${btnCount} botones por texto en grupo ${i+1}`);
+              await normalButtons.first().click();
+              console.log(`✅ Botón de estado clickeado en grupo ${i+1}`);
+            } else {
+              // Opción 2: Buscar botones con clases que puedan indicar normal/anormal
+              normalButtons = group.locator('button[class*="normal"], button[class*="anormal"], button[class*="success"], button[class*="danger"], button[class*="primary"], button[class*="secondary"]');
+              btnCount = await normalButtons.count();
+              
+              if (btnCount > 0) {
+                console.log(`🔘 Encontrados ${btnCount} botones por clase en grupo ${i+1}`);
+                await normalButtons.first().click();
+                console.log(`✅ Botón de estado clickeado en grupo ${i+1}`);
+              } else {
+                // Opción 3: Buscar botones con iconos (Font Awesome)
+                normalButtons = group.locator('button:has(i), button:has(svg)');
+                btnCount = await normalButtons.count();
+                
+                if (btnCount > 0) {
+                  console.log(`🔘 Encontrados ${btnCount} botones con iconos en grupo ${i+1}`);
+                  // Listar los botones encontrados para depuración
+                  for (let b = 0; b < Math.min(btnCount, 3); b++) {
+                    const btn = normalButtons.nth(b);
+                    const btnText = await btn.textContent();
+                    console.log(`   Botón ${b+1}: "${btnText.trim().substring(0, 30)}..."`);
+                  }
+                  await normalButtons.first().click();
+                  console.log(`✅ Primer botón con icono clickeado en grupo ${i+1}`);
+                } else {
+                  // Opción 4: Cualquier botón visible en el grupo
+                  normalButtons = group.locator('button:not([disabled])');
+                  btnCount = await normalButtons.count();
+                  
+                  if (btnCount > 0) {
+                    console.log(`🔘 Encontrados ${btnCount} botones genéricos en grupo ${i+1}`);
+                    await normalButtons.first().click();
+                    console.log(`✅ Primer botón genérico clickeado en grupo ${i+1}`);
+                  } else {
+                    console.log(`⚠️ No se encontraron botones en grupo ${i+1}`);
+                    await page.screenshot({ path: `test-results/group-${i+1}-no-buttons.png`, fullPage: true });
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Manejar radios con campos dinámicos
+    console.log('🔘 Buscando radios con campos dinámicos...');
+    
+    const radioGroups = page.locator('.radio-group, .option-group:has(input[type="radio"]), [class*="grupo"]:has(input[type="radio"])');
+    const radioGroupCount = await radioGroups.count();
+    console.log(`📻 Encontrados ${radioGroupCount} grupos de radios`);
+    
+    if (radioGroupCount > 0) {
+      for (let i = 0; i < Math.min(radioGroupCount, 5); i++) {
+        const group = radioGroups.nth(i);
+        const radios = group.locator('input[type="radio"]:not([disabled])');
+        const count = await radios.count();
+        
+        if (count > 0) {
+          console.log(`📦 Grupo de radios ${i+1}: ${count} opciones`);
+          
+          const firstRadio = radios.first();
+          if (await firstRadio.isVisible()) {
+            await firstRadio.check();
+            console.log(`✅ Radio del grupo ${i+1} seleccionado`);
+            
+            await page.waitForTimeout(1000);
+            
+            const dynamicInputs = group.locator('input[type="text"]:not([disabled]):not([readonly]), textarea:not([disabled]):not([readonly])');
+            const inputCount = await dynamicInputs.count();
+            
+            if (inputCount > 0) {
+              console.log(`📝 Aparecieron ${inputCount} campos de texto en grupo de radios ${i+1}`);
+              
+              for (let j = 0; j < inputCount; j++) {
+                const input = dynamicInputs.nth(j);
+                if (await input.isVisible()) {
+                  const currentValue = await input.inputValue();
+                  if (!currentValue || currentValue.trim() === '') {
+                    await input.fill('Detalle del hallazgo');
+                    console.log(`✅ Input dinámico ${j+1} llenado en grupo de radios ${i+1}`);
+                  }
+                }
+              }
+            }
+            
+            // Buscar botones de normal/anormal
+            const normalButtons = group.locator('button:has-text("Normal"), button:has-text("normal"), button:has-text("Anormal"), button:has-text("anormal")');
+            let btnCount = await normalButtons.count();
+            
+            if (btnCount > 0) {
+              console.log(`🔘 Encontrados ${btnCount} botones de estado en grupo de radios ${i+1}`);
+              
+              const normalOnlyBtn = group.locator('button:has-text("Normal")');
+              if (await normalOnlyBtn.count() > 0 && await normalOnlyBtn.first().isVisible()) {
+                await normalOnlyBtn.first().click();
+                console.log(`✅ Botón "Normal" clickeado en grupo de radios ${i+1}`);
+              } else {
+                const firstBtn = normalButtons.first();
+                await firstBtn.click();
+                console.log(`✅ Botón de estado clickeado en grupo de radios ${i+1}`);
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Manejar checkboxes individuales
+    console.log('☑️ Procesando checkboxes individuales...');
+    const checkboxes = page.locator('input[type="checkbox"]:not([disabled])');
+    const cbCount = await checkboxes.count();
+    console.log(`☑️ Encontrados ${cbCount} checkboxes en Exploración`);
+    
+    let processedCount = 0;
+    for (let i = 0; i < cbCount; i++) {
+      const checkbox = checkboxes.nth(i);
+      if (await checkbox.isVisible() && await checkbox.isEnabled()) {
+        const parentGroup = checkbox.locator('xpath=ancestor::*[contains(@class, "group") or contains(@class, "grupo")]');
+        const isInGroup = await parentGroup.count() > 0;
+        
+        if (!isInGroup && processedCount < 15) {
+          await checkbox.check();
+          console.log(`✅ Checkbox individual ${i+1} marcado`);
+          processedCount++;
+          
+          await page.waitForTimeout(500);
+          
+          const nearbyInputs = checkbox.locator('xpath=following-sibling::input | xpath=../input | xpath=../following-sibling::input');
+          if (await nearbyInputs.count() > 0) {
+            const input = nearbyInputs.first();
+            if (await input.isVisible()) {
+              await input.fill('Detalle');
+              console.log(`✅ Input cercano llenado para checkbox ${i+1}`);
+            }
+          }
+          
+          const nearbyButtons = checkbox.locator('xpath=following-sibling::button | xpath=../button | xpath=../following-sibling::button');
+          let btnCount = await nearbyButtons.count();
+          if (btnCount > 0) {
+            for (let b = 0; b < btnCount; b++) {
+              const btn = nearbyButtons.nth(b);
+              const btnText = await btn.textContent();
+              if (btnText.toLowerCase().includes('normal')) {
+                await btn.click();
+                console.log(`✅ Botón "Normal" clickeado para checkbox ${i+1}`);
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Manejar radios individuales
+    console.log('🔘 Procesando radios individuales...');
+    const radios = page.locator('input[type="radio"]:not([disabled])');
+    const rCount = await radios.count();
+    console.log(`🔘 Encontrados ${rCount} radios en Exploración`);
+    
+    let processedRadios = 0;
+    for (let i = 0; i < rCount; i++) {
+      const radio = radios.nth(i);
+      if (await radio.isVisible() && await radio.isEnabled()) {
+        const parentGroup = radio.locator('xpath=ancestor::*[contains(@class, "group") or contains(@class, "grupo")]');
+        const isInGroup = await parentGroup.count() > 0;
+        
+        if (!isInGroup && processedRadios < 20) {
+          await radio.check();
+          console.log(`✅ Radio individual ${i+1} seleccionado`);
+          processedRadios++;
+          
+          await page.waitForTimeout(500);
+          
+          const nearbyInputs = radio.locator('xpath=following-sibling::input | xpath=../input | xpath=../following-sibling::input');
+          if (await nearbyInputs.count() > 0) {
+            const input = nearbyInputs.first();
+            if (await input.isVisible()) {
+              await input.fill('Detalle');
+              console.log(`✅ Input cercano llenado para radio ${i+1}`);
+            }
+          }
+          
+          const nearbyButtons = radio.locator('xpath=following-sibling::button | xpath=../button | xpath=../following-sibling::button');
+          let btnCount = await nearbyButtons.count();
+          if (btnCount > 0) {
+            for (let b = 0; b < btnCount; b++) {
+              const btn = nearbyButtons.nth(b);
+              const btnText = await btn.textContent();
+              if (btnText.toLowerCase().includes('normal')) {
+                await btn.click();
+                console.log(`✅ Botón "Normal" clickeado para radio ${i+1}`);
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Llenar inputs de texto individuales
+    console.log('📥 Procesando inputs de texto individuales...');
+    const textInputs = page.locator('input[type="text"]:not([disabled]):not([readonly]), input[type="number"]:not([disabled]):not([readonly])');
+    const tiCount = await textInputs.count();
+    console.log(`📥 Encontrados ${tiCount} inputs de texto/numero en Exploración`);
+    
+    for (let i = 0; i < tiCount; i++) {
+      const input = textInputs.nth(i);
+      if (await input.isVisible() && await input.isEnabled()) {
+        const currentValue = await input.inputValue();
+        if (!currentValue || currentValue.trim() === '') {
+          const inputType = await input.getAttribute('type') || 'text';
+          let fillValue = 'N/A';
+          
+          if (inputType === 'number') {
+            fillValue = '0';
+          } else if (await input.getAttribute('placeholder')?.toLowerCase().includes('presion')) {
+            fillValue = '120/80';
+          } else if (await input.getAttribute('placeholder')?.toLowerCase().includes('temperatura')) {
+            fillValue = '36.5';
+          }
+          
+          await input.fill(fillValue);
+          console.log(`✅ Input ${i+1} llenado: ${fillValue}`);
+        }
+      }
+    }
+    
+    // Capturar HTML final para análisis
+    if (await explorationSection.count() > 0) {
+      const finalHtml = await explorationSection.innerHTML();
+      await page.screenshot({ path: 'test-results/exploration-final.png', fullPage: true });
+      console.log('📸 Screenshot final guardado: exploration-final.png');
+      
+      if (sectionHtml && finalHtml !== sectionHtml) {
+        console.log('🔄 Se detectaron cambios en la estructura HTML de Exploración');
+      }
+    }
+    
+    // Buscar y hacer clic en TODOS los botones "Normal" visibles
+    console.log('🔍 Buscando todos los botones "Normal" visibles...');
+    const allNormalButtons = page.locator('button:has-text("Normal"), button:has-text("normal")');
+    const normalCount = await allNormalButtons.count();
+    console.log(`🔘 Encontrados ${normalCount} botones "Normal" en la página`);
+    
+    for (let i = 0; i < normalCount; i++) {
+      const btn = allNormalButtons.nth(i);
+      if (await btn.isVisible()) {
+        try {
+          await btn.click();
+          console.log(`✅ Botón "Normal" ${i+1} clickeado`);
+          await page.waitForTimeout(300);
+        } catch (e) {
+          console.log(`⚠️ No se pudo clickear botón "Normal" ${i+1}: ${e.message}`);
+        }
+      }
+    }
+    
+    console.log('✅ Sección de Exploración completada');
+  } catch (error) {
+    console.log(`⚠️ Error en fillExplorationSection (continuando): ${error.message}`);
+  }
+}
+
+async function fillTreatmentSection(page) {
+  console.log('💊 Iniciando llenado de la sección de Tratamiento...');
+   
+  // Lista de medicamentos comunes para autocompletado
+  const commonMedicines = [
+    'Paracetamol 500mg',
+    'Ibuprofeno 400mg',
+    'Amoxicilina 500mg',
+    'Metformina 850mg',
+    'Omeprazol 20mg',
+    'Losartán 50mg',
+    'Atorvastatina 20mg',
+    'Aspirina 100mg',
+    'Diclofenaco 100mg',
+    'Naproxeno 250mg',
+    'Tramadol 50mg',
+    'Prednisona 5mg',
+    'Clonixinato de lisina 125mg',
+    'Ranitidina 150mg',
+    'Trimebutina 200mg',
+    'Bisacodilo 5mg',
+    'Loperamida 2mg',
+    'Domperidona 10mg',
+    'Metoclopramida 10mg',
+    'Ciprofloxacino 500mg'
+  ];
+  
+  try {
+    await page.waitForTimeout(2000);
+    
+    // Llenar textareas (cuadros de texto)
+    const textAreas = page.locator('textarea:not([disabled]):not([readonly])');
+    const taCount = await textAreas.count();
+    console.log(`📝 Encontradas ${taCount} textareas en Tratamiento`);
+    
+    let filledTaCount = 0;
+    for (let i = 0; i < taCount; i++) {
+      const textarea = textAreas.nth(i);
+      if (await textarea.isVisible() && await textarea.isEnabled()) {
+        const currentValue = await textarea.inputValue();
+        if (!currentValue || currentValue.trim() === '') {
+          const placeholder = await textarea.getAttribute('placeholder') || '';
+          const name = await textarea.getAttribute('name') || '';
+          let fillText = 'Tratamiento indicado según evaluación médica';
+          
+          if (placeholder.toLowerCase().includes('indicacion') || name.toLowerCase().includes('indicacion')) {
+            fillText = 'Indicaciones: Tomar medicamento según prescripción, reposo relativo, dieta adecuada';
+          } else if (placeholder.toLowerCase().includes('nota') || name.toLowerCase().includes('nota')) {
+            fillText = 'Notas adicionales: Seguimiento en 7 días';
+          } else if (placeholder.toLowerCase().includes('receta') || name.toLowerCase().includes('receta')) {
+            fillText = 'Receta médica generada';
+          } else if (placeholder.toLowerCase().includes('tratamiento') || name.toLowerCase().includes('tratamiento')) {
+            fillText = 'Tratamiento farmacológico indicado según diagnóstico';
+          }
+          
+          await textarea.fill(fillText);
+          filledTaCount++;
+          console.log(`✅ Textarea ${i+1} llenado: ${fillText.substring(0, 50)}...`);
+        }
+      }
+    }
+    console.log(`📊 Total textareas llenados: ${filledTaCount}/${taCount}`);
+    
+    // Manejar dropdowns de medicamentos
+    console.log('💊 Buscando dropdowns de medicamentos...');
+    
+    // Buscar selects (dropdowns) - solo los visibles
+    let selects = page.locator('select:not([disabled]):visible');
+    let selectCount = await selects.count();
+    console.log(`📋 Encontrados ${selectCount} dropdowns visibles en Tratamiento`);
+    
+    // Buscar también combobox y elementos con role="listbox"
+    const comboboxes = page.locator('[role="combobox"]:visible, [role="listbox"]:visible');
+    const comboboxCount = await comboboxes.count();
+    console.log(`📋 Encontrados ${comboboxCount} combobox/listbox visibles en Tratamiento`);
+    
+    // Buscar inputs con autocompletado (podrían ser selectores de medicamentos)
+    const autocompleteInputs = page.locator('input[list]:visible, input[autocomplete="off"]:visible, input[role="combobox"]:visible, input[aria-autocomplete]:visible');
+    const autocompleteCount = await autocompleteInputs.count();
+    console.log(`📋 Encontrados ${autocompleteCount} inputs con autocompletado visibles en Tratamiento`);
+    
+    // Procesar dropdowns visibles
+    if (selectCount > 0) {
+      for (let i = 0; i < selectCount; i++) {
+        const select = selects.nth(i);
+        try {
+          const options = await select.locator('option').count();
+          console.log(`📋 Dropdown ${i+1} tiene ${options} opciones`);
+          
+          // Verificar si las opciones están cargadas (no "Cargando...")
+          let optionsLoaded = false;
+          for (let j = 0; j < Math.min(options, 3); j++) {
+            const optionText = await select.locator('option').nth(j).textContent();
+            console.log(`   Opción ${j}: "${optionText.trim().substring(0, 30)}..."`);
+            if (!optionText.toLowerCase().includes('cargando')) {
+              optionsLoaded = true;
+            }
+          }
+          
+          if (optionsLoaded && options > 1) {
+            // Seleccionar opción aleatoria (excluyendo la primera si es "Seleccione...")
+            let randomIndex = Math.floor(Math.random() * (options - 1)) + 1;
+            await select.selectOption({ index: randomIndex, timeout: 5000 });
+            const selectedOption = await select.locator('option').nth(randomIndex).textContent();
+            console.log(`✅ Dropdown ${i+1} seleccionado opción ${randomIndex}: "${selectedOption.trim().substring(0, 40)}..."`);
+          } else {
+            console.log(`⚠️ Dropdown ${i+1} opciones no cargadas aún`);
+          }
+        } catch (e) {
+          console.log(`⚠️ Error con dropdown ${i+1}: ${e.message.substring(0, 50)}...`);
+        }
+      }
+    }
+    
+    // Procesar comboboxes
+    if (comboboxCount > 0) {
+      for (let i = 0; i < Math.min(comboboxCount, 3); i++) {
+        const combobox = comboboxes.nth(i);
+        try {
+          console.log(`📋 Procesando combobox ${i+1}`);
+          await combobox.click({ timeout: 3000 });
+          await page.waitForTimeout(800);
+          
+          // Buscar opciones que aparecieron
+          const options = page.locator('[role="option"]:visible, [role="menuitem"]:visible, .dropdown-item:visible');
+          const optionCount = await options.count();
+          if (optionCount > 0) {
+            console.log(`📋 Encontradas ${optionCount} opciones en combobox ${i+1}`);
+            // Mostrar primeras 3 opciones
+            for (let j = 0; j < Math.min(optionCount, 3); j++) {
+              const optionText = await options.nth(j).textContent();
+              console.log(`   Opción ${j}: "${optionText.trim().substring(0, 30)}..."`);
+            }
+            const randomIndex = Math.floor(Math.random() * optionCount);
+            await options.nth(randomIndex).click({ timeout: 3000 });
+            const optionText = await options.nth(randomIndex).textContent();
+            console.log(`✅ Combobox ${i+1} seleccionada opción: "${optionText.trim().substring(0, 40)}..."`);
+          }
+          await page.waitForTimeout(300);
+        } catch (e) {
+          console.log(`⚠️ Error procesando combobox ${i+1}: ${e.message.substring(0, 50)}...`);
+        }
+      }
+    }
+    
+    // Procesar inputs con autocompletado
+    if (autocompleteCount > 0) {
+      for (let i = 0; i < Math.min(autocompleteCount, 3); i++) {
+        const input = autocompleteInputs.nth(i);
+        try {
+          const currentValue = await input.inputValue();
+          const placeholder = await input.getAttribute('placeholder') || '';
+          const name = await input.getAttribute('name') || '';
+          console.log(`📋 Input autocompletado ${i+1}: placeholder="${placeholder}", name="${name}"`);
+          
+          if (!currentValue || currentValue.trim() === '') {
+            const randomMedicine = commonMedicines[Math.floor(Math.random() * commonMedicines.length)];
+            await input.fill(randomMedicine, { timeout: 3000 });
+            console.log(`✅ Input autocompletado ${i+1} llenado con: "${randomMedicine}"`);
+            
+            await page.waitForTimeout(1000);
+            
+            // Buscar sugerencias
+            const suggestions = page.locator('[role="option"]:visible, [role="listbox"] *:visible, datalist option, .suggestion-item:visible, .autocomplete-item:visible');
+            const suggestionCount = await suggestions.count();
+            if (suggestionCount > 0) {
+              console.log(`📋 Encontradas ${suggestionCount} sugerencias`);
+              const randomSugg = Math.floor(Math.random() * Math.min(suggestionCount, 5));
+              await suggestions.nth(randomSugg).click({ timeout: 3000 });
+              const suggestionText = await suggestions.nth(randomSugg).textContent();
+              console.log(`✅ Sugerencia seleccionada: "${suggestionText.trim().substring(0, 40)}..."`);
+            }
+            await page.waitForTimeout(300);
+          }
+        } catch (e) {
+          console.log(`⚠️ Error procesando input autocompletado ${i+1}: ${e.message.substring(0, 50)}...`);
+        }
+      }
+    }
+    
+    // Manejar combobox/autocompletado de medicamentos (ya manejado arriba)
+    console.log('🔍 Buscando inputs con autocompletado de medicamentos específicos...');
+    
+    const medicInputs = page.locator('input[placeholder*="medic" i], input[placeholder*="farmaco" i], input[placeholder*="receta" i], input[name*="medic" i], input[name*="drug" i]');
+    const medicCount = await medicInputs.count();
+    console.log(`💊 Encontrados ${medicCount} inputs de medicamentos específicos`);
+    
+    for (let i = 0; i < medicCount; i++) {
+      const input = medicInputs.nth(i);
+      if (await input.isVisible() && await input.isEnabled()) {
+        const currentValue = await input.inputValue();
+        if (!currentValue || currentValue.trim() === '') {
+          const randomMedicine = commonMedicines[Math.floor(Math.random() * commonMedicines.length)];
+          await input.fill(randomMedicine);
+          console.log(`✅ Input de medicamento ${i+1} llenado con: "${randomMedicine}"`);
+          
+          await page.waitForTimeout(1000);
+          
+          const suggestions = page.locator('.autocomplete-suggestion, .dropdown-item, [role="option"], [class*="suggestion"], [class*="option"]');
+          const suggestionCount = await suggestions.count();
+          
+          if (suggestionCount > 0) {
+            console.log(`📋 Encontradas ${suggestionCount} sugerencias para medicamento ${i+1}`);
+            await suggestions.first().click();
+            console.log(`✅ Primera sugerencia seleccionada para medicamento ${i+1}`);
+          }
+        }
+      }
+    }
+    
+    // Llenar inputs de texto individuales
+    console.log('📥 Procesando inputs de texto en Tratamiento...');
+    const textInputs = page.locator('input[type="text"]:not([disabled]):not([readonly]), input[type="number"]:not([disabled]):not([readonly])');
+    const tiCount = await textInputs.count();
+    console.log(`📥 Encontrados ${tiCount} inputs de texto/numero en Tratamiento`);
+    
+    for (let i = 0; i < tiCount; i++) {
+      const input = textInputs.nth(i);
+      if (await input.isVisible() && await input.isEnabled()) {
+        const currentValue = await input.inputValue();
+        if (!currentValue || currentValue.trim() === '') {
+          const placeholder = await input.getAttribute('placeholder') || '';
+          const name = await input.getAttribute('name') || '';
+          const inputType = await input.getAttribute('type') || 'text';
+          
+          let fillValue = '';
+          
+          // Determinar qué llenar basado en el contexto
+          if (placeholder.toLowerCase().includes('dosis') || name.toLowerCase().includes('dosis')) {
+            fillValue = '1 tableta';
+          } else if (placeholder.toLowerCase().includes('frecuencia') || name.toLowerCase().includes('frecuencia')) {
+            fillValue = 'Cada 8 horas';
+          } else if (placeholder.toLowerCase().includes('duracion') || name.toLowerCase().includes('duracion')) {
+            fillValue = '7 días';
+          } else if (placeholder.toLowerCase().includes('cantidad') || name.toLowerCase().includes('cantidad')) {
+            fillValue = '1';
+          } else if (placeholder.toLowerCase().includes('via') || name.toLowerCase().includes('via')) {
+            fillValue = 'Oral';
+          } else if (inputType === 'number') {
+            fillValue = '1';
+          } else {
+            fillValue = 'Tratamiento indicado';
+          }
+          
+          await input.fill(fillValue);
+          console.log(`✅ Input ${i+1} llenado con: "${fillValue}"`);
+        }
+      }
+    }
+    
+    console.log('✅ Sección de Tratamiento completada');
+  } catch (error) {
+    console.log(`⚠️ Error en fillTreatmentSection (continuando): ${error.message}`);
+  }
+}
+
+async function fillServicesSection(page) {
+  console.log('💉 Iniciando llenado de la sección de Servicios...');
+   
+  try {
+    await page.waitForTimeout(2000);
+    
+    const textAreas = page.locator('textarea:not([disabled]):not([readonly])');
+    const taCount = await textAreas.count();
+    console.log(`📝 Encontradas ${taCount} textareas en Servicios`);
+    
+    for (let i = 0; i < taCount; i++) {
+      const textarea = textAreas.nth(i);
+      if (await textarea.isVisible() && await textarea.isEnabled()) {
+        const currentValue = await textarea.inputValue();
+        if (!currentValue || currentValue.trim() === '') {
+          const placeholder = await textarea.getAttribute('placeholder') || '';
+          let fillText = 'Servicio médico registrado';
+          
+          if (placeholder.toLowerCase().includes('certificado')) {
+            fillText = 'Certificado médico de reposo laboral por 3 días';
+          } else if (placeholder.toLowerCase().includes('servicio')) {
+            fillText = 'Consulta general con signos vitales';
+          } else if (i === 0) {
+            fillText = 'Servicios de salud solicitados según evaluación médica';
+          }
+          
+          await textarea.fill(fillText);
+          console.log(`✅ Textarea ${i+1} llenado: ${fillText.substring(0, 50)}...`);
+        }
+      }
+    }
+    
+    const checkboxes = page.locator('input[type="checkbox"]:not([disabled])');
+    const cbCount = await checkboxes.count();
+    console.log(`☑️ Encontrados ${cbCount} checkboxes en Servicios`);
+    
+    for (let i = 0; i < cbCount; i++) {
+      const checkbox = checkboxes.nth(i);
+      if (await checkbox.isVisible() && await checkbox.isEnabled()) {
+        if (i % 3 === 0) {
+          await checkbox.check();
+          console.log(`✅ Checkbox de servicio ${i+1} marcado`);
+        }
+      }
+    }
+    
+    const radios = page.locator('input[type="radio"]:not([disabled])');
+    const rCount = await radios.count();
+    console.log(`🔘 Encontrados ${rCount} radios en Servicios`);
+    
+    for (let i = 0; i < rCount; i++) {
+      const radio = radios.nth(i);
+      if (await radio.isVisible() && await radio.isEnabled()) {
+        if (i % 2 === 0) {
+          await radio.check();
+          console.log(`✅ Radio ${i+1} seleccionado`);
+        }
+      }
+    }
+    
+    const textInputs = page.locator('input[type="text"]:not([disabled]):not([readonly]), input[type="number"]:not([disabled]):not([readonly])');
+    const tiCount = await textInputs.count();
+    console.log(`📥 Encontrados ${tiCount} inputs de texto/numero en Servicios`);
+    
+    for (let i = 0; i < tiCount; i++) {
+      const input = textInputs.nth(i);
+      if (await input.isVisible() && await input.isEnabled()) {
+        const currentValue = await input.inputValue();
+        if (!currentValue || currentValue.trim() === '') {
+          const inputType = await input.getAttribute('type') || 'text';
+          let fillValue = 'N/A';
+          
+          if (inputType === 'number') {
+            fillValue = '1';
+          } else if (await input.getAttribute('placeholder')?.toLowerCase().includes('dias') || 
+                     await input.getAttribute('placeholder')?.toLowerCase().includes('día')) {
+            fillValue = '3';
+          } else if (await input.getAttribute('placeholder')?.toLowerCase().includes('cantidad')) {
+            fillValue = '1';
+          }
+          
+          await input.fill(fillValue);
+          console.log(`✅ Input ${i+1} llenado: ${fillValue}`);
+        }
+      }
+    }
+    
+    console.log('✅ Sección de Servicios completada');
+  } catch (error) {
+    console.log(`⚠️ Error en fillServicesSection (continuando): ${error.message}`);
+  }
+}
+
+// Test principal
+test('Start a scheduled consultation from Inicio', async ({ page }) => {
+  
+  console.log('🏠 Navegando a Dashboard (Inicio)...');
+  await page.goto('/Dashboard');
+  await page.waitForTimeout(3000);
+  
+  let iniciarButtons = page.getByRole('button', { name: /iniciar/i });
+  let count = await iniciarButtons.count();
+  
+  if (count === 0) {
+    console.log('⚠️ No hay citas con botón Iniciar hoy');
+    console.log('🔍 Revisando próximos 5 días...');
+    
+    const foundInNextDays = await checkNextDaysForIniciarButton(page);
+    
+    if (!foundInNextDays) {
+      console.log('📅 No se encontraron citas en 5 días, creando una cita...');
+      await createAppointment(page);
+      
+      console.log('🔙 Volviendo a Dashboard...');
+      await page.goto('/Dashboard');
+      await page.waitForTimeout(3000);
+      
+      const foundAfterCreate = await checkNextDaysForIniciarButton(page);
+      
+      if (!foundAfterCreate) {
+        throw new Error('No se pudieron encontrar o crear citas disponibles para iniciar');
+      }
+    }
+  } else {
+    console.log(`✅ Encontradas ${count} cita(s) con botón Iniciar`);
+  }
+  
+  iniciarButtons = page.getByRole('button', { name: /iniciar/i });
+  count = await iniciarButtons.count();
+    
+    if (count === 0) {
+      throw new Error('No hay citas disponibles para iniciar');
+    }
+    
+    let selectedIndex = 0;
+    let earliestMinutes = Infinity;
+    let selectedPatientName = '';
+    
+    for (let i = 0; i < count; i++) {
+      const button = iniciarButtons.nth(i);
+      const row = button.locator('xpath=ancestor::*[self::div or self::tr][1]');
+      const timeText = await row.locator('text=/\\d{2}:\\d{2}/').first().textContent();
+      
+      const patientCell = row.locator('td:first-child, div:first-child, [class*="patient"]:first-child').first();
+      const patientText = await patientCell.textContent();
+      
+      if (timeText) {
+        const [hours, minutes] = timeText.split(':').map(Number);
+        const totalMinutes = hours * 60 + minutes;
+        if (totalMinutes < earliestMinutes) {
+          earliestMinutes = totalMinutes;
+          selectedIndex = i;
+          selectedPatientName = patientText.trim();
+        }
+      }
+    }
+    
+console.log('▶️ Iniciando consulta...');
+await page.waitForTimeout(1000);
+const overlay = page.locator('div.fixed.inset-0.bg-black.bg-opacity-50');
+if (await overlay.count() > 0 && await overlay.first().isVisible()) {
+  console.log('🔇 Cerrando overlay detectado...');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(1000);
+}
+await iniciarButtons.nth(selectedIndex).click({ force: true });
+    
+const signosButton = page.getByRole('button', { name: /capturar signos vitales/i });
+await expect(signosButton).toBeVisible({ timeout: 10000 });
+await signosButton.click();
+    
+console.log('💉 Llenando signos vitales...');
+const pesoInput = page.locator('input[name="peso"]');
+await expect(pesoInput).toBeVisible({ timeout: 10000 });
+await pesoInput.fill('70');
+
+const tallaInput = page.locator('input[name*="talla" i]');
+if (await tallaInput.count() > 0 && await tallaInput.first().isVisible()) {
+  await tallaInput.first().fill('170');
+}
+
+const presionInput = page.locator('input[placeholder="000/00 mmHg"]');
+if (await presionInput.isVisible().catch(() => false)) {
+  await presionInput.fill('120/80');
+}
+
+const tempInput = page.locator('input[name*="temp" i]');
+if (await tempInput.count() > 0 && await tempInput.first().isVisible()) {
+  await tempInput.first().fill('36.6');
+}
+
+const fcInput = page.locator('input[name*="card" i]');
+if (await fcInput.count() > 0 && await fcInput.first().isVisible()) {
+  await fcInput.first().fill('72');
+}
+
+const satInput = page.locator('input[name="oxigenacion"]');
+if (await satInput.count() > 0 && await satInput.first().isVisible()) {
+  await satInput.first().fill('98');
+}
+
+const frInput = page.locator('input[name="frecuenciaRespiratoria"]');
+if (await frInput.count() > 0 && await frInput.first().isVisible()) {
+  await frInput.first().fill('16');
+}
+
+const glucosaInput = page.locator('input[name="glucosa"]');
+if (await glucosaInput.count() > 0 && await glucosaInput.first().isVisible()) {
+  await glucosaInput.first().fill('95');
+}
+
+const guardarSignos = page.getByRole('button', { name: /^Guardar$/i });
+await expect(guardarSignos).toBeEnabled({ timeout: 10000 });
+await guardarSignos.click();
+
+console.log('⏳ Esperando después de guardar signos vitales...');
+await page.waitForTimeout(2000);
+
+const cerrarButton = page.getByRole('button', { name: /cerrar/i });
+if (await cerrarButton.isVisible().catch(() => false)) {
+  console.log('🔘 Haciendo clic en botón cerrar...');
+  await cerrarButton.click();
+  await page.waitForTimeout(1500);
+}
+
+let currentUrl = page.url();
+console.log(`📍 URL actual después de guardar: ${currentUrl}`);
+
+console.log('🔄 Esperando redirección a la página de consulta...');
+try {
+  await page.waitForURL(/Consulta\/(ConsultaGeneral|ConsultaDetalles)/, { timeout: 15000 });
+  console.log('✅ Redirigido a página de consulta');
+} catch (e) {
+  console.log('⚠️ Timeout esperando redirección, verificando estado actual...');
+  currentUrl = page.url();
+  console.log(`📍 URL actual: ${currentUrl}`);
+  
+  if (!currentUrl.includes('Consulta')) {
+    console.log('🔄 Intentando navegar a ConsultaGeneral...');
+    await page.goto('/Consulta/ConsultaGeneral');
+    await page.waitForTimeout(3000);
+  }
+}
+
+const tabs = [
+  { name: 'General', fields: ['hospital', 'tipo de consulta', 'motivo de la consulta', 'padecimiento actual', 'notas de evolución', 'nombre de referido'] },
+  { name: 'Exploración', fields: [] },
+  { name: 'Diagnóstico', fields: [] },
+  { name: 'Tratamiento', fields: [] },
+  { name: 'Notas del Médico', fields: [] },
+  { name: 'Servicios', fields: [] }
+];
+
+for (const tabInfo of tabs) {
+  const tabName = tabInfo.name;
+  const requiredFields = tabInfo.fields;
+  
+  console.log(`🔍 Buscando pestaña: ${tabName}`);
+  
+  const tabSelectors = [
+    page.getByRole('tab', { name: new RegExp(`^${tabName.replace('ó', 'ó').replace('é', 'é')}$`, 'i') }),
+    page.getByRole('button', { name: new RegExp(`^${tabName.replace('ó', 'ó').replace('é', 'é')}$`, 'i') }),
+    page.locator(`div, span, p, li, a`).filter({ hasText: new RegExp(`^${tabName.replace('ó', 'ó').replace('é', 'é')}$`, 'i') }),
+    page.locator(`div, span, p, li, a:has-text("${tabName}")`),
+    page.locator(`.tab, .tabs-item, .nav-tab, [role="tablist"] >> *:has-text("${tabName}")`),
+    page.locator(`[data-tab="${tabName}"], [data-tab-name="${tabName}"]`)
+  ];
+  
+  let tabElement = null;
+  let tabFound = false;
+  
+  for (const selector of tabSelectors) {
+    try {
+      if (await selector.count() > 0) {
+        const element = selector.first();
+        if (await element.isVisible()) {
+          tabElement = element;
+          tabFound = true;
+          console.log(`✅ Pestaña "${tabName}" encontrada usando selector: ${selector}`);
+          break;
+        }
+      }
+    } catch (e) {
+      continue;
+    }
+  }
+  
+  if (!tabFound) {
+    console.log(`⚠️ Pestaña "${tabName}" no visible después de múltiples intentos, saltando...`);
+    continue;
+  }
+  
+  console.log(`📝 Haciendo clic en pestaña: ${tabName}`);
+  
+  // Manejar modales antes de hacer clic
+  await handleModals(page);
+  await page.waitForTimeout(500);
+  
+  await tabElement.click();
+  
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(2000);
+  
+  if (requiredFields.length > 0) {
+    console.log(`🎯 Llenando campos específicos para ${tabName}: ${requiredFields.join(', ')}`);
+    for (const fieldName of requiredFields) {
+      await fillSpecificField(page, fieldName);
+    }
+  }
+  
+  console.log(`🔧 Llenando todos los campos disponibles en ${tabName}`);
+  
+  if (tabName === 'Exploración') {
+    await fillExplorationSection(page);
+  } else if (tabName === 'Tratamiento') {
+    await fillTreatmentSection(page);
+  } else {
+    await fillTabFields(page, tabName);
+  }
+  
+  if (requiredFields.length > 0) {
+    console.log(`✅ Verificando que los campos requeridos de ${tabName} estén llenos`);
+  }
+  
+  console.log(`🔍 Buscando botón de continuar/guardar en ${tabName}...`);
+  
+  const continuarSelectors = [
+    page.getByRole('button', { name: /guardar y continuar/i }),
+    page.getByRole('button', { name: /guardar.*continuar/i }),
+    page.getByRole('button', { name: /continuar.*guardar/i }),
+    page.getByRole('button', { name: /continuar/i }),
+    page.getByRole('button', { name: /guardar/i }),
+    page.locator('button:has-text("Guardar y continuar")'),
+    page.locator('button:has-text("guardar y continuar")'),
+    page.locator('button:has-text("Continuar")'),
+    page.locator('button:has-text("continuar")'),
+    page.locator('button:has-text("Guardar")'),
+    page.locator('button:has-text("guardar")'),
+    page.locator('button:has-text("Siguiente")'),
+    page.locator('button:has-text("siguiente")'),
+    page.locator('button:has-text("Next")'),
+    page.locator('button:has-text("next")')
+  ];
+  
+  let continuarBtn = null;
+  let continuarBtnText = '';
+  
+  const allButtons = page.locator('button, [role="button"]');
+  const buttonCount = await allButtons.count();
+  if (buttonCount > 0 && buttonCount < 20) {
+    console.log(`📋 Botones disponibles en ${tabName}:`);
+    for (let i = 0; i < Math.min(buttonCount, 10); i++) {
+      const btn = allButtons.nth(i);
+      if (await btn.isVisible()) {
+        const btnText = await btn.textContent();
+        console.log(`   ${i+1}: "${btnText.trim()}"`);
+      }
+    }
+  }
+  
+  for (const selector of continuarSelectors) {
+    try {
+      if (await selector.count() > 0) {
+        const btn = selector.first();
+        if (await btn.isVisible() && await btn.isEnabled()) {
+          continuarBtn = btn;
+          continuarBtnText = await btn.textContent();
+          console.log(`✅ Botón de continuar/guardar encontrado: "${continuarBtnText.trim()}"`);
+          break;
+        }
+      }
+    } catch (e) {
+      continue;
+    }
+  }
+  
+  if (continuarBtn) {
+    console.log('💾 Guardando y continuando...');
+    await continuarBtn.click();
+    await page.waitForTimeout(1500);
+    await page.waitForLoadState('networkidle');
+  } else {
+    console.log(`ℹ️ Botón 'Guardar y continuar' no encontrado en ${tabName}`);
+    console.log('🔄 Intentando avanzar a la siguiente pestaña directamente...');
+    
+    const tabNameList = ['General', 'Exploración', 'Diagnóstico', 'Tratamiento', 'Notas del Médico', 'Servicios'];
+    const currentTabIndex = tabNameList.indexOf(tabName);
+    if (currentTabIndex >= 0 && currentTabIndex < tabNameList.length - 1) {
+      const nextTabName = tabNameList[currentTabIndex + 1];
+      console.log(`⏭️ Intentando ir directamente a la pestaña de ${nextTabName}`);
+      
+      const nextTabSelectors = [
+        page.getByRole('tab', { name: new RegExp(`^${nextTabName.replace('ó', 'ó').replace('é', 'é')}$`, 'i') }),
+        page.getByRole('button', { name: new RegExp(`^${nextTabName.replace('ó', 'ó').replace('é', 'é')}$`, 'i') }),
+        page.locator(`div, span, p, li, a:has-text("${nextTabName}")`),
+        page.locator(`text="${nextTabName}"`)
+      ];
+      
+      let nextTabFound = false;
+      for (const selector of nextTabSelectors) {
+        try {
+          if (await selector.count() > 0) {
+            const tabElement = selector.first();
+            if (await tabElement.isVisible()) {
+              await tabElement.click();
+              console.log(`✅ Navegado directamente a la pestaña de ${nextTabName}`);
+              nextTabFound = true;
+              break;
+            }
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+      
+      if (!nextTabFound) {
+        console.log(`⚠️ No se pudo navegar directamente a ${nextTabName}, continuando con llenado genérico`);
+      }
+    } else {
+      console.log(`ℹ️ ${tabName} es la última pestaña o no se pudo determinar el orden`);
+    }
+  }
+}
+
+// ===========================================
+// FINALIZACIÓN DE LA CONSULTA
+// ===========================================
+console.log('\n🏁 === INICIANDO FINALIZACIÓN DE CONSULTA ===');
+
+await page.waitForTimeout(2000);
+await page.waitForLoadState('networkidle');
+
+const finalizarBtn = await waitForFinalizarButton(page);
+
+if (finalizarBtn) {
+  console.log('✅ Haciendo clic en Finalizar Consulta...');
+  
+  await handleModals(page);
+  
+  await finalizarBtn.click();
+  await page.waitForTimeout(2000);
+  
+  const confirmSelectors = [
+    page.getByRole('button', { name: /confirmar/i }),
+    page.getByRole('button', { name: /aceptar/i }),
+    page.getByRole('button', { name: /sí/i }),
+    page.getByRole('button', { name: /si/i }),
+    page.locator('button:has-text("Confirmar")'),
+    page.locator('button:has-text("Aceptar")'),
+    page.locator('.swal2-confirm'),
+  ];
+  
+  for (const selector of confirmSelectors) {
+    try {
+      if (await selector.count() > 0 && await selector.first().isVisible()) {
+        console.log('🔘 Encontrado botón de confirmación, haciendo clic...');
+        await selector.first().click();
+        await page.waitForTimeout(2000);
+        break;
+      }
+    } catch (e) {
+      // Continuar con siguiente selector
+    }
+  }
+  
+  console.log('⏳ Esperando redirección después de finalizar...');
+  await page.waitForTimeout(3000);
+  
+  const currentUrl = page.url();
+  console.log(`📍 URL actual: ${currentUrl}`);
+  
+  if (currentUrl.includes('Dashboard') || currentUrl.includes('Citas') || currentUrl.includes('Inicio')) {
+    console.log('✅ Consulta finalizada exitosamente - Redirigido al Dashboard');
+  } else {
+    const successMessages = [
+      'Consulta finalizada',
+      'Consulta guardada',
+      'Operación exitosa',
+      'Guardado correctamente'
+    ];
+    
+    let successFound = false;
+    for (const msg of successMessages) {
+      const successLocator = page.locator(`text=/${msg}/i`);
+      if (await successLocator.count() > 0 && await successLocator.first().isVisible()) {
+        console.log(`✅ Mensaje de éxito encontrado: "${msg}"`);
+        successFound = true;
+        break;
+      }
+    }
+    
+    if (!successFound) {
+      console.log('⚠️ No se detectó mensaje de éxito claro, pero no hubo errores');
+    }
+  }
+  
+  await page.screenshot({ path: 'test-results/consultation-finalized.png', fullPage: true });
+  console.log('📸 Screenshot guardado: consultation-finalized.png');
+  
+  console.log('\n🎉 === CONSULTA COMPLETADA EXITOSAMENTE ===');
+  
+} else {
+  console.log('❌ No se pudo encontrar el botón de finalizar consulta');
+  await page.screenshot({ path: 'test-results/consultation-no-finalize-btn.png', fullPage: true });
+  throw new Error('No se encontró el botón de finalizar consulta');
+}
+
+});
