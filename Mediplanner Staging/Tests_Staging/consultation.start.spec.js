@@ -423,6 +423,7 @@ async function fillExplorationSection(page) {
   } catch (error) {
     console.log(`⚠️ Error en fillExplorationSection: ${error.message}`);
     await page.screenshot({ path: 'test-results/exploration-error.png', fullPage: true });
+    throw error;
   }
 }
 
@@ -562,6 +563,7 @@ async function fillDiagnosticoSection(page) {
     
   } catch (error) {
     console.log(`⚠️ Error en Diagnóstico: ${error.message}`);
+    throw error;
   }
 }
 
@@ -705,6 +707,7 @@ async function fillTreatmentSection(page) {
     console.log('\n✅ Sección de Tratamiento completada');
   } catch (error) {
     console.log(`⚠️ Error en fillTreatmentSection: ${error.message}`);
+    throw error;
   }
 }
 async function fillNotasMedicoSection(page) {
@@ -811,6 +814,7 @@ async function fillNotasMedicoSection(page) {
     
   } catch (error) {
     console.log(`⚠️ Error en Notas del Médico: ${error.message}`);
+    throw error;
   }
 }
 
@@ -1062,6 +1066,7 @@ async function fillServiciosSection(page) {
     
   } catch (error) {
     console.log(`⚠️ Error en Servicios: ${error.message}`);
+    throw error;
   }
 }
 
@@ -1226,6 +1231,7 @@ async function fillLaboratoriosSection(page) {
     
   } catch (error) {
     console.log('⚠️ Error en fillLaboratoriosSection:', error.message.substring(0, 60));
+    throw error;
   }
 }
 
@@ -1642,6 +1648,7 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
   for (const tabInfo of tabs) {
     const tabName = tabInfo.name;
     const requiredFields = tabInfo.fields;
+    const tabsObligatorias = ['General', 'Diagnóstico', 'Tratamiento'];
     
     console.log(`\n🔍 Buscando pestaña: ${tabName}`);
     
@@ -1665,6 +1672,9 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     }
     
     if (!tabElement) {
+      if (tabsObligatorias.includes(tabName)) {
+        throw new Error(`Pestaña obligatoria "${tabName}" no encontrada — verifica que la consulta cargó correctamente`);
+      }
       console.log(`⚠️ Pestaña "${tabName}" no encontrada, saltando...`);
       continue;
     }
@@ -1710,6 +1720,7 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
       page.locator('button:has-text("Siguiente")')
     ];
     
+    let guardadoExitoso = false;
     for (const selector of guardarSelectors) {
       try {
         if (await selector.count() > 0 && await selector.first().isVisible()) {
@@ -1717,11 +1728,16 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
           console.log(`✅ Click en guardar/continuar`);
           await page.waitForTimeout(1500);
           await page.waitForLoadState('networkidle');
+          guardadoExitoso = true;
           break;
         }
       } catch (e) {
         continue;
       }
+    }
+    
+    if (!guardadoExitoso && tabsObligatorias.includes(tabName)) {
+      throw new Error(`No se encontró botón guardar/continuar en pestaña obligatoria "${tabName}" — la consulta puede no haberse guardado`);
     }
   }
 

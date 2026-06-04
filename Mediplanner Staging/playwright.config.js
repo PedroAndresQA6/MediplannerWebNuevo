@@ -66,7 +66,7 @@ module.exports = defineConfig({
       name: 'ingresos',
       testMatch: /ingresos\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1920, height: 1080 } },
-      dependencies: ['doctor-consultation'],
+      dependencies: ['setup'],
       timeout: 300000,
     },
     {
