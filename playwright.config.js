@@ -40,15 +40,8 @@ module.exports = defineConfig({
       timeout: 90000,
     },
     {
-      name: 'appointments-verify',
-      testMatch: /appointments\.verify\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1366, height: 768 } },
-      dependencies: ['setup'],
-      timeout: 60000,
-    },
-    {
       name: 'doctor-consultation',
-      testMatch: /consultation\.start\.spec\.(js|ts)/,
+      testMatch: /consultation\.full-flow\.spec\.(js|ts)/,
       use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1366, height: 768 } },
       dependencies: ['setup'],
       timeout: 300000,
