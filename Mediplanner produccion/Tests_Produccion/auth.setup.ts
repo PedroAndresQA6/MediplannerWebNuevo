@@ -26,10 +26,9 @@ setup('authenticate with Google', async ({ page }) => {
     console.log('Pagina de login de Google cargada');
 
     await page.waitForURL(/accounts\.google\.com/, { timeout: 20000 });
-    await page.waitForTimeout(2000);
 
-    const emailInput = page.locator('input[type="email"]').first();
-    await emailInput.waitFor({ state: 'visible', timeout: 15000 });
+    const emailInput = page.locator('#identifierId');
+    await emailInput.waitFor({ state: 'visible', timeout: 20000 });
     await emailInput.fill(GOOGLE_EMAIL);
     console.log('Email ingresado');
     await page.click('#identifierNext');

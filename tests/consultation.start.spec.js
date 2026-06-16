@@ -181,8 +181,22 @@ async function fillExplorationSection(page) {
     console.log(`☑️ Encontrados ${totalCheckboxes} checkboxes en Exploración`);
     
     let processedCheckboxes = 0;
-    
-    for (let i = 0; i < totalCheckboxes; i++) {
+
+    function pickRandom(arr, n) {
+      const shuffled = [...arr].sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, n);
+    }
+
+    const firstGroup = Array.from({ length: Math.min(8, totalCheckboxes) }, (_, i) => i);
+    const secondGroup = Array.from({ length: Math.max(0, totalCheckboxes - 8) }, (_, i) => i + 8);
+    const selected = [
+      ...pickRandom(firstGroup, Math.min(3, firstGroup.length)),
+      ...pickRandom(secondGroup, Math.min(3, secondGroup.length))
+    ].sort((a, b) => a - b);
+
+    console.log(`📋 Checkboxes seleccionados: ${selected.map(i => i + 1).join(', ')} (${selected.length} total)`);
+
+    for (const i of selected) {
       const checkbox = allCheckboxes.nth(i);
       
       try {
@@ -212,18 +226,6 @@ async function fillExplorationSection(page) {
         await page.waitForTimeout(500);
         await page.waitForLoadState('networkidle');
         
-        const normalButtons = page.locator('button:has-text("Normal"), button:has-text("Anormal")');
-        const normalBtnCount = await normalButtons.count();
-        
-        if (normalBtnCount > 0) {
-          const normalBtn = page.locator('button:has-text("Normal")').first();
-          if (await normalBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
-            await normalBtn.click();
-            console.log(`   ✅ Seleccionado "Normal"`);
-          }
-          await page.waitForTimeout(500);
-        }
-        
         const randomObs = observaciones[Math.floor(Math.random() * observaciones.length)];
         const observacionInputs = page.locator('textarea:visible:not([disabled]), input[type="text"]:visible:not([disabled])');
         const obsCount = await observacionInputs.count();
@@ -237,6 +239,40 @@ async function fillExplorationSection(page) {
             console.log(`   ⚠️ No se pudo llenar observación`);
           }
         }
+        
+        const estadoDeseado = Math.random() < 0.5 ? 'Normal' : 'Anormal';
+        console.log(`   🎲 Seleccionando "${estadoDeseado}" (siguiente sibling)...`);
+        const seleccionado = await page.evaluate((estado) => {
+          const textareas = document.querySelectorAll('textarea:not([disabled])');
+          const inputs = document.querySelectorAll('input[type="text"]:not([disabled])');
+          const allFields = [...textareas, ...inputs].filter(el => el.offsetParent !== null);
+          if (allFields.length === 0) return false;
+
+          const lastField = allFields[allFields.length - 1];
+          const textareaContainer = lastField.parentElement;
+          const radioContainer = textareaContainer.previousElementSibling;
+
+          if (!radioContainer) return false;
+
+          const labels = radioContainer.querySelectorAll('label');
+          for (const label of labels) {
+            if (label.textContent.trim().toLowerCase() === estado.toLowerCase() && label.getAttribute('for')) {
+              const radio = document.getElementById(label.getAttribute('for'));
+              if (radio) {
+                radio.click();
+                return true;
+              }
+            }
+          }
+          return false;
+        }, estadoDeseado);
+
+        if (seleccionado) {
+          console.log(`   ✅ "${estadoDeseado}" seleccionado`);
+        } else {
+          console.log(`   ⚠️ No se pudo seleccionar "${estadoDeseado}"`);
+        }
+        await page.waitForTimeout(500);
         
         // Click en botón "Guardar cambios" cercano al textarea recién llenado
         await page.waitForTimeout(500);
@@ -329,85 +365,6 @@ async function fillExplorationSection(page) {
     });
     await page.waitForTimeout(1000);
     
-    // Cambiar todos los radios de "Normal" a "Anormal"
-    console.log('\n🔄 Cambiando todos los "Normal" a "Anormal"...');
-    const cambiosNormales = await page.evaluate(() => {
-      const allLabels = Array.from(document.querySelectorAll('label'));
-      let changed = 0;
-      
-      allLabels.forEach(label => {
-        const text = label.textContent.trim().toLowerCase();
-        if (text === 'normal') {
-          const forId = label.getAttribute('for');
-          if (forId) {
-            const anormalId = forId.replace(/-1$/, '-2');
-            const anormalRadio = document.getElementById(anormalId);
-            
-            if (anormalRadio && anormalRadio.type === 'radio') {
-              anormalRadio.click();
-              changed++;
-            }
-          }
-        }
-      });
-      
-      return changed;
-    });
-    console.log(`🔄 ${cambiosNormales} radios cambiados de Normal a Anormal`);
-    await page.waitForTimeout(5000);
-    
-    // Guardar después de cambiar a Anormal (mismo método que después de cada checkbox)
-    console.log('💾 Guardando cambios de Anormal...');
-    const guardarAnormal = await page.evaluate(() => {
-      const textareas = document.querySelectorAll('textarea:not([disabled])');
-      const inputs = document.querySelectorAll('input[type="text"]:not([disabled])');
-      const allFields = [...textareas, ...inputs].filter(el => el.offsetParent !== null);
-      
-      if (allFields.length === 0) return 0;
-      const lastField = allFields[allFields.length - 1];
-      
-      let parent = lastField.parentElement;
-      let clicked = 0;
-      
-      for (let i = 0; i < 10 && parent; i++) {
-        const btn = parent.querySelector('button');
-        if (btn && btn.textContent.toLowerCase().includes('guardar')) {
-          btn.click();
-          clicked = 1;
-          break;
-        }
-        parent = parent.parentElement;
-      }
-      
-      if (!clicked) {
-        const allBtns = document.querySelectorAll('button');
-        allBtns.forEach(btn => {
-          if (btn.textContent.toLowerCase().includes('guardar cambios') && btn.offsetParent !== null) {
-            btn.click();
-            clicked++;
-          }
-        });
-      }
-      
-      return clicked;
-    });
-    
-    if (guardarAnormal > 0) {
-      console.log('💾 Click en "Guardar cambios" después de Anormal');
-    } else {
-      console.log('⚠️ No se encontró botón guardar después de Anormal');
-    }
-    await page.waitForTimeout(2000);
-    
-    // Cerrar modales
-    await page.evaluate(() => {
-      const modals = document.querySelectorAll('.swal2-confirm, .swal2-popup button');
-      modals.forEach(btn => {
-        if (btn.offsetParent !== null) btn.click();
-      });
-    });
-    await page.waitForTimeout(1000);
-    
     // Capturar estado final
     await page.screenshot({ path: 'test-results/exploration-final.png', fullPage: true });
     console.log('📸 Screenshot final guardado: exploration-final.png');
@@ -440,11 +397,13 @@ async function fillDiagnosticoSection(page) {
     
     if (await labelCIE10.isVisible({ timeout: 1000 }).catch(() => false)) {
       console.log('✅ Label CIE-10 encontrado');
-      cie10Input = labelCIE10.locator('xpath=following::input[1] | xpath=../input | xpath=..//input').first();
+      cie10Input = labelCIE10.locator('xpath=following::textarea[1] | xpath=following::input[1] | xpath=../textarea | xpath=../input | xpath=..//textarea | xpath=..//input').first();
     }
     
     if (!cie10Input || !await cie10Input.isVisible().catch(() => false)) {
       const selectors = [
+        'textarea[role="combobox"]',
+        '#react-select-5-input',
         'input[placeholder*="CIE" i]',
         'input[placeholder*="código" i]',
         'input[placeholder*="buscar" i]',
@@ -464,35 +423,31 @@ async function fillDiagnosticoSection(page) {
     }
     
     if (cie10Input && await cie10Input.isVisible().catch(() => false)) {
-      // Hacer click en el SVG (ícono de flecha) en lugar del input
-      const svgIcon = page.locator('svg.css-8mmkcg, svg[class*="css-"]').first();
-      if (await svgIcon.isVisible({ timeout: 1000 }).catch(() => false)) {
-        await svgIcon.click();
-        console.log('✅ Click en SVG del dropdown');
-      } else {
-        // Buscar SVG cerca del input
-        const nearbySvg = cie10Input.locator('xpath=following-sibling::svg | xpath=../svg | xpath=..//svg').first();
-        if (await nearbySvg.isVisible({ timeout: 500 }).catch(() => false)) {
-          await nearbySvg.click();
-          console.log('✅ Click en SVG cercano al input');
-        } else {
-          await cie10Input.click();
-          console.log('✅ Click en input (SVG no encontrado)');
-        }
-      }
+      await cie10Input.click();
+      console.log('✅ Click en input CIE-10');
       await page.waitForTimeout(800);
       
-      const options = page.locator('[role="option"]:visible, .dropdown-item:visible, li:visible, ul li:visible');
-      const optionCount = await options.count();
+      const options = page.locator('[role="option"]:visible, .dropdown-item:visible, div[id*="option"]:visible');
+      let optionCount = await options.count();
       console.log(`📋 Dropdown abierto con ${optionCount} opciones`);
       
-      if (optionCount > 0) {
+      if (optionCount === 0) {
+        await cie10Input.fill('A09');
+        await page.waitForTimeout(1500);
+        const searchedOptions = page.locator('[role="option"]:visible, .dropdown-item:visible, div[id*="option"]:visible');
+        optionCount = await searchedOptions.count();
+        console.log(`📋 Opciones después de búsqueda: ${optionCount}`);
+        if (optionCount > 0) {
+          const optionText = await searchedOptions.first().textContent().catch(() => 'Opción');
+          await searchedOptions.first().click();
+          console.log(`✅ Diagnóstico CIE-10 seleccionado: "${optionText.trim().substring(0, 40)}..."`);
+          await page.waitForTimeout(500);
+        }
+      } else if (optionCount > 0) {
         const randomIndex = Math.floor(Math.random() * Math.min(optionCount, 10));
         const optionText = await options.nth(randomIndex).textContent().catch(() => 'Opción');
         await options.nth(randomIndex).click();
         console.log(`✅ Diagnóstico CIE-10 seleccionado: "${optionText.trim().substring(0, 40)}..."`);
-        
-        // Esperar a que el dropdown se cierre
         await page.waitForTimeout(500);
       }
     } else {
@@ -543,166 +498,264 @@ async function fillDiagnosticoSection(page) {
 
 async function fillTreatmentSection(page) {
   console.log('💊 Iniciando llenado de la sección de Tratamiento...');
-  
-  // PASO 1: Cerrar barra lateral
-  console.log('📌 Cerrando barra lateral...');
-  try {
-    const sidebarToggle = page.locator('#sidebar_toggle');
-    if (await sidebarToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await sidebarToggle.click();
-      console.log('✅ Barra lateral cerrada');
-      await page.waitForTimeout(500);
-    } else {
-      console.log('ℹ️ Botón sidebar no encontrado, continuando...');
-    }
-  } catch (e) {
-    console.log('⚠️ Error cerrando sidebar:', e.message.substring(0, 40));
-  }
+  let guardarTreatmentClicked = false;
+  let guardarLabClicked = false;
   
   try {
     await page.waitForTimeout(1000);
     
-    // PASO 2: LLENAR INDICACIONES GENERALES (RSW editors)
-    console.log('\n📋 Llenando Indicaciones Generales...');
-    await page.waitForTimeout(500);
+    // PASO 1: LLENAR INDICACIONES GENERALES (Jodit editor)
+    console.log('📋 Llenando Indicaciones Generales...');
+    const joditEditors = page.locator('div.jodit-wysiwyg');
+    const joditCount = await joditEditors.count();
+    console.log(`📝 Encontrados ${joditCount} Jodit editors`);
     
-    const rswEditors = page.locator('div.rsw-editor');
-    const rswCount = await rswEditors.count();
-    console.log(`📝 Encontrados ${rswCount} RSW editors en Tratamiento`);
-    
-    for (let i = 0; i < rswCount; i++) {
-      const editor = rswEditors.nth(i);
+    if (joditCount > 0) {
+      const editor = joditEditors.first();
       if (await editor.isVisible().catch(() => false)) {
-        const contentEditable = editor.locator('[contenteditable="true"]').first();
-        if (await contentEditable.count() > 0 && await contentEditable.isVisible().catch(() => false)) {
-          await contentEditable.click();
-          await page.waitForTimeout(200);
-          await page.keyboard.press('Control+A');
-          await page.waitForTimeout(100);
-          await page.keyboard.type('Indicaciones generales: Tomar medicamentos según prescripción médica. Mantener hidratación adecuada. Acudir a cita de control en caso de presentar algún síntoma adverso.');
-          console.log(`✅ RSW editor ${i+1} llenado`);
-        }
+        await editor.click();
+        await page.waitForTimeout(200);
+        await page.keyboard.press('Control+A');
+        await page.waitForTimeout(100);
+        await page.keyboard.type('Indicaciones generales: Tomar medicamentos según prescripción médica. Mantener hidratación adecuada.');
+        console.log('✅ Indicaciones generales llenadas');
       }
     }
-    console.log('✅ Indicaciones Generales completadas');
     await page.waitForTimeout(500);
     
-    // PASO 3: Registrar medicamentos
-    const vias = ['Cutánea', 'Inhalatoria', 'Intradérmica', 'Intramuscular', 'Intravenosa', 'Nasal', 'Ocular', 'Oral', 'Ótica', 'Rectal', 'Subcutánea', 'Sublingual', 'Transdérmica', 'Vaginal'];
-    const cantidades = [20, 100, 200, 400, 600, 800];
-    const unidades = ['miligramos', 'mililitros', 'gotas'];
-    const frecuencias = ['8', '12'];
-    const tiempos = ['día', 'semana', 'mes'];
-    
-    console.log('\n💊 Registrando medicamento 1: Paracetamol');
-    await registrarMedicamento(page, 'Paracetamol', vias, cantidades, unidades, frecuencias, tiempos);
-    
-    console.log('\n💊 Registrando medicamento 2: Ibuprofeno');
-    await registrarMedicamento(page, 'Ibuprofeno', vias, cantidades, unidades, frecuencias, tiempos);
-    
-    // PASO 4: Guardar medicamentos
-    console.log('\n💾 Guardando medicamentos...');
-    await page.waitForTimeout(1000);
-    
-    const guardarBtnsTratamiento = page.locator('button:has-text("Guardar cambios")');
-    const guardarCountTrat = await guardarBtnsTratamiento.count();
-    console.log(`💾 Encontrados ${guardarCountTrat} botones "Guardar cambios"`);
-    
-    for (let i = 0; i < guardarCountTrat; i++) {
-      const btn = guardarBtnsTratamiento.nth(i);
-      try {
-        if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) {
-          await btn.click({ force: true });
-          console.log(`✅ Click en "Guardar cambios" ${i + 1}`);
-          await page.waitForTimeout(2000);
-          const modal = page.locator('.swal2-container:visible, .swal2-popup:visible, [role="dialog"]:visible');
-          if (await modal.count() > 0) {
-            const okBtn = modal.locator('button:has-text("OK"), button:has-text("Aceptar"), .swal2-confirm');
-            if (await okBtn.count() > 0) {
-              await okBtn.first().click({ timeout: 3000 }).catch(() => {});
-              console.log('✅ Modal cerrado');
-              await page.waitForTimeout(1000);
-            }
-          }
+    // PASO 2: REGISTRAR 1 MEDICAMENTO VÍA REACT-SELECT (solo llenar, NO guardar)
+    console.log('\n💊 Registrando medicamento...');
+    const medicamentoSelect = page.locator('#react-select-2-input');
+    if (await medicamentoSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await medicamentoSelect.click();
+      await page.waitForTimeout(300);
+      await medicamentoSelect.fill('Paracetamol');
+      console.log('   🔍 Buscando opciones de medicamento...');
+      
+      let optionClicked = false;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        await page.waitForTimeout(1000);
+        const option = page.locator('[role="option"]:visible, div[id*="option"]:visible').first();
+        const optionCount = await option.count().catch(() => 0);
+        if (optionCount > 0) {
+          const text = await option.textContent().catch(() => '');
+          await option.click();
+          console.log(`   ✅ Medicamento seleccionado: "${(text || '').trim().substring(0, 40)}"`);
+          optionClicked = true;
+          break;
         }
-      } catch (e) {
-        console.log(`⚠️ Error botón guardar ${i + 1}: ${e.message.substring(0, 40)}`);
+        console.log(`   ⏳ Intento ${attempt + 1}/5: esperando opciones...`);
+      }
+      if (!optionClicked) {
+        console.log('   ⚠️ No aparecieron opciones de medicamento, continuando...');
+      }
+      await page.waitForTimeout(1000);
+      await page.waitForLoadState('networkidle');
+      
+      // Llenar formulario del medicamento
+      const viaSelect = page.locator('select[name="iViaAdministracionId-0"]');
+      if (await viaSelect.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await viaSelect.selectOption({ index: 1 });
+        console.log('✅ Vía seleccionada');
+      }
+      
+      const dosisInput = page.locator('input[name="dosis_cantidad"]');
+      if (await dosisInput.isVisible().catch(() => false)) {
+        await dosisInput.fill('1');
+        console.log('✅ Dosis ingresada');
+      }
+      
+      const unidadSelect = page.locator('select[name="unidad_dosis_id-0"]');
+      if (await unidadSelect.isVisible().catch(() => false)) {
+        await unidadSelect.selectOption({ index: 1 });
+        console.log('✅ Unidad seleccionada');
+      }
+      
+      const frecuenciaInput = page.locator('input[name="frecuencia_cantidad"]');
+      if (await frecuenciaInput.isVisible().catch(() => false)) {
+        await frecuenciaInput.fill('8');
+        console.log('✅ Frecuencia ingresada');
+      }
+      
+      const duracionInput = page.locator('input[name="tiempo_cantidad"]');
+      if (await duracionInput.isVisible().catch(() => false)) {
+        await duracionInput.fill('10');
+        console.log('✅ Duración ingresada');
+      }
+      
+      const tiempoSelect = page.locator('select[name="unidad_tiempo_id-0"]');
+      if (await tiempoSelect.isVisible().catch(() => false)) {
+        await tiempoSelect.selectOption({ index: 1 });
+        console.log('✅ Tiempo seleccionado');
+      }
+      
+      const indicacionesInput = page.locator('input[name="indicaciones-0"]');
+      if (await indicacionesInput.isVisible().catch(() => false)) {
+        await indicacionesInput.fill('Indicaciones estándar');
+        console.log('✅ Indicaciones del medicamento ingresadas');
       }
     }
     
-    // PASO 5: Laboratorios y Procedimientos
-    console.log('\n🔬 Iniciando Laboratorios y Procedimientos...');
-    await fillLaboratoriosSection(page);
-    
-    // PASO 6: Guardar LABORATORIOS (buscar botón "Guardar cambios" en sección de Laboratorios)
-    console.log('\n💾 Guardando Laboratorios...');
-    await page.waitForTimeout(1000);
-    
-    const guardarLabCount = await page.evaluate(() => {
-      // Buscar el label "Solicitud" que es único de la sección de Laboratorios
-      const solicitudLabel = document.querySelector('label');
-      let labSection = null;
+    // PASO 3: AGREGA TRATAMIENTO DIFERENTE (con nombre + indicaciones)
+    console.log('\n➕ Agregando tratamiento diferente...');
+    const agregarBtn = page.locator('button:has-text("Agrega tratamiendo diferente")');
+    if (await agregarBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await agregarBtn.click();
+      await page.waitForTimeout(1000);
       
-      // Buscar el label que contiene "Solicitud"
-      const allLabels = document.querySelectorAll('label');
-      for (const label of allLabels) {
-        if (label.textContent.trim().toLowerCase().includes('solicitud')) {
-          // Navegar hacia arriba para encontrar el contenedor de la sección de Laboratorios
-          let parent = label.parentElement;
-          for (let i = 0; i < 15 && parent; i++) {
-            const btn = parent.querySelector('button');
-            if (btn && btn.textContent.trim().toLowerCase().includes('guardar cambios')) {
-              labSection = btn;
-              break;
-            }
-            parent = parent.parentElement;
+      const otrosContainer = page.locator('label:has-text("Otros medicamentos")').locator('..').locator('..');
+      
+      // Nombre del otro medicamento
+      const nombreInput = otrosContainer.locator('input[maxlength="240"]');
+      if (await nombreInput.isVisible().catch(() => false)) {
+        await nombreInput.fill('Ácido fólico');
+        console.log('✅ Nombre tratamiento diferente ingresado');
+      }
+      
+      // Segundo apartado de indicaciones
+      let indicacionesLlenado = false;
+      const indicacionesSelectors = [
+        otrosContainer.locator('textarea:visible'),
+        otrosContainer.locator('input[maxlength="700"]'),
+        otrosContainer.locator('input[placeholder*="indicacion" i]'),
+        otrosContainer.locator('textarea[placeholder*="indicacion" i]'),
+        page.locator('textarea:visible').last()
+      ];
+      
+      for (const sel of indicacionesSelectors) {
+        if (await sel.count().catch(() => 0) > 0 && await sel.first().isVisible().catch(() => false)) {
+          await sel.first().fill('Tomar 1 tableta cada 24 horas');
+          console.log('✅ Indicaciones tratamiento diferente ingresadas');
+          indicacionesLlenado = true;
+          break;
+        }
+      }
+      if (!indicacionesLlenado) {
+        console.log('   ⚠️ No se encontró campo de indicaciones para tratamiento diferente');
+      }
+      
+      // GUARDAR TRATAMIENTO (type="submit") - último paso antes de laboratorios
+      await page.waitForTimeout(500);
+      const guardarTreatment = page.locator('button[type="submit"]:has-text("Guardar cambios")');
+      if (await guardarTreatment.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await guardarTreatment.click();
+        console.log('✅ Tratamiento guardado (type="submit")');
+        guardarTreatmentClicked = true;
+        await page.waitForTimeout(2000);
+        const modal = page.locator('.swal2-confirm:visible');
+        if (await modal.count() > 0) {
+          await modal.first().click();
+          await page.waitForTimeout(500);
+        }
+      } else {
+        console.log('   ⚠️ No se encontró botón Guardar type="submit"');
+        // Fallback: buscar cualquier botón "Guardar cambios"
+        const fallbackBtn = page.locator('button:has-text("Guardar cambios")').first();
+        if (await fallbackBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await fallbackBtn.click();
+          console.log('✅ Guardar clickeado (fallback)');
+          guardarTreatmentClicked = true;
+          await page.waitForTimeout(2000);
+        }
+      }
+    }
+    await page.waitForTimeout(500);
+    
+    // PASO 4: LABORATORIOS Y PROCEDIMIENTOS
+    console.log('\n🔬 Laboratorios y Procedimientos...');
+    
+    if (joditCount > 1) {
+      const labEditor = joditEditors.nth(1);
+      if (await labEditor.isVisible().catch(() => false)) {
+        await labEditor.click();
+        await page.waitForTimeout(200);
+        await page.keyboard.press('Control+A');
+        await page.waitForTimeout(100);
+        await page.keyboard.type('Solicitar estudios de laboratorio de rutina');
+        console.log('✅ Indicaciones de laboratorio llenadas');
+      }
+    }
+    await page.waitForTimeout(500);
+    
+    const labSelect = page.locator('#react-select-3-input');
+    if (await labSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await labSelect.click();
+      await page.waitForTimeout(300);
+      await labSelect.fill('Biometría');
+      console.log('   🔍 Buscando opciones de laboratorio...');
+
+      let labOptionClicked = false;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        await page.waitForTimeout(1000);
+        const labOption = page.locator('[role="option"]:visible, div[id*="option"]:visible').first();
+        const optionCount = await labOption.count().catch(() => 0);
+        if (optionCount > 0) {
+          const text = await labOption.textContent().catch(() => '');
+          await labOption.click();
+          console.log(`   ✅ Laboratorio seleccionado: "${(text || '').trim().substring(0, 40)}"`);
+          labOptionClicked = true;
+          break;
+        }
+        console.log(`   ⏳ Intento ${attempt + 1}/5: esperando opciones de laboratorio...`);
+      }
+      if (!labOptionClicked) {
+        console.log('   ⚠️ No aparecieron opciones de laboratorio, continuando...');
+      }
+      await page.waitForTimeout(1000);
+    }
+    
+    const procedimientoInput = page.locator('textarea[name="procedimiento-0"]');
+    if (await procedimientoInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await procedimientoInput.fill('Biometría hemática completa');
+      console.log('✅ Procedimiento llenado');
+    }
+    
+    // GUARDAR LABORATORIOS - scroll y buscar
+    await page.waitForTimeout(500);
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(500);
+    
+    let guardarFound = false;
+    const labGuardarSelectors = [
+      'button[type="button"]:has-text("Guardar cambios")',
+      'button:has-text("Guardar cambios")',
+      'button.btn.btn-primary.mt-5:has-text("Guardar cambios")'
+    ];
+    
+    for (const sel of labGuardarSelectors) {
+      const btn = page.locator(sel);
+      const count = await btn.count().catch(() => 0);
+      for (let i = 0; i < count; i++) {
+        if (await btn.nth(i).isVisible({ timeout: 1000 }).catch(() => false)) {
+          const btnType = await btn.nth(i).getAttribute('type').catch(() => 'sin-type');
+          await btn.nth(i).click();
+          console.log(`✅ Laboratorios guardados (selector: "${sel}", #${i}, type="${btnType}")`);
+          guardarLabClicked = true;
+          guardarFound = true;
+          await page.waitForTimeout(2000);
+          const modal = page.locator('.swal2-confirm:visible');
+          if (await modal.count() > 0) {
+            await modal.first().click();
+            await page.waitForTimeout(500);
           }
           break;
         }
       }
-      
-      if (labSection) {
-        labSection.click();
-        return 1;
-      }
-      
-      // Fallback: buscar el ÚLTIMO botón "Guardar cambios" (el de laboratorios)
-      const buttons = document.querySelectorAll('button');
-      let lastGuardar = null;
-      buttons.forEach(btn => {
-        if (btn.textContent.trim().toLowerCase().includes('guardar cambios')) {
-          lastGuardar = btn;
-        }
-      });
-      
-      if (lastGuardar) {
-        lastGuardar.click();
-        return 1;
-      }
-      
-      return 0;
-    });
+      if (guardarFound) break;
+    }
     
-    if (guardarLabCount > 0) {
-      console.log('💾 Click en "Guardar cambios" de Laboratorios');
-      await page.waitForTimeout(2000);
-      
-      // Cerrar modales
-      await page.evaluate(() => {
-        const modals = document.querySelectorAll('.swal2-confirm, .swal2-popup button');
-        modals.forEach(btn => {
-          if (btn.offsetParent !== null) btn.click();
-        });
-      });
-      await page.waitForTimeout(1000);
-    } else {
-      console.log('⚠️ No se encontró botón de guardar en Laboratorios');
+    if (!guardarFound) {
+      console.log('   ⚠️ No se encontró botón Guardar cambios visible para laboratorios');
+      await page.screenshot({ path: 'test-results/lab-guardar-not-found.png', fullPage: true });
     }
     
     console.log('\n✅ Sección de Tratamiento completada');
+    console.log(`📊 Guardar tratamiento (type="submit"): ${guardarTreatmentClicked ? '✅' : '❌'}, Guardar lab (type="button"): ${guardarLabClicked ? '✅' : '❌'}`);
   } catch (error) {
     console.log(`⚠️ Error en fillTreatmentSection: ${error.message}`);
   }
+
+  return { guardarTreatmentClicked, guardarLabClicked };
 }
 
 async function fillNotasMedicoSection(page) {
@@ -818,131 +871,61 @@ async function fillServiciosSection(page) {
   try {
     await page.waitForTimeout(1000);
     
-    // 1. MANEJAR DROPDOWNS (tipo CIE-10)
-    console.log('🔍 Buscando dropdowns en Servicios...');
-    
-    const dropdownLabels = ['servicio', 'tipo', 'concepto', 'clasificación'];
-    
-    for (const labelText of dropdownLabels) {
-      const labelDropdown = page.locator(`label:has-text("${labelText}"), span:has-text("${labelText}"), div:has-text("${labelText}")`).first();
-      
-      if (await labelDropdown.isVisible({ timeout: 1000 }).catch(() => false)) {
-        console.log(`✅ Label "${labelText}" encontrado`);
-        
-        // Buscar input/combobox cerca del label
-        let dropdownInput = labelDropdown.locator('xpath=following::input[1] | xpath=../input | xpath=..//input | xpath=following-sibling::div//input').first();
-        
-        if (!dropdownInput || !await dropdownInput.isVisible().catch(() => false)) {
-          const selectors = [
-            'input[role="combobox"]',
-            'input[placeholder*="buscar" i]',
-            'input[placeholder*="seleccion" i]',
-            '.vs__search',
-            'input[type="search"]'
-          ];
-          
-          for (const sel of selectors) {
-            const input = page.locator(sel).first();
-            if (await input.isVisible({ timeout: 500 }).catch(() => false)) {
-              dropdownInput = input;
-              console.log(`✅ Dropdown encontrado con: ${sel}`);
-              break;
-            }
-          }
-        }
-        
-        if (dropdownInput && await dropdownInput.isVisible().catch(() => false)) {
-          // Click en SVG o en el input
-          const svgIcon = page.locator('svg.css-8mmkcg, svg[class*="css-"]').first();
-          if (await svgIcon.isVisible({ timeout: 1000 }).catch(() => false)) {
-            await svgIcon.click();
-            console.log('✅ Click en SVG del dropdown');
-          } else {
-            const nearbySvg = dropdownInput.locator('xpath=following-sibling::svg | xpath=../svg | xpath=..//svg').first();
-            if (await nearbySvg.isVisible({ timeout: 500 }).catch(() => false)) {
-              await nearbySvg.click();
-              console.log('✅ Click en SVG cercano');
-            } else {
-              await dropdownInput.click();
-              console.log('✅ Click en input dropdown');
-            }
-          }
-          await page.waitForTimeout(800);
-          
-          // Buscar opción específica "Certificado Médico" o aleatoria
-          const options = page.locator('[role="option"]:visible, .dropdown-item:visible, li:visible, ul li:visible');
-          const optionCount = await options.count();
-          console.log(`📋 Dropdown abierto con ${optionCount} opciones`);
-          
-          if (optionCount > 0) {
-            // Buscar "Certificado Médico" primero
-            let certificadoOption = null;
-            for (let j = 0; j < optionCount; j++) {
-              const optionText = await options.nth(j).textContent().catch(() => '');
-              if (optionText.toLowerCase().includes('certificado') && optionText.toLowerCase().includes('médico')) {
-                certificadoOption = options.nth(j);
-                console.log(`✅ Certificado Médico encontrado en índice ${j}`);
-                break;
-              }
-            }
-            
-            // Si no se encuentra, usar aleatorio
-            if (!certificadoOption) {
-              const randomIndex = Math.floor(Math.random() * Math.min(optionCount, 10));
-              certificadoOption = options.nth(randomIndex);
-              const optionText = await certificadoOption.textContent().catch(() => 'Opción');
-              console.log(`ℹ️ Certificado Médico no encontrado, usando: "${optionText.trim().substring(0, 40)}..."`);
-            }
-            
-            await certificadoOption.click();
-            console.log(`✅ Opción seleccionada`);
-            await page.waitForTimeout(500);
+    // 1. SELECCIONAR 1 SOLO SERVICIO
+    console.log('🔍 Buscando dropdown de servicio...');
+    let servicioSeleccionado = false;
+
+    const comboboxInputs = page.locator('input[role="combobox"]:visible, input[id*="react-select"]:visible');
+    const cbCount = await comboboxInputs.count();
+    console.log(`📋 Encontrados ${cbCount} inputs de dropdown en Servicios`);
+
+    if (cbCount > 0) {
+      const dropdownInput = comboboxInputs.first();
+      await dropdownInput.click();
+      await page.waitForTimeout(500);
+      const svgIcon = page.locator('svg.css-8mmkcg, svg[class*="css-"]').first();
+      if (await svgIcon.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await svgIcon.click();
+      }
+      await page.waitForTimeout(1500);
+      console.log('✅ Dropdown abierto');
+
+      const dropdownMenu = page.locator('[class*="menu"]:not([class*="sidebar"]):not([class*="nav"])').last();
+      const options = dropdownMenu.locator('[class*="option"], [role="option"]');
+      let optionCount = await options.count();
+
+      if (optionCount === 0) {
+        await page.waitForTimeout(2000);
+        optionCount = await options.count();
+      }
+      console.log(`📋 ${optionCount} opciones disponibles`);
+
+      for (let j = 0; j < optionCount; j++) {
+        const option = options.nth(j);
+        if (await option.isVisible({ timeout: 300 }).catch(() => false)) {
+          const optionText = (await option.textContent().catch(() => '')).trim();
+          if (j < 10) console.log(`   Opción ${j}: "${optionText.substring(0, 60)}"`);
+          if (optionText.toLowerCase().includes('certificado')) {
+            await option.click();
+            console.log(`✅ Seleccionado: "${optionText.substring(0, 60)}..."`);
+            servicioSeleccionado = true;
+            break;
           }
         }
       }
-    }
-    
-    // RSW editors (contenteditable)
-    const rswEditors = page.locator('div.rsw-editor');
-    const rswCount = await rswEditors.count();
-    console.log(`📝 Encontrados ${rswCount} RSW editors en Servicios`);
-    
-    for (let i = 0; i < rswCount; i++) {
-      const editor = rswEditors.nth(i);
-      if (await editor.isVisible().catch(() => false)) {
-        const contentEditable = editor.locator('[contenteditable="true"]').first();
-        if (await contentEditable.count() > 0 && await contentEditable.isVisible().catch(() => false)) {
-          await contentEditable.click();
-          await page.waitForTimeout(200);
-          await page.keyboard.press('Control+A');
-          await page.waitForTimeout(100);
-          await page.keyboard.type('Servicio proporcionado según protocolo médico. Evaluación completa realizada durante la consulta.');
-          console.log(`✅ RSW editor ${i+1} llenado`);
-        }
+
+      if (!servicioSeleccionado && optionCount > 0) {
+        const firstOption = options.first();
+        const text = await firstOption.textContent().catch(() => '');
+        await firstOption.click();
+        console.log(`✅ Seleccionado (primera opción): "${(text || '').trim().substring(0, 60)}"`);
+        servicioSeleccionado = true;
       }
+
+      await page.waitForTimeout(1000);
     }
-    
-    // Contenido editable suelto
-    const contentEditable = page.locator('[contenteditable="true"]:not([style*="display: none"]):not([style*="display:none"])');
-    const ceCount = await contentEditable.count();
-    console.log(`📝 Encontrados ${ceCount} contenteditable en Servicios`);
-    
-    for (let i = 0; i < ceCount; i++) {
-      const el = contentEditable.nth(i);
-      if (await el.isVisible().catch(() => false)) {
-        const currentText = await el.textContent().catch(() => '');
-        if (!currentText || currentText.trim() === '') {
-          await el.click();
-          await page.waitForTimeout(200);
-          await page.keyboard.press('Control+A');
-          await page.waitForTimeout(100);
-          await page.keyboard.type('Servicio médico: Consulta de seguimiento completada exitosamente.');
-          console.log(`✅ Contenteditable ${i+1} llenado`);
-        }
-      }
-    }
-    
-    // Textareas normales
+
+    // 2. LLENAR TEXTAREAS
     const textareas = page.locator('textarea:not([disabled]):not([readonly])');
     const taCount = await textareas.count();
     console.log(`📝 Encontradas ${taCount} textareas en Servicios`);
@@ -961,97 +944,38 @@ async function fillServiciosSection(page) {
         }
       }
     }
-    
-    // Buscar dropdown de servicio, abrirlo y seleccionar "Certificado Médico"
-    console.log('🔍 Abriendo dropdown de servicio...');
-    try {
-      const comboboxInputs = page.locator('input[role="combobox"]:visible, input[id*="react-select"]:visible');
-      const cbCount = await comboboxInputs.count();
-      console.log(`📋 Encontrados ${cbCount} inputs de dropdown en Servicios`);
 
-      if (cbCount > 0) {
-        const dropdownInput = comboboxInputs.first();
-        // Solo hacer click para abrir el dropdown, sin escribir nada
-        await dropdownInput.click();
-        await page.waitForTimeout(500);
-        // Hacer click en el SVG (flecha) si existe para asegurar que se abre
-        const svgIcon = page.locator('svg.css-8mmkcg, svg[class*="css-"]').first();
-        if (await svgIcon.isVisible({ timeout: 1000 }).catch(() => false)) {
-          await svgIcon.click();
-        }
-        await page.waitForTimeout(1500);
-        console.log('✅ Dropdown abierto');
+    // 3. GUARDAR SERVICIOS
+    if (servicioSeleccionado) {
+      console.log('💾 Buscando botón "Guardar servicios"...');
+      await page.waitForTimeout(500);
+      const guardarServiciosSelectors = [
+        page.getByRole('button', { name: /guardar servicios/i }),
+        page.getByRole('button', { name: /guardar/i }),
+        page.locator('button:has-text("Guardar servicios")'),
+        page.locator('button:has-text("Guardar")')
+      ];
 
-        // Buscar opciones del dropdown (solo dentro del menú del dropdown, no el menú lateral)
-        const dropdownMenu = page.locator('[class*="menu"]:not([class*="sidebar"]):not([class*="nav"])').last();
-        const options = dropdownMenu.locator('[class*="option"], [role="option"]');
-        let optionCount = await options.count();
-        console.log(`📋 ${optionCount} opciones disponibles`);
+      for (const selector of guardarServiciosSelectors) {
+        try {
+          if (await selector.count() > 0 && await selector.first().isVisible({ timeout: 2000 }).catch(() => false)) {
+            await selector.first().click();
+            console.log('✅ Click en "Guardar servicios"');
+            await page.waitForTimeout(1500);
 
-        // Si no hay opciones, esperar y reintentar
-        if (optionCount === 0) {
-          await page.waitForTimeout(2000);
-          optionCount = await options.count();
-          console.log(`📋 ${optionCount} opciones (reintento)`);
-        }
-
-        // Buscar "Certificado Médico" entre las opciones visibles
-        let certificadoSelected = false;
-        for (let j = 0; j < optionCount; j++) {
-          const option = options.nth(j);
-          if (await option.isVisible({ timeout: 300 }).catch(() => false)) {
-            const optionText = (await option.textContent().catch(() => '')).trim();
-            // Loggear primeras 10 opciones para debug
-            if (j < 10) console.log(`   Opción ${j}: "${optionText.substring(0, 60)}"`);
-            if (optionText.toLowerCase().includes('certificado')) {
-              await option.click();
-              console.log(`✅ Seleccionado: "${optionText.substring(0, 60)}..."`);
-              certificadoSelected = true;
-              break;
+            const modal = page.locator('.swal2-container:visible, [role="dialog"]:visible');
+            if (await modal.count() > 0) {
+              const okBtn = modal.locator('button:has-text("OK"), button:has-text("Aceptar"), .swal2-confirm');
+              if (await okBtn.count() > 0) {
+                await okBtn.first().click({ timeout: 2000 }).catch(() => {});
+                await page.waitForTimeout(500);
+              }
             }
+            break;
           }
+        } catch (e) {
+          continue;
         }
-
-        if (!certificadoSelected) {
-          console.log('⚠️ No se encontró Certificado Médico en las opciones');
-        }
-
-        await page.waitForTimeout(1000);
-      }
-    } catch (e) {
-      console.log('⚠️ Error con dropdown de certificado:', e.message.substring(0, 50));
-    }
-
-    // Click en botón "Guardar servicios"
-    console.log('💾 Buscando botón "Guardar servicios"...');
-    await page.waitForTimeout(500);
-    const guardarServiciosSelectors = [
-      page.getByRole('button', { name: /guardar servicios/i }),
-      page.getByRole('button', { name: /guardar/i }),
-      page.locator('button:has-text("Guardar servicios")'),
-      page.locator('button:has-text("Guardar")')
-    ];
-
-    for (const selector of guardarServiciosSelectors) {
-      try {
-        if (await selector.count() > 0 && await selector.first().isVisible({ timeout: 2000 }).catch(() => false)) {
-          await selector.first().click();
-          console.log('✅ Click en "Guardar servicios"');
-          await page.waitForTimeout(1500);
-
-          // Cerrar modal si aparece
-          const modal = page.locator('.swal2-container:visible, [role="dialog"]:visible');
-          if (await modal.count() > 0) {
-            const okBtn = modal.locator('button:has-text("OK"), button:has-text("Aceptar"), .swal2-confirm');
-            if (await okBtn.count() > 0) {
-              await okBtn.first().click({ timeout: 2000 }).catch(() => {});
-              await page.waitForTimeout(500);
-            }
-          }
-          break;
-        }
-      } catch (e) {
-        continue;
       }
     }
 
@@ -1063,120 +987,6 @@ async function fillServiciosSection(page) {
   }
 }
 
-async function fillLaboratoriosSection(page) {
-  console.log('🔬 Llenando sección de Laboratorios y Procedimientos...');
-  
-  try {
-    await page.waitForTimeout(1000);
-    
-    // 1. LLENAR INDICACIONES DE LABORATORIOS (rsw-editor)
-    console.log('📝 Llenando indicaciones de laboratorios...');
-    try {
-      // Esperar a que el editor esté listo
-      await page.waitForSelector('div.rsw-editor', { timeout: 3000 }).catch(() => {});
-      
-      // Buscar el editor de indicacionesLab
-      const indicacionesLab = page.locator('div.rsw-editor div[name="indicacionesLab"], #indicacionesLab');
-      
-      if (await indicacionesLab.count() > 0) {
-        // Esperar a que sea visible
-        await indicacionesLab.first().waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
-        
-        // Hacer click para enfocar y luego escribir
-        await indicacionesLab.first().click();
-        await page.waitForTimeout(300);
-        
-        // Usar keyboard para escribir en contenteditable
-        await page.keyboard.type('Solicitar estudios de laboratorio según indicación clínica. Hemograma completo, química sanguínea, perfil hepático.');
-        console.log('✅ Indicaciones de laboratorios llenadas');
-      } else {
-        console.log('⚠️ Editor de indicacionesLab no encontrado');
-      }
-    } catch (e) {
-      console.log('⚠️ Error llenando indicaciones lab:', e.message.substring(0, 50));
-    }
-    await page.waitForTimeout(500);
-    
-    // 2. SELECCIONAR ESTUDIO/PROCEDIMIENTO DEL DROPDOWN
-    console.log('🔬 Buscando dropdown de solicitud...');
-    try {
-      // Buscar el label "Solicitud" y luego el dropdown cerca de él
-      const solicitudLabel = page.locator('label:has-text("Solicitud")');
-      const labelCount = await solicitudLabel.count();
-      
-      if (labelCount > 0) {
-        console.log(`📋 Label "Solicitud" encontrado (${labelCount})`);
-        
-        // Buscar el container de react-select cerca del label
-        // El container está en el mismo div que el label
-        const solicitudInput = page.locator('label:has-text("Solicitud") ~ div input[role="combobox"], label:has-text("Solicitud") + div input[role="combobox"]');
-        
-        if (await solicitudInput.count() > 0 && await solicitudInput.first().isVisible({ timeout: 2000 }).catch(() => false)) {
-          // Hacer click en el input
-          await solicitudInput.first().click();
-          console.log('✅ Click en input de solicitud');
-          
-          await page.waitForTimeout(1000);
-          
-          // Buscar y seleccionar una opción
-          const options = page.locator('[role="option"]:visible');
-          const optionCount = await options.count();
-          console.log(`📋 Dropdown de solicitud abierto con ${optionCount} opciones`);
-          
-          if (optionCount > 0) {
-            const randomIndex = Math.floor(Math.random() * Math.min(optionCount, 10));
-            const optionText = await options.nth(randomIndex).textContent().catch(() => 'Estudio');
-            await options.nth(randomIndex).click();
-            console.log(`✅ Estudio seleccionado: "${optionText.trim().substring(0, 40)}..."`);
-          } else {
-            // Intentar escribir para buscar
-            await solicitudInput.first().type('Biometría', { delay: 80 });
-            await page.waitForTimeout(1000);
-            
-            const searchOptions = page.locator('[role="option"]:visible');
-            const searchCount = await searchOptions.count();
-            
-            if (searchCount > 0) {
-              await searchOptions.first().click();
-              console.log('✅ Estudio seleccionado por búsqueda');
-            } else {
-              console.log('⚠️ No se encontraron opciones en el dropdown');
-            }
-          }
-        } else {
-          // Buscar por ID react-select-4-input
-          const reactSelectInput = page.locator('#react-select-4-input');
-          if (await reactSelectInput.count() > 0) {
-            await reactSelectInput.click();
-            console.log('✅ Click en react-select-4-input');
-            await page.waitForTimeout(1000);
-            
-            const options = page.locator('[role="option"]:visible');
-            const optionCount = await options.count();
-            console.log(`📋 Dropdown abierto con ${optionCount} opciones`);
-            
-            if (optionCount > 0) {
-              await options.first().click();
-              console.log('✅ Estudio seleccionado');
-            }
-          } else {
-            console.log('⚠️ Dropdown de solicitud no encontrado');
-          }
-        }
-      } else {
-        console.log('⚠️ Label "Solicitud" no encontrado');
-      }
-    } catch (e) {
-      console.log('⚠️ Error con dropdown solicitud:', e.message.substring(0, 50));
-    }
-    await page.waitForTimeout(500);
-    
-    console.log('✅ Laboratorios y Procedimientos registrados (se guardarán al final)');
-    
-  } catch (error) {
-    console.log('⚠️ Error en fillLaboratoriosSection:', error.message.substring(0, 60));
-  }
-}
 
 async function registrarMedicamento(page, nombreMedicamento, vias, cantidades, unidades, frecuencias, tiempos) {
   // Seleccionar valor aleatorio
@@ -1487,8 +1297,8 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
   
   const presionInput = page.locator('input[placeholder="000/000 mmHg"]');
   if (await presionInput.isVisible().catch(() => false)) {
-    await presionInput.fill('120/80');
-    console.log('💓 Presión arterial: 120/80');
+    await presionInput.fill('120/080');
+    console.log('💓 Presión arterial: 120/080');
   }
   
   const tempInput = page.locator('input[name*="temp" i]');
@@ -1619,7 +1429,27 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     } else if (tabName === 'Diagnóstico') {
       await fillDiagnosticoSection(page);
     } else if (tabName === 'Tratamiento') {
-      await fillTabFields(page, tabName);
+      const { guardarTreatmentClicked, guardarLabClicked } = await fillTreatmentSection(page);
+      if (!guardarTreatmentClicked || !guardarLabClicked) {
+        console.log(`❌ No se encontraron ambos botones Guardar cambios. Treatment: ${guardarTreatmentClicked}, Lab: ${guardarLabClicked}. Reintentando...`);
+        await page.waitForTimeout(2000);
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+        await page.waitForTimeout(500);
+        const allGuardar = page.locator('button:has-text("Guardar cambios")');
+        const retryCount = await allGuardar.count();
+        for (let i = 0; i < retryCount; i++) {
+          if (await allGuardar.nth(i).isVisible({ timeout: 1000 }).catch(() => false)) {
+            await allGuardar.nth(i).click();
+            console.log(`✅ Retry: Guardar #${i+1} clickeado`);
+            await page.waitForTimeout(1500);
+            const modal = page.locator('.swal2-confirm:visible');
+            if (await modal.count() > 0) {
+              await modal.first().click();
+              await page.waitForTimeout(500);
+            }
+          }
+        }
+      }
     } else if (tabName === 'Notas del Médico') {
       await fillNotasMedicoSection(page);
     } else if (tabName === 'Servicios') {
