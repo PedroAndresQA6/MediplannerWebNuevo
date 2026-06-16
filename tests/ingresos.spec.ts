@@ -45,14 +45,17 @@ async function navegarAIngresos(page: any) {
   const ingresosLink = page.locator('span.menu-title:text-is("Ingresos")');
   await ingresosLink.click();
   await expect(page).toHaveURL(/Ingresos/);
-  await page.waitForLoadState('networkidle');
+  await page.waitForSelector('select#estatus', { timeout: 15000 });
   console.log('✅ Navegado a Ingresos');
 }
 
 async function aplicarFiltroPendiente(page: any) {
   await page.locator('select#estatus').selectOption({ value: '2' });
   await page.locator('button.btn-icon.btn.bg-gray-300.ms-3[type="button"]').click();
-  await page.waitForLoadState('networkidle');
+  await page.waitForResponse(
+    (res: any) => res.url().includes('getFiltered') && res.status() < 400,
+    { timeout: 15000 }
+  ).catch(() => null);
   console.log('✅ Filtro "Pendiente" aplicado');
 }
 
@@ -136,14 +139,14 @@ test.describe('Módulo de Ingresos', () => {
         await test.step('Abrir ingreso', async () => {
           console.log('👁️ Abriendo ingreso...');
           await eyeButton.click();
-          await page.waitForLoadState('networkidle');
+          await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
         });
 
         await test.step('Click en Abonar', async () => {
           const abonarBtn = page.getByRole('button', { name: /abonar/i });
           await expect(abonarBtn).toBeVisible({ timeout: 10000 });
           await abonarBtn.click();
-          await page.waitForLoadState('networkidle');
+          await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
           console.log('✅ Click en Abonar');
         });
 
@@ -167,7 +170,7 @@ test.describe('Módulo de Ingresos', () => {
               }
             }
           }
-          await page.waitForLoadState('networkidle');
+          await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
         });
 
         await test.step('Seleccionar método de pago', async () => {
@@ -192,7 +195,7 @@ test.describe('Módulo de Ingresos', () => {
             console.log(`⚠️ No se encontró "${metodoRandom}", seleccionando primer radio disponible`);
             await radioButtons.nth(1).click();
           }
-          await page.waitForLoadState('networkidle');
+          await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
         });
 
         await test.step('Registrar pago', async () => {
@@ -216,7 +219,7 @@ test.describe('Módulo de Ingresos', () => {
             const confirmBtn = modal.locator('.swal2-confirm, button:has-text("OK"), button:has-text("Aceptar")');
             if (await confirmBtn.count() > 0) {
               await confirmBtn.first().click();
-              await page.waitForLoadState('networkidle');
+              await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
               console.log('✅ Modal confirmado');
             }
           }
