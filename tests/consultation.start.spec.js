@@ -1327,119 +1327,122 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     }
   }
     
-  console.log('▶️ Iniciando consulta...');
-  await page.waitForTimeout(1000);
-  const overlay = page.locator('div.fixed.inset-0.bg-black.bg-opacity-50');
-  if (await overlay.count() > 0 && await overlay.first().isVisible()) {
-    await page.keyboard.press('Escape');
+  await test.step('Iniciar consulta y signos vitales', async () => {
+    console.log('▶️ Iniciando consulta...');
     await page.waitForTimeout(1000);
-  }
-  await iniciarButtons.nth(selectedIndex).click({ force: true });
-    
-  const signosButton = page.getByRole('button', { name: /capturar signos vitales/i });
-  await expect(signosButton).toBeVisible({ timeout: 10000 });
-  await signosButton.click();
-    
-  console.log('💉 Llenando signos vitales...');
-  await page.waitForTimeout(1000);
-  
-  const allInputs = page.locator('input:not([disabled]):not([readonly])');
-  const inputCount = await allInputs.count();
-  console.log(`📝 Encontrados ${inputCount} inputs en signos vitales`);
-  
-  const sv = DATOS_CLINICOS.signosVitales;
-  const svPeso    = pick(sv.pesos);
-  const svTalla   = pick(sv.tallas);
-  const svPresion = pick(sv.presiones);
-  const svTemp    = pick(sv.temperaturas);
-  const svFC      = pick(sv.frecuenciasCardiacas);
-  const svSat     = pick(sv.saturaciones);
-  const svFR      = pick(sv.frecuenciasRespiratorias);
-  const svGlucosa = pick(sv.glucosas);
-  console.log(`💉 Signos vitales: peso=${svPeso} talla=${svTalla} PA=${svPresion} temp=${svTemp} FC=${svFC} sat=${svSat} FR=${svFR} glucosa=${svGlucosa}`);
+    const overlay = page.locator('div.fixed.inset-0.bg-black.bg-opacity-50');
+    if (await overlay.count() > 0 && await overlay.first().isVisible()) {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1000);
+    }
+    await iniciarButtons.nth(selectedIndex).click({ force: true });
 
-  await page.locator('input[name="peso"]').fill(svPeso);
+    const signosButton = page.getByRole('button', { name: /capturar signos vitales/i });
+    await expect(signosButton).toBeVisible({ timeout: 10000 });
+    await signosButton.click();
 
-  const tallaInput = page.locator('input[name*="talla" i]');
-  if (await tallaInput.count() > 0) await tallaInput.first().fill(svTalla);
+    console.log('💉 Llenando signos vitales...');
+    await page.waitForTimeout(1000);
 
-  const presionInput = page.locator('input[placeholder="000/000 mmHg"]');
-  if (await presionInput.isVisible().catch(() => false)) {
-    await presionInput.fill(svPresion);
-    console.log(`💓 Presión arterial: ${svPresion}`);
-  }
+    const allInputs = page.locator('input:not([disabled]):not([readonly])');
+    const inputCount = await allInputs.count();
+    console.log(`📝 Encontrados ${inputCount} inputs en signos vitales`);
 
-  const tempInput = page.locator('input[name*="temp" i]');
-  if (await tempInput.count() > 0) await tempInput.first().fill(svTemp);
+    const sv = DATOS_CLINICOS.signosVitales;
+    const svPeso    = pick(sv.pesos);
+    const svTalla   = pick(sv.tallas);
+    const svPresion = pick(sv.presiones);
+    const svTemp    = pick(sv.temperaturas);
+    const svFC      = pick(sv.frecuenciasCardiacas);
+    const svSat     = pick(sv.saturaciones);
+    const svFR      = pick(sv.frecuenciasRespiratorias);
+    const svGlucosa = pick(sv.glucosas);
+    console.log(`💉 Signos vitales: peso=${svPeso} talla=${svTalla} PA=${svPresion} temp=${svTemp} FC=${svFC} sat=${svSat} FR=${svFR} glucosa=${svGlucosa}`);
 
-  const fcInput = page.locator('input[name*="card" i]');
-  if (await fcInput.count() > 0) await fcInput.first().fill(svFC);
+    await page.locator('input[name="peso"]').fill(svPeso);
 
-  const satInput = page.locator('input[name="oxigenacion"]');
-  if (await satInput.count() > 0) await satInput.first().fill(svSat);
+    const tallaInput = page.locator('input[name*="talla" i]');
+    if (await tallaInput.count() > 0) await tallaInput.first().fill(svTalla);
 
-  const frInput = page.locator('input[name="frecuenciaRespiratoria"]');
-  if (await frInput.count() > 0) await frInput.first().fill(svFR);
+    const presionInput = page.locator('input[placeholder="000/000 mmHg"]');
+    if (await presionInput.isVisible().catch(() => false)) {
+      await presionInput.fill(svPresion);
+      console.log(`💓 Presión arterial: ${svPresion}`);
+    }
 
-  const glucosaInput = page.locator('input[name="glucosa"]');
-  if (await glucosaInput.count() > 0) await glucosaInput.first().fill(svGlucosa);
-  
-  const fechaUltimoCicloInput = page.locator('input[placeholder="dd/mm/yyyy"]');
-  if (await fechaUltimoCicloInput.count() > 0) {
-    const now = new Date();
-    const fechaSemanaPasada = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const dia = String(fechaSemanaPasada.getDate()).padStart(2, '0');
-    const mes = String(fechaSemanaPasada.getMonth() + 1).padStart(2, '0');
-    const anio = fechaSemanaPasada.getFullYear();
-    const fechaFormateada = `${dia}/${mes}/${anio}`;
-    await fechaUltimoCicloInput.first().fill(fechaFormateada);
-    console.log(`📅 Fecha último ciclo: ${fechaFormateada}`);
-  }
-  
-  await page.waitForTimeout(1500);
-  
-  await page.waitForFunction(() => {
-    const btns = Array.from(document.querySelectorAll('button'));
-    const btn = btns.find(b => b.textContent.trim().toLowerCase().includes('guardar'));
-    return btn && !btn.disabled;
-  }, { timeout: 10000 });
-  
-  await saveAndValidate(
-    page,
-    () => page.getByRole('button', { name: /^Guardar$/i }).click(),
-    'registerVitalSigns'
-  );
+    const tempInput = page.locator('input[name*="temp" i]');
+    if (await tempInput.count() > 0) await tempInput.first().fill(svTemp);
 
-  await page.waitForTimeout(2000);
-  const cerrarButton = page.getByRole('button', { name: /cerrar/i });
-  if (await cerrarButton.isVisible().catch(() => false)) {
-    await cerrarButton.click();
+    const fcInput = page.locator('input[name*="card" i]');
+    if (await fcInput.count() > 0) await fcInput.first().fill(svFC);
+
+    const satInput = page.locator('input[name="oxigenacion"]');
+    if (await satInput.count() > 0) await satInput.first().fill(svSat);
+
+    const frInput = page.locator('input[name="frecuenciaRespiratoria"]');
+    if (await frInput.count() > 0) await frInput.first().fill(svFR);
+
+    const glucosaInput = page.locator('input[name="glucosa"]');
+    if (await glucosaInput.count() > 0) await glucosaInput.first().fill(svGlucosa);
+
+    const fechaUltimoCicloInput = page.locator('input[placeholder="dd/mm/yyyy"]');
+    if (await fechaUltimoCicloInput.count() > 0) {
+      const now = new Date();
+      const fechaSemanaPasada = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const dia = String(fechaSemanaPasada.getDate()).padStart(2, '0');
+      const mes = String(fechaSemanaPasada.getMonth() + 1).padStart(2, '0');
+      const anio = fechaSemanaPasada.getFullYear();
+      const fechaFormateada = `${dia}/${mes}/${anio}`;
+      await fechaUltimoCicloInput.first().fill(fechaFormateada);
+      console.log(`📅 Fecha último ciclo: ${fechaFormateada}`);
+    }
+
     await page.waitForTimeout(1500);
-  }
-  
-  console.log('🔄 Esperando redirección...');
-  try {
-    await page.waitForURL(/Consulta\/(ConsultaGeneral|ConsultaDetalles)/, { timeout: 15000 });
-    console.log('✅ Redirigido a página de consulta');
-  } catch (e) {
-    console.log('⚠️ Timeout, navegando manualmente...');
-    await page.goto('/Consulta/ConsultaGeneral');
-    await page.waitForLoadState('networkidle');
-  }
-  
-  // Esperar a que la página cargue completamente (desaparezca "Cargando información...")
-  console.log('⏳ Esperando carga completa de la consulta...');
-  try {
-    await page.waitForFunction(() => {
-      return !document.body.innerText.includes('Cargando información de consulta');
-    }, { timeout: 30000 });
-    console.log('✅ Página de consulta cargada');
-  } catch (e) {
-    console.log('⚠️ Timeout esperando carga, continuando de todos modos...');
-  }
-  await page.waitForTimeout(2000);
 
-  // Procesar cada pestaña
+    await page.waitForFunction(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const btn = btns.find(b => b.textContent.trim().toLowerCase().includes('guardar'));
+      return btn && !btn.disabled;
+    }, { timeout: 10000 });
+
+    await saveAndValidate(
+      page,
+      () => page.getByRole('button', { name: /^Guardar$/i }).click(),
+      'registerVitalSigns'
+    );
+
+    await page.waitForTimeout(2000);
+    const cerrarButton = page.getByRole('button', { name: /cerrar/i });
+    if (await cerrarButton.isVisible().catch(() => false)) {
+      await cerrarButton.click();
+      await page.waitForTimeout(1500);
+    }
+  });
+
+  await test.step('Cargar página de consulta', async () => {
+    console.log('🔄 Esperando redirección...');
+    try {
+      await page.waitForURL(/Consulta\/(ConsultaGeneral|ConsultaDetalles)/, { timeout: 15000 });
+      console.log('✅ Redirigido a página de consulta');
+    } catch (e) {
+      console.log('⚠️ Timeout, navegando manualmente...');
+      await page.goto('/Consulta/ConsultaGeneral');
+      await page.waitForLoadState('networkidle');
+    }
+
+    console.log('⏳ Esperando carga completa de la consulta...');
+    try {
+      await page.waitForFunction(() => {
+        return !document.body.innerText.includes('Cargando información de consulta');
+      }, { timeout: 30000 });
+      console.log('✅ Página de consulta cargada');
+    } catch (e) {
+      console.log('⚠️ Timeout esperando carga, continuando de todos modos...');
+    }
+    await page.waitForTimeout(2000);
+  });
+
+  // Procesar cada pestaña dentro de su propio step
   const tabs = [
     { name: 'General', fields: ['hospital', 'tipo de consulta', 'motivo de la consulta', 'padecimiento actual', 'notas de evolución', 'nombre de referido'] },
     { name: 'Exploración', fields: [] },
@@ -1452,134 +1455,129 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
   for (const tabInfo of tabs) {
     const tabName = tabInfo.name;
     const requiredFields = tabInfo.fields;
-    
-    console.log(`\n🔍 Buscando pestaña: ${tabName}`);
-    
-    // Buscar la pestaña
-    const tabSelectors = [
-      page.getByRole('tab', { name: new RegExp(`^${tabName}$`, 'i') }),
-      page.getByRole('button', { name: new RegExp(`^${tabName}$`, 'i') }),
-      page.locator(`div, span, p, li, a:has-text("${tabName}")`)
-    ];
-    
-    let tabElement = null;
-    for (const selector of tabSelectors) {
-      try {
-        if (await selector.count() > 0 && await selector.first().isVisible()) {
-          tabElement = selector.first();
-          break;
+
+    await test.step(`Pestaña: ${tabName}`, async () => {
+      console.log(`\n🔍 Buscando pestaña: ${tabName}`);
+
+      const tabSelectors = [
+        page.getByRole('tab', { name: new RegExp(`^${tabName}$`, 'i') }),
+        page.getByRole('button', { name: new RegExp(`^${tabName}$`, 'i') }),
+        page.locator(`div, span, p, li, a:has-text("${tabName}")`)
+      ];
+
+      let tabElement = null;
+      for (const selector of tabSelectors) {
+        try {
+          if (await selector.count() > 0 && await selector.first().isVisible()) {
+            tabElement = selector.first();
+            break;
+          }
+        } catch (e) {
+          continue;
         }
-      } catch (e) {
-        continue;
       }
-    }
-    
-    if (!tabElement) {
-      console.log(`⚠️ Pestaña "${tabName}" no encontrada, saltando...`);
-      continue;
-    }
-    
-    // Manejar modales antes de hacer clic
-    await handleModals(page);
-    await page.waitForTimeout(500);
-    
-    await tabElement.click();
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
-    
-    // Llenar campos específicos si existen
-    if (requiredFields.length > 0) {
-      console.log(`🎯 Llenando campos específicos para ${tabName}`);
-      for (const fieldName of requiredFields) {
-        await fillSpecificField(page, fieldName);
+
+      if (!tabElement) {
+        console.log(`⚠️ Pestaña "${tabName}" no encontrada, saltando...`);
+        return;
       }
-    }
-    
-    // Llenar según la pestaña
-    if (tabName === 'Exploración') {
-      await fillExplorationSection(page);
-    } else if (tabName === 'Diagnóstico') {
-      await fillDiagnosticoSection(page);
-    } else if (tabName === 'Tratamiento') {
-      const { guardarTreatmentClicked, guardarLabClicked } = await fillTreatmentSection(page);
-      if (!guardarTreatmentClicked || !guardarLabClicked) {
-        console.log(`❌ No se encontraron ambos botones Guardar cambios. Treatment: ${guardarTreatmentClicked}, Lab: ${guardarLabClicked}. Reintentando...`);
-        await page.waitForTimeout(2000);
-        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-        await page.waitForTimeout(500);
-        const allGuardar = page.locator('button:has-text("Guardar cambios")');
-        const retryCount = await allGuardar.count();
-        for (let i = 0; i < retryCount; i++) {
-          if (await allGuardar.nth(i).isVisible({ timeout: 1000 }).catch(() => false)) {
-            await allGuardar.nth(i).click();
-            console.log(`✅ Retry: Guardar #${i+1} clickeado`);
-            await page.waitForTimeout(1500);
-            const modal = page.locator('.swal2-confirm:visible');
-            if (await modal.count() > 0) {
-              await modal.first().click();
-              await page.waitForTimeout(500);
+
+      await handleModals(page);
+      await page.waitForTimeout(500);
+      await tabElement.click();
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(2000);
+
+      if (requiredFields.length > 0) {
+        console.log(`🎯 Llenando campos específicos para ${tabName}`);
+        for (const fieldName of requiredFields) {
+          await fillSpecificField(page, fieldName);
+        }
+      }
+
+      if (tabName === 'Exploración') {
+        await fillExplorationSection(page);
+      } else if (tabName === 'Diagnóstico') {
+        await fillDiagnosticoSection(page);
+      } else if (tabName === 'Tratamiento') {
+        const { guardarTreatmentClicked, guardarLabClicked } = await fillTreatmentSection(page);
+        if (!guardarTreatmentClicked || !guardarLabClicked) {
+          console.log(`❌ No se encontraron ambos botones Guardar cambios. Treatment: ${guardarTreatmentClicked}, Lab: ${guardarLabClicked}. Reintentando...`);
+          await page.waitForTimeout(2000);
+          await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+          await page.waitForTimeout(500);
+          const allGuardar = page.locator('button:has-text("Guardar cambios")');
+          const retryCount = await allGuardar.count();
+          for (let i = 0; i < retryCount; i++) {
+            if (await allGuardar.nth(i).isVisible({ timeout: 1000 }).catch(() => false)) {
+              await allGuardar.nth(i).click();
+              console.log(`✅ Retry: Guardar #${i+1} clickeado`);
+              await page.waitForTimeout(1500);
+              const modal = page.locator('.swal2-confirm:visible');
+              if (await modal.count() > 0) {
+                await modal.first().click();
+                await page.waitForTimeout(500);
+              }
             }
           }
         }
+      } else if (tabName === 'Notas del Médico') {
+        await fillNotasMedicoSection(page);
+      } else if (tabName === 'Servicios') {
+        await fillServiciosSection(page);
+      } else {
+        await fillTabFields(page, tabName);
       }
-    } else if (tabName === 'Notas del Médico') {
-      await fillNotasMedicoSection(page);
-    } else if (tabName === 'Servicios') {
-      await fillServiciosSection(page);
-    } else {
-      await fillTabFields(page, tabName);
-    }
-    
-    // Buscar y hacer clic en continuar/guardar
-    console.log(`💾 Buscando botón guardar/continuar en ${tabName}...`);
-    
-    const guardarSelectors = [
-      page.getByRole('button', { name: /guardar y continuar/i }),
-      page.getByRole('button', { name: /continuar/i }),
-      page.getByRole('button', { name: /guardar/i }),
-      page.locator('button:has-text("Siguiente")')
-    ];
-    
-    for (const selector of guardarSelectors) {
-      try {
-        if (await selector.count() > 0 && await selector.first().isVisible()) {
-          await selector.first().click();
-          console.log(`✅ Click en guardar/continuar`);
-          await page.waitForTimeout(1500);
-          await page.waitForLoadState('networkidle');
-          break;
+
+      console.log(`💾 Buscando botón guardar/continuar en ${tabName}...`);
+      const guardarSelectors = [
+        page.getByRole('button', { name: /guardar y continuar/i }),
+        page.getByRole('button', { name: /continuar/i }),
+        page.getByRole('button', { name: /guardar/i }),
+        page.locator('button:has-text("Siguiente")')
+      ];
+
+      for (const selector of guardarSelectors) {
+        try {
+          if (await selector.count() > 0 && await selector.first().isVisible()) {
+            await selector.first().click();
+            console.log(`✅ Click en guardar/continuar`);
+            await page.waitForTimeout(1500);
+            await page.waitForLoadState('networkidle');
+            break;
+          }
+        } catch (e) {
+          continue;
         }
-      } catch (e) {
-        continue;
       }
-    }
+    });
   }
 
-  // FINALIZACIÓN
-  console.log('\n🏁 === INICIANDO FINALIZACIÓN DE CONSULTA ===');
-  await page.waitForTimeout(200);
-  await page.waitForLoadState('networkidle');
-  
-  const finalizarBtn = await waitForFinalizarButton(page);
-  
-  if (finalizarBtn) {
-    await handleModals(page);
-    await finalizarBtn.click();
-    await page.waitForTimeout(1000);
-    
-    // Confirmar si hay modal
-    const confirmBtn = page.locator('button:has-text("Confirmar"):visible, button:has-text("Aceptar"):visible, .swal2-confirm:visible');
-    if (await confirmBtn.count() > 0) {
-      await confirmBtn.first().click();
-      console.log('✅ Confirmación clickeada');
+  await test.step('Finalizar consulta', async () => {
+    console.log('\n🏁 === INICIANDO FINALIZACIÓN DE CONSULTA ===');
+    await page.waitForTimeout(200);
+    await page.waitForLoadState('networkidle');
+
+    const finalizarBtn = await waitForFinalizarButton(page);
+
+    if (finalizarBtn) {
+      await handleModals(page);
+      await finalizarBtn.click();
+      await page.waitForTimeout(1000);
+
+      const confirmBtn = page.locator('button:has-text("Confirmar"):visible, button:has-text("Aceptar"):visible, .swal2-confirm:visible');
+      if (await confirmBtn.count() > 0) {
+        await confirmBtn.first().click();
+        console.log('✅ Confirmación clickeada');
+      }
+
+      await page.waitForTimeout(500);
+      await page.screenshot({ path: 'test-results/consultation-finalized.png', fullPage: true });
+      console.log('\n🎉 === CONSULTA COMPLETADA EXITOSAMENTE ===');
+    } else {
+      throw new Error('No se encontró el botón de finalizar consulta');
     }
-    
-    await page.waitForTimeout(500);
-    await page.screenshot({ path: 'test-results/consultation-finalized.png', fullPage: true });
-    console.log('\n🎉 === CONSULTA COMPLETADA EXITOSAMENTE ===');
-  } else {
-    throw new Error('No se encontró el botón de finalizar consulta');
-  }
+  });
 
   const result = monitor.printSummary();
   if (!result.passed) {
