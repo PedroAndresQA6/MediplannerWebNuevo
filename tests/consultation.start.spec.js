@@ -299,16 +299,7 @@ async function fillExplorationSection(page) {
             parent = parent.parentElement;
           }
           
-          // Si no se encontró uno cercano, buscar cualquier botón guardar visible
-          if (!clicked) {
-            const allBtns = document.querySelectorAll('button');
-            allBtns.forEach(btn => {
-              if (btn.textContent.toLowerCase().includes('guardar cambios') && btn.offsetParent !== null) {
-                btn.click();
-                clicked++;
-              }
-            });
-          }
+          // No hacer fallback global — evitar clickear botones de otras secciones
           
           return clicked;
         });
@@ -338,22 +329,21 @@ async function fillExplorationSection(page) {
     
     console.log(`\n📊 Resumen: ${processedCheckboxes}/${totalCheckboxes} checkboxes procesados`);
     
-    // GUARDAR: Click en TODOS los botones "Guardar cambios" via JavaScript
+    // GUARDAR: Click en el botón "Guardar" visible dentro de la sección activa de Exploración
     console.log('\n💾 Guardando sección de Exploración...');
     await page.waitForTimeout(1000);
-    
-    const guardarCount = await page.evaluate(() => {
-      const buttons = document.querySelectorAll('button');
-      let clicked = 0;
-      buttons.forEach(btn => {
-        if (btn.textContent.trim().toLowerCase().includes('guardar cambios')) {
-          btn.click();
-          clicked++;
-        }
-      });
-      return clicked;
-    });
-    console.log(`💾 Click en ${guardarCount} botones "Guardar cambios" via JS`);
+
+    const btnGuardarExploracion = page.locator('button[type="submit"]:has-text("Guardar"), button[type="button"]:has-text("Guardar")').first();
+    if (await btnGuardarExploracion.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await saveAndValidate(
+        page,
+        () => btnGuardarExploracion.click(),
+        'registerAnswers'
+      );
+      console.log('💾 Exploración guardada correctamente');
+    } else {
+      console.log('⚠️ No se encontró botón Guardar en Exploración');
+    }
     await page.waitForTimeout(2000);
     
     // Cerrar modales que puedan aparecer
@@ -432,7 +422,9 @@ async function fillDiagnosticoSection(page) {
       console.log(`📋 Dropdown abierto con ${optionCount} opciones`);
       
       if (optionCount === 0) {
-        await cie10Input.fill('A09');
+        const codigoCIE10 = pick(DATOS_CLINICOS.cie10);
+        console.log(`🔍 Buscando código CIE-10: ${codigoCIE10}`);
+        await cie10Input.fill(codigoCIE10);
         await page.waitForTimeout(1500);
         const searchedOptions = page.locator('[role="option"]:visible, .dropdown-item:visible, div[id*="option"]:visible');
         optionCount = await searchedOptions.count();
@@ -509,7 +501,7 @@ async function fillTreatmentSection(page) {
     const joditEditors = page.locator('div.jodit-wysiwyg');
     const joditCount = await joditEditors.count();
     console.log(`📝 Encontrados ${joditCount} Jodit editors`);
-    
+
     if (joditCount > 0) {
       const editor = joditEditors.first();
       if (await editor.isVisible().catch(() => false)) {
@@ -517,7 +509,8 @@ async function fillTreatmentSection(page) {
         await page.waitForTimeout(200);
         await page.keyboard.press('Control+A');
         await page.waitForTimeout(100);
-        await page.keyboard.type('Indicaciones generales: Tomar medicamentos según prescripción médica. Mantener hidratación adecuada.');
+        const indicacion = pick(DATOS_CLINICOS.indicacionesGenerales);
+        await page.keyboard.type(indicacion);
         console.log('✅ Indicaciones generales llenadas');
       }
     }
@@ -529,27 +522,22 @@ async function fillTreatmentSection(page) {
     if (await medicamentoSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
       await medicamentoSelect.click();
       await page.waitForTimeout(300);
-      await medicamentoSelect.fill('Paracetamol');
+      const medicamento = pick(DATOS_CLINICOS.medicamentos);
+      console.log(`   💊 Medicamento seleccionado: ${medicamento}`);
+      await medicamentoSelect.fill(medicamento);
       console.log('   🔍 Buscando opciones de medicamento...');
       
       let optionClicked = false;
-      for (let attempt = 0; attempt < 5; attempt++) {
-        await page.waitForTimeout(1000);
+      try {
+        await page.waitForSelector('[role="option"]:visible, div[id*="option"]:visible', { timeout: 10000 });
         const option = page.locator('[role="option"]:visible, div[id*="option"]:visible').first();
-        const optionCount = await option.count().catch(() => 0);
-        if (optionCount > 0) {
-          const text = await option.textContent().catch(() => '');
-          await option.click();
-          console.log(`   ✅ Medicamento seleccionado: "${(text || '').trim().substring(0, 40)}"`);
-          optionClicked = true;
-          break;
-        }
-        console.log(`   ⏳ Intento ${attempt + 1}/5: esperando opciones...`);
-      }
-      if (!optionClicked) {
+        const text = await option.textContent().catch(() => '');
+        await option.click();
+        console.log(`   ✅ Medicamento seleccionado: "${(text || '').trim().substring(0, 40)}"`);
+        optionClicked = true;
+      } catch {
         console.log('   ⚠️ No aparecieron opciones de medicamento, continuando...');
       }
-      await page.waitForTimeout(1000);
       await page.waitForLoadState('networkidle');
       
       // Llenar formulario del medicamento
@@ -600,37 +588,35 @@ async function fillTreatmentSection(page) {
     console.log('\n➕ Agregando tratamiento diferente...');
     const agregarBtn = page.locator('button:has-text("Agrega tratamiendo diferente")');
     if (await agregarBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      // Contar inputs existentes antes del click
+      const nombreInputsAntes = await page.locator('input[maxlength="240"]').count();
+      const indicInputsAntes = await page.locator('input[type="text"][maxlength="700"]').count();
+
       await agregarBtn.click();
-      await page.waitForTimeout(1000);
-      
-      const otrosContainer = page.locator('label:has-text("Otros medicamentos")').locator('..').locator('..');
-      
-      // Nombre del otro medicamento
-      const nombreInput = otrosContainer.locator('input[maxlength="240"]');
+
+      // Esperar a que aparezcan los 2 nuevos inputs
+      await page.waitForFunction(
+        ({ nAntes, iAntes }) =>
+          document.querySelectorAll('input[maxlength="240"]').length > nAntes &&
+          document.querySelectorAll('input[type="text"][maxlength="700"]').length > iAntes,
+        { nAntes: nombreInputsAntes, iAntes: indicInputsAntes },
+        { timeout: 8000 }
+      );
+      console.log('✅ Campos de tratamiento diferente aparecieron');
+
+      // Tomar los últimos — son los recién aparecidos
+      const nombreInput = page.locator('input[maxlength="240"]').last();
+      const indicacionesInput = page.locator('input[type="text"][maxlength="700"]').last();
+
       if (await nombreInput.isVisible().catch(() => false)) {
-        await nombreInput.fill('Ácido fólico');
+        await nombreInput.fill(pick(DATOS_CLINICOS.tratamientosDiferentes));
         console.log('✅ Nombre tratamiento diferente ingresado');
       }
-      
-      // Segundo apartado de indicaciones
-      let indicacionesLlenado = false;
-      const indicacionesSelectors = [
-        otrosContainer.locator('textarea:visible'),
-        otrosContainer.locator('input[maxlength="700"]'),
-        otrosContainer.locator('input[placeholder*="indicacion" i]'),
-        otrosContainer.locator('textarea[placeholder*="indicacion" i]'),
-        page.locator('textarea:visible').last()
-      ];
-      
-      for (const sel of indicacionesSelectors) {
-        if (await sel.count().catch(() => 0) > 0 && await sel.first().isVisible().catch(() => false)) {
-          await sel.first().fill('Tomar 1 tableta cada 24 horas');
-          console.log('✅ Indicaciones tratamiento diferente ingresadas');
-          indicacionesLlenado = true;
-          break;
-        }
-      }
-      if (!indicacionesLlenado) {
+
+      if (await indicacionesInput.isVisible().catch(() => false)) {
+        await indicacionesInput.fill('Tomar 1 tableta cada 24 horas');
+        console.log('✅ Indicaciones tratamiento diferente ingresadas');
+      } else {
         console.log('   ⚠️ No se encontró campo de indicaciones para tratamiento diferente');
       }
       
@@ -638,7 +624,11 @@ async function fillTreatmentSection(page) {
       await page.waitForTimeout(500);
       const guardarTreatment = page.locator('button[type="submit"]:has-text("Guardar cambios")');
       if (await guardarTreatment.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await guardarTreatment.click();
+        await saveAndValidate(
+          page,
+          () => guardarTreatment.click(),
+          'setTreatments'
+        );
         console.log('✅ Tratamiento guardado (type="submit")');
         guardarTreatmentClicked = true;
         await page.waitForTimeout(2000);
@@ -681,7 +671,7 @@ async function fillTreatmentSection(page) {
     if (await labSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
       await labSelect.click();
       await page.waitForTimeout(300);
-      await labSelect.fill('Biometría');
+      await labSelect.fill(pick(DATOS_CLINICOS.laboratorios));
       console.log('   🔍 Buscando opciones de laboratorio...');
 
       let labOptionClicked = false;
@@ -728,7 +718,12 @@ async function fillTreatmentSection(page) {
       for (let i = 0; i < count; i++) {
         if (await btn.nth(i).isVisible({ timeout: 1000 }).catch(() => false)) {
           const btnType = await btn.nth(i).getAttribute('type').catch(() => 'sin-type');
-          await btn.nth(i).click();
+          const btnRef = btn.nth(i);
+          await saveAndValidate(
+            page,
+            () => btnRef.click(),
+            'setProceduresConsultation'
+          );
           console.log(`✅ Laboratorios guardados (selector: "${sel}", #${i}, type="${btnType}")`);
           guardarLabClicked = true;
           guardarFound = true;
@@ -1206,6 +1201,65 @@ async function registrarMedicamento(page, nombreMedicamento, vias, cantidades, u
   console.log('   ℹ️ Medicamento registrado (se guardará al final)');
 }
 
+// Guarda y valida que el response de la API sea 2xx, falla el test si no
+async function saveAndValidate(page, clickFn, urlPattern, { optional = false } = {}) {
+  const responsePromise = page.waitForResponse(
+    res => res.url().includes(urlPattern) && res.request().method() !== 'GET',
+    { timeout: 15000 }
+  ).catch(() => null);
+
+  await clickFn();
+
+  const response = await responsePromise;
+
+  if (!response) {
+    if (optional) {
+      console.log(`⚠️ [saveAndValidate] No hubo response para "${urlPattern}" (opcional, continuando)`);
+      return;
+    }
+    throw new Error(`❌ No se recibió response de la API para "${urlPattern}" tras guardar`);
+  }
+
+  const status = response.status();
+  let body = '';
+  try { body = await response.text(); } catch (_) {}
+
+  if (status < 200 || status >= 300) {
+    throw new Error(`❌ API "${urlPattern}" respondió ${status}. Body: ${body.substring(0, 200)}`);
+  }
+
+  console.log(`✅ [saveAndValidate] ${status} ${urlPattern}`);
+}
+
+// Pools de datos clínicos para variar entre ejecuciones
+const DATOS_CLINICOS = {
+  cie10: ['A09', 'J06', 'K30', 'M54', 'R51', 'J00', 'K21', 'L30', 'N39', 'R05'],
+  medicamentos: ['Paracetamol', 'Ibuprofeno', 'Amoxicilina', 'Omeprazol', 'Metformina', 'Loratadina', 'Enalapril', 'Atorvastatina'],
+  tratamientosDiferentes: ['Ácido fólico', 'Vitamina D', 'Complejo B', 'Hierro', 'Calcio', 'Zinc', 'Magnesio'],
+  laboratorios: ['Biometría', 'Glucosa', 'Química', 'Urocultivo', 'Perfil', 'Hemoglobina', 'Colesterol'],
+  signosVitales: {
+    pesos: ['65', '70', '72', '75', '68', '80', '60', '85'],
+    tallas: ['160', '165', '170', '175', '158', '180', '163'],
+    presiones: ['110/070', '120/080', '130/085', '115/075', '125/080', '118/078'],
+    temperaturas: ['36.2', '36.5', '36.6', '36.8', '37.0', '36.4'],
+    frecuenciasCardiacas: ['68', '72', '75', '80', '65', '78', '70'],
+    saturaciones: ['96', '97', '98', '99', '95'],
+    frecuenciasRespiratorias: ['14', '16', '18', '15', '17'],
+    glucosas: ['85', '90', '95', '100', '88', '92'],
+  },
+  indicacionesGenerales: [
+    'Indicaciones generales: Tomar medicamentos según prescripción médica. Mantener hidratación adecuada.',
+    'Reposo relativo. Dieta blanda. Tomar medicación con alimentos. Cita de seguimiento en 7 días.',
+    'Seguir tratamiento indicado. Evitar bebidas alcohólicas. Hidratación abundante.',
+    'Administrar medicamentos en los horarios indicados. Acudir a urgencias si hay agravamiento.',
+    'Dieta equilibrada. Actividad física moderada. Tomar medicamentos según indicaciones.',
+  ],
+};
+
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 // Test principal
 test('Start a scheduled consultation from Inicio', async ({ page }) => {
   test.setTimeout(300000); // 5 minutos de timeout
@@ -1293,31 +1347,42 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
   const inputCount = await allInputs.count();
   console.log(`📝 Encontrados ${inputCount} inputs en signos vitales`);
   
-  await page.locator('input[name="peso"]').fill('70');
-  
+  const sv = DATOS_CLINICOS.signosVitales;
+  const svPeso    = pick(sv.pesos);
+  const svTalla   = pick(sv.tallas);
+  const svPresion = pick(sv.presiones);
+  const svTemp    = pick(sv.temperaturas);
+  const svFC      = pick(sv.frecuenciasCardiacas);
+  const svSat     = pick(sv.saturaciones);
+  const svFR      = pick(sv.frecuenciasRespiratorias);
+  const svGlucosa = pick(sv.glucosas);
+  console.log(`💉 Signos vitales: peso=${svPeso} talla=${svTalla} PA=${svPresion} temp=${svTemp} FC=${svFC} sat=${svSat} FR=${svFR} glucosa=${svGlucosa}`);
+
+  await page.locator('input[name="peso"]').fill(svPeso);
+
   const tallaInput = page.locator('input[name*="talla" i]');
-  if (await tallaInput.count() > 0) await tallaInput.first().fill('170');
-  
+  if (await tallaInput.count() > 0) await tallaInput.first().fill(svTalla);
+
   const presionInput = page.locator('input[placeholder="000/000 mmHg"]');
   if (await presionInput.isVisible().catch(() => false)) {
-    await presionInput.fill('120/080');
-    console.log('💓 Presión arterial: 120/080');
+    await presionInput.fill(svPresion);
+    console.log(`💓 Presión arterial: ${svPresion}`);
   }
-  
+
   const tempInput = page.locator('input[name*="temp" i]');
-  if (await tempInput.count() > 0) await tempInput.first().fill('36.6');
-  
+  if (await tempInput.count() > 0) await tempInput.first().fill(svTemp);
+
   const fcInput = page.locator('input[name*="card" i]');
-  if (await fcInput.count() > 0) await fcInput.first().fill('72');
-  
+  if (await fcInput.count() > 0) await fcInput.first().fill(svFC);
+
   const satInput = page.locator('input[name="oxigenacion"]');
-  if (await satInput.count() > 0) await satInput.first().fill('98');
-  
+  if (await satInput.count() > 0) await satInput.first().fill(svSat);
+
   const frInput = page.locator('input[name="frecuenciaRespiratoria"]');
-  if (await frInput.count() > 0) await frInput.first().fill('16');
-  
+  if (await frInput.count() > 0) await frInput.first().fill(svFR);
+
   const glucosaInput = page.locator('input[name="glucosa"]');
-  if (await glucosaInput.count() > 0) await glucosaInput.first().fill('95');
+  if (await glucosaInput.count() > 0) await glucosaInput.first().fill(svGlucosa);
   
   const fechaUltimoCicloInput = page.locator('input[placeholder="dd/mm/yyyy"]');
   if (await fechaUltimoCicloInput.count() > 0) {
@@ -1339,8 +1404,12 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     return btn && !btn.disabled;
   }, { timeout: 10000 });
   
-  await page.getByRole('button', { name: /^Guardar$/i }).click();
-  
+  await saveAndValidate(
+    page,
+    () => page.getByRole('button', { name: /^Guardar$/i }).click(),
+    'registerVitalSigns'
+  );
+
   await page.waitForTimeout(2000);
   const cerrarButton = page.getByRole('button', { name: /cerrar/i });
   if (await cerrarButton.isVisible().catch(() => false)) {
