@@ -29,6 +29,7 @@ module.exports = defineConfig({
     {
       name: 'setup',
       testMatch: /.*\.setup\.ts/,
+      use: { ...devices['Desktop Chrome'] },
       timeout: 30000,
     },
     {

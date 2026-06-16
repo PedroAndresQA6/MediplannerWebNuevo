@@ -525,4 +525,150 @@ async function createAppointment(page) {
   throw new Error('No se pudo registrar una cita en los próximos 5 días');
 }
 
-module.exports = { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals };
+// ─────────────────────────────────────────────────────────────────────────────
+// CONSOLE & NETWORK MONITOR — DevTools Protocol integration
+// Captura logs de consola y tráfico de red en tiempo real durante el test.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function setupConsoleMonitor(page) {
+  const session = {
+    consoleLogs: [],
+    networkEvents: [],
+    errors: [],
+    warnings: [],
+    apiCalls: [],
+    startTime: Date.now(),
+  };
+
+  // ── Consola del navegador ──────────────────────────────────────────────────
+  page.on('console', (msg) => {
+    const type = msg.type();
+    const text = msg.text();
+    const timestamp = ((Date.now() - session.startTime) / 1000).toFixed(2);
+    const entry = { type, text, timestamp };
+
+    session.consoleLogs.push(entry);
+
+    if (type === 'error') {
+      session.errors.push(entry);
+      console.log(`🔴 [DEVTOOLS ERROR +${timestamp}s] ${text}`);
+    } else if (type === 'warning') {
+      session.warnings.push(entry);
+      console.log(`🟡 [DEVTOOLS WARN  +${timestamp}s] ${text}`);
+    } else if (type === 'log') {
+      // Solo imprimir logs de la app que contengan palabras clave útiles
+      const keywords = ['error', 'fail', 'success', 'saved', 'guardado', 'api', 'fetch', 'token', 'unauthorized', '401', '403', '500'];
+      if (keywords.some(k => text.toLowerCase().includes(k))) {
+        console.log(`🔵 [DEVTOOLS LOG   +${timestamp}s] ${text}`);
+      }
+    }
+  });
+
+  // ── Errores de JS no capturados ───────────────────────────────────────────
+  page.on('pageerror', (error) => {
+    const timestamp = ((Date.now() - session.startTime) / 1000).toFixed(2);
+    const entry = { type: 'pageerror', text: error.message, stack: error.stack, timestamp };
+    session.errors.push(entry);
+    console.log(`💥 [JS ERROR       +${timestamp}s] ${error.message}`);
+  });
+
+  // ── Requests salientes ────────────────────────────────────────────────────
+  page.on('request', (request) => {
+    const url = request.url();
+    const method = request.method();
+    const isApi = url.includes('/api/') || url.includes('/v1/') || url.includes('/graphql');
+
+    if (isApi) {
+      const timestamp = ((Date.now() - session.startTime) / 1000).toFixed(2);
+      const entry = { direction: 'REQUEST', method, url, timestamp };
+      session.apiCalls.push(entry);
+      console.log(`📤 [API REQUEST    +${timestamp}s] ${method} ${url}`);
+    }
+  });
+
+  // ── Responses entrantes ───────────────────────────────────────────────────
+  page.on('response', async (response) => {
+    const url = response.url();
+    const status = response.status();
+    const isApi = url.includes('/api/') || url.includes('/v1/') || url.includes('/graphql');
+
+    if (isApi || status >= 400) {
+      const timestamp = ((Date.now() - session.startTime) / 1000).toFixed(2);
+
+      let bodyPreview = '';
+      try {
+        const contentType = response.headers()['content-type'] || '';
+        if (contentType.includes('application/json')) {
+          const body = await response.json().catch(() => null);
+          if (body) bodyPreview = JSON.stringify(body).substring(0, 120);
+        }
+      } catch (_) {}
+
+      const entry = { direction: 'RESPONSE', status, url, bodyPreview, timestamp };
+      session.networkEvents.push(entry);
+      session.apiCalls.push(entry);
+
+      const icon = status >= 500 ? '🔴' : status >= 400 ? '🟠' : '✅';
+      console.log(`${icon} [API RESPONSE   +${timestamp}s] ${status} ${url}${bodyPreview ? ` → ${bodyPreview}` : ''}`);
+    }
+  });
+
+  // ── Requests fallidos (sin respuesta: red caída, CORS, etc.) ─────────────
+  page.on('requestfailed', (request) => {
+    const timestamp = ((Date.now() - session.startTime) / 1000).toFixed(2);
+    const failure = request.failure()?.errorText || 'unknown';
+    const entry = { direction: 'FAILED', url: request.url(), failure, timestamp };
+    session.networkEvents.push(entry);
+    session.errors.push(entry);
+    console.log(`❌ [REQUEST FAILED +${timestamp}s] ${request.url()} — ${failure}`);
+  });
+
+  // ── Resumen final ─────────────────────────────────────────────────────────
+  session.printSummary = () => {
+    const totalTime = ((Date.now() - session.startTime) / 1000).toFixed(1);
+    const apiRequests = session.apiCalls.filter(e => e.direction === 'REQUEST').length;
+    const apiResponses = session.apiCalls.filter(e => e.direction === 'RESPONSE');
+    const successResponses = apiResponses.filter(e => e.status >= 200 && e.status < 300).length;
+    const failedResponses = apiResponses.filter(e => e.status >= 400).length;
+
+    console.log('\n' + '═'.repeat(70));
+    console.log('📊  RESUMEN DEVTOOLS MONITOR');
+    console.log('═'.repeat(70));
+    console.log(`⏱️  Duración total:         ${totalTime}s`);
+    console.log(`📤  API Requests enviados:  ${apiRequests}`);
+    console.log(`✅  Responses exitosas:     ${successResponses}`);
+    console.log(`🟠  Responses con error:    ${failedResponses}`);
+    console.log(`🔴  Errores de JS/consola:  ${session.errors.length}`);
+    console.log(`🟡  Warnings de consola:    ${session.warnings.length}`);
+
+    if (session.errors.length > 0) {
+      console.log('\n── Errores detectados ──────────────────────────────────────────────');
+      session.errors.forEach((e, i) => {
+        console.log(`  [${i + 1}] +${e.timestamp}s → ${e.text || e.failure}`);
+      });
+    }
+
+    if (failedResponses > 0) {
+      console.log('\n── API calls fallidas ──────────────────────────────────────────────');
+      apiResponses
+        .filter(e => e.status >= 400)
+        .forEach((e, i) => {
+          console.log(`  [${i + 1}] +${e.timestamp}s → ${e.status} ${e.url}`);
+          if (e.bodyPreview) console.log(`       Body: ${e.bodyPreview}`);
+        });
+    }
+
+    console.log('═'.repeat(70) + '\n');
+
+    return {
+      passed: session.errors.length === 0 && failedResponses === 0,
+      errors: session.errors,
+      failedApiCalls: apiResponses.filter(e => e.status >= 400),
+      totalApiCalls: apiRequests,
+    };
+  };
+
+  return session;
+}
+
+module.exports = { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals, setupConsoleMonitor };
