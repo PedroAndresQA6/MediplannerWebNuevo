@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals } = require('../../e2e/utils.js');
+const { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals, setupConsoleMonitor } = require('../../e2e/utils.js');
 
 // Funciones auxiliares
 async function fillSpecificField(page, fieldName) {
@@ -1474,7 +1474,10 @@ async function registrarMedicamento(page, nombreMedicamento, vias, cantidades, u
 // Test principal
 test('Start a scheduled consultation from Inicio', async ({ page }) => {
   test.setTimeout(300000); // 5 minutos de timeout
-  
+
+  const monitor = setupConsoleMonitor(page);
+  console.log('🔍 [MONITOR] DevTools monitor activo — capturando consola y red...\n');
+
   console.log('🏠 Navegando a Dashboard (Inicio)...');
   await page.goto('/Dashboard');
   await page.waitForTimeout(3000);
@@ -1764,4 +1767,9 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
   console.log('✅ Verificando finalización de la consulta...');
   await page.waitForTimeout(2000);
   await expect(page, 'La consulta debe haberse finalizado y redirigido fuera de ConsultaGeneral').not.toHaveURL(/ConsultaGeneral/);
+
+  const result = monitor.printSummary();
+  if (!result.passed) {
+    console.log(`⚠️  El test terminó con ${result.errors.length} error(es) y ${result.failedApiCalls.length} API call(s) fallida(s).`);
+  }
 });

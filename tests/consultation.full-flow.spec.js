@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals, setupConsoleMonitor } = require('../e2e/utils.js');
+const { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals, setupConsoleMonitor, scanResidualIndicators } = require('../e2e/utils.js');
 
 // Funciones auxiliares
 async function fillSpecificField(page, fieldName) {
@@ -273,51 +273,10 @@ async function fillExplorationSection(page) {
           console.log(`   ⚠️ No se pudo seleccionar "${estadoDeseado}"`);
         }
         await page.waitForTimeout(500);
-        
-        // Click en botón "Guardar cambios" cercano al textarea recién llenado
-        await page.waitForTimeout(500);
-        const guardarCercano = await page.evaluate(() => {
-          // Buscar el textarea/input que acabamos de llenar (el último visible)
-          const textareas = document.querySelectorAll('textarea:not([disabled])');
-          const inputs = document.querySelectorAll('input[type="text"]:not([disabled])');
-          const allFields = [...textareas, ...inputs].filter(el => el.offsetParent !== null);
-          
-          if (allFields.length === 0) return 0;
-          const lastField = allFields[allFields.length - 1];
-          
-          // Buscar el botón "Guardar cambios" más cercano al campo llenado
-          let parent = lastField.parentElement;
-          let clicked = 0;
-          
-          for (let i = 0; i < 10 && parent; i++) {
-            const btn = parent.querySelector('button');
-            if (btn && btn.textContent.toLowerCase().includes('guardar')) {
-              btn.click();
-              clicked = 1;
-              break;
-            }
-            parent = parent.parentElement;
-          }
-          
-          // No hacer fallback global — evitar clickear botones de otras secciones
-          
-          return clicked;
-        });
-        
-        if (guardarCercano > 0) {
-          console.log(`   💾 Click en "Guardar cambios" después de observación`);
-          await page.waitForTimeout(1500);
-          
-          // Cerrar modal si aparece
-          await page.evaluate(() => {
-            const modals = document.querySelectorAll('.swal2-confirm, .swal2-popup button');
-            modals.forEach(btn => {
-              if (btn.offsetParent !== null) btn.click();
-            });
-          });
-          await page.waitForTimeout(500);
-        }
-        
+
+        // NO guardar aquí: dentro de un mismo apartado se hacen TODOS los cambios
+        // (checkboxes + observaciones + Normal/Anormal) y se guarda UNA sola vez
+        // al final del apartado (ver bloque de guardado más abajo).
         await page.waitForTimeout(300);
         processedCheckboxes++;
         
@@ -329,20 +288,31 @@ async function fillExplorationSection(page) {
     
     console.log(`\n📊 Resumen: ${processedCheckboxes}/${totalCheckboxes} checkboxes procesados`);
     
-    // GUARDAR: Click en el botón "Guardar" visible dentro de la sección activa de Exploración
-    console.log('\n💾 Guardando sección de Exploración...');
+    // GUARDAR: una sola vez por apartado, al final. Cada apartado de Exploración
+    // (Apariencia general, Exploración segmentaria, Aparatos y sistemas) tiene su
+    // propio botón "Guardar"; los clickeamos todos una vez para que NINGÚN
+    // apartado quede sin guardar (antes solo se guardaba el primero con .first()).
+    console.log('\n💾 Guardando apartados de Exploración (uno por uno, al final)...');
     await page.waitForTimeout(1000);
 
-    const btnGuardarExploracion = page.locator('button[type="submit"]:has-text("Guardar"), button[type="button"]:has-text("Guardar")').first();
-    if (await btnGuardarExploracion.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await saveAndValidate(
-        page,
-        () => btnGuardarExploracion.click(),
-        'registerAnswers'
-      );
-      console.log('💾 Exploración guardada correctamente');
+    const saveButtons = page.locator('button:has-text("Guardar Respuestas"), button:has-text("Guardar cambios"), button[type="submit"]:has-text("Guardar")');
+    const sbCount = await saveButtons.count();
+    let savedSections = 0;
+    for (let i = 0; i < sbCount; i++) {
+      const btn = saveButtons.nth(i);
+      if (!(await btn.isVisible().catch(() => false))) continue;
+      await btn.scrollIntoViewIfNeeded().catch(() => {});
+      await btn.click().catch(() => {});
+      savedSections++;
+      console.log(`   💾 Guardado apartado ${savedSections}`);
+      await page.waitForTimeout(1500);
+      await handleModals(page);
+      await page.waitForTimeout(500);
+    }
+    if (savedSections === 0) {
+      console.log('⚠️ No se encontró botón Guardar visible en Exploración');
     } else {
-      console.log('⚠️ No se encontró botón Guardar en Exploración');
+      console.log(`💾 Exploración: ${savedSections} apartado(s) guardados al final`);
     }
     await page.waitForTimeout(2000);
     
@@ -1442,6 +1412,13 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     await page.waitForTimeout(2000);
   });
 
+  // Acumulador de hallazgos del indicador "sin guardar" (triángulo) detectados
+  // tras el guardado real de cada pestaña con guardado inline.
+  const indicatorFindings = [];
+  // Pestañas cuyos apartados guardan inline (botón propio). General y Diagnóstico
+  // guardan al hacer clic en "Continuar", por lo que se excluyen del escaneo.
+  const INLINE_SAVE_TABS = ['Exploración', 'Tratamiento', 'Notas del Médico', 'Servicios'];
+
   // Procesar cada pestaña dentro de su propio step
   const tabs = [
     { name: 'General', fields: ['hospital', 'tipo de consulta', 'motivo de la consulta', 'padecimiento actual', 'notas de evolución', 'nombre de referido'] },
@@ -1529,6 +1506,22 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
         await fillTabFields(page, tabName);
       }
 
+      // Instrumentación del indicador "sin guardar": tras el guardado real del
+      // handler (y sin salir de la pestaña), ningún apartado debería conservar el
+      // triángulo. Si alguno lo conserva = dato no persistido = bug real.
+      if (INLINE_SAVE_TABS.includes(tabName)) {
+        const residual = await scanResidualIndicators(page, tabName);
+        if (residual.length > 0) {
+          const safe = tabName.replace(/[^\w]+/g, '-');
+          const shot = `test-results/indicador-residual-${safe}.png`;
+          await page.screenshot({ path: shot, fullPage: true }).catch(() => {});
+          residual.forEach(ap => indicatorFindings.push({ tab: tabName, apartado: ap, screenshot: shot }));
+          console.log(`🐛 [${tabName}] Apartado(s) con indicador "sin guardar" tras guardar: ${residual.join(', ')} → ${shot}`);
+        } else {
+          console.log(`✅ [${tabName}] Sin indicadores residuales tras guardar`);
+        }
+      }
+
       console.log(`💾 Buscando botón guardar/continuar en ${tabName}...`);
       const guardarSelectors = [
         page.getByRole('button', { name: /guardar y continuar/i }),
@@ -1552,6 +1545,18 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
       }
     });
   }
+
+  // Resumen del indicador "sin guardar"
+  console.log('\n' + '─'.repeat(70));
+  console.log('📋  RESUMEN INDICADOR "SIN GUARDAR" (tras guardado real)');
+  console.log('─'.repeat(70));
+  if (indicatorFindings.length === 0) {
+    console.log('   ✅ Ningún apartado conservó el triángulo tras guardar.');
+  } else {
+    console.log(`   🐛 ${indicatorFindings.length} apartado(s) conservaron el indicador tras guardar:`);
+    indicatorFindings.forEach((f, i) => console.log(`     [${i + 1}] ${f.tab} › ${f.apartado} → ${f.screenshot}`));
+  }
+  console.log('─'.repeat(70) + '\n');
 
   await test.step('Finalizar consulta', async () => {
     console.log('\n🏁 === INICIANDO FINALIZACIÓN DE CONSULTA ===');

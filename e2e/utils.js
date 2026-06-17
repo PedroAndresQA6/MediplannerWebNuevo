@@ -4,115 +4,159 @@ const config = require('./config');
 const logger = config.logger;
 
 async function fillTabFields(page, tabName) {
-  await page.waitForLoadState('networkidle');
+  // 'load' en vez de 'networkidle': el entorno mantiene la red activa
+  // (GA/Zendesk/Clarity) y networkidle no se cumple, provocando que se leyeran
+  // y rellenaran los campos antes de que la app cargara su data.
+  await page.waitForLoadState('load');
   await page.waitForTimeout(500);
-  
+
   logger.info(`Llenando campos en pestaña: ${tabName}`);
-  
+
+  let filled = 0;
+  let skippedOptional = 0;
+
+  // Un campo solo se rellena si el formulario lo marca como OBLIGATORIO.
+  // Así no inyectamos datos en campos opcionales que deberían quedar vacíos.
+  const isRequired = (loc) =>
+    loc.evaluate((el) =>
+      el.required === true ||
+      el.getAttribute('aria-required') === 'true' ||
+      el.getAttribute('required') !== null
+    ).catch(() => false);
+
+  // Número realista según el campo, en vez de un '70' a ciegas que no tiene
+  // sentido médico en glucosa/talla/temperatura/etc.
+  const realisticNumberFor = (name, placeholder) => {
+    const hay = `${name} ${placeholder}`.toLowerCase();
+    if (hay.includes('glucosa')) return '90';
+    if (hay.includes('peso')) return '70';
+    if (hay.includes('talla') || hay.includes('estatura') || hay.includes('altura')) return '170';
+    if (hay.includes('temperatura') || hay.includes('temp')) return '36.5';
+    if (hay.includes('saturaci') || hay.includes('spo2') || hay.includes('oxíg') || hay.includes('oxig')) return '98';
+    if (hay.includes('imc')) return '24';
+    if (hay.includes('edad')) return '30';
+    if (hay.includes('frecuencia') && hay.includes('card')) return '75';
+    if (hay.includes('frecuencia') && hay.includes('resp')) return '16';
+    if (hay.includes('sistólica') || hay.includes('sistolica')) return '120';
+    if (hay.includes('diastólica') || hay.includes('diastolica')) return '80';
+    if (hay.includes('cintura') || hay.includes('perímetro') || hay.includes('perimetro')) return '85';
+    return '1'; // número neutro para un campo numérico desconocido
+  };
+
+  // ── Textareas ───────────────────────────────────────────────────────────────
   const textareas = page.locator('textarea, [role="textbox"]');
   const textareaCount = await textareas.count();
   logger.info(`Encontradas ${textareaCount} textareas`);
-  
+
   for (let i = 0; i < textareaCount; i++) {
     const textarea = textareas.nth(i);
     const isVisible = await textarea.isVisible().catch(() => false);
     const isDisabled = await textarea.isDisabled().catch(() => false);
-    
-    if (isVisible && !isDisabled) {
-      const currentValue = await textarea.inputValue().catch(() => '');
-      if (!currentValue || currentValue.trim() === '') {
-        const placeholder = (await textarea.getAttribute('placeholder').catch(() => '')) || '';
-        
-        if (placeholder.toLowerCase().includes('motivo')) {
-          await textarea.fill('Consulta de control rutinario para evaluación de estado de salud general');
-        } else if (placeholder.toLowerCase().includes('padecimient') || placeholder.toLowerCase().includes('síntomas')) {
-          await textarea.fill('Paciente refiere sentirse bien, sin molestias agudas. No presenta síntomas de enfermedad actual');
-        } else if (placeholder.toLowerCase().includes('nota') || placeholder.toLowerCase().includes('evolu')) {
-          await textarea.fill('Evolución favorable. Paciente en buen estado general');
-        } else if (placeholder.toLowerCase().includes('diagnóstico') || placeholder.toLowerCase().includes('dx')) {
-          await textarea.fill('Diagnóstico: Estado de salud normal');
-        } else if (placeholder.toLowerCase().includes('tratamiento') || placeholder.toLowerCase().includes('rx')) {
-          await textarea.fill('Tratamiento: Mantener medidas de higiene y alimentación balanceada');
-        } else if (placeholder.toLowerCase().includes('exploración') || placeholder.toLowerCase().includes('física')) {
-          await textarea.fill('Exploración física: Normal, sin alteraciones');
-        } else if (placeholder.toLowerCase().includes('observaciones') || placeholder.toLowerCase().includes('notas')) {
-          await textarea.fill('Paciente acude a consulta de seguimiento. Se observa buen estado general,hidratado y con signos vitales dentro de parámetros normales. Refiere cumplimiento del tratamiento indicado en consulta anterior.');
-        } else {
-          // Si no hay placeholder específico, verificar si estamos en Notas del Médico
-          if (tabName && tabName.toLowerCase().includes('notas')) {
-            await textarea.fill('Paciente acude a consulta de seguimiento. Se observa buen estado general, hidratado y con signos vitales dentro de parámetros normales. Refiere cumplimiento del tratamiento indicado en consulta anterior. No refiere efectos adversos secundarios a la medicación prescrita. Se continúa con el mismo esquema terapéutico y se programan estudios de laboratorio de rutina para valoración en próxima visita. Se recomienda mantener hábitos de higiene, alimentación balanceada y actividad física moderada.');
-          } else {
-            await textarea.fill('Información registrada correctamente en el sistema');
-          }
-        }
-        logger.success(`Llenada textarea ${i + 1} con placeholder: ${placeholder}`);
-      }
+    if (!isVisible || isDisabled) continue;
+
+    const currentValue = await textarea.inputValue().catch(() => '');
+    if (currentValue && currentValue.trim() !== '') continue;
+
+    if (!(await isRequired(textarea))) { skippedOptional++; continue; }
+
+    const placeholder = ((await textarea.getAttribute('placeholder').catch(() => '')) || '').toLowerCase();
+    let value;
+    if (placeholder.includes('motivo')) {
+      value = 'Consulta de control rutinario para evaluación de estado de salud general';
+    } else if (placeholder.includes('padecimient') || placeholder.includes('síntomas')) {
+      value = 'Paciente refiere sentirse bien, sin molestias agudas. No presenta síntomas de enfermedad actual';
+    } else if (placeholder.includes('nota') || placeholder.includes('evolu')) {
+      value = 'Evolución favorable. Paciente en buen estado general';
+    } else if (placeholder.includes('diagnóstico') || placeholder.includes('dx')) {
+      value = 'Diagnóstico: Estado de salud normal';
+    } else if (placeholder.includes('tratamiento') || placeholder.includes('rx')) {
+      value = 'Tratamiento: Mantener medidas de higiene y alimentación balanceada';
+    } else if (placeholder.includes('exploración') || placeholder.includes('física')) {
+      value = 'Exploración física: Normal, sin alteraciones';
+    } else if (placeholder.includes('observaciones') || placeholder.includes('notas')) {
+      value = 'Paciente acude a consulta de seguimiento. Se observa buen estado general, hidratado y con signos vitales dentro de parámetros normales. Refiere cumplimiento del tratamiento indicado en consulta anterior.';
+    } else if (tabName && tabName.toLowerCase().includes('notas')) {
+      value = 'Paciente acude a consulta de seguimiento. Se observa buen estado general, hidratado y con signos vitales dentro de parámetros normales. Refiere cumplimiento del tratamiento indicado en consulta anterior. No refiere efectos adversos secundarios a la medicación prescrita. Se continúa con el mismo esquema terapéutico y se programan estudios de laboratorio de rutina para valoración en próxima visita. Se recomienda mantener hábitos de higiene, alimentación balanceada y actividad física moderada.';
+    } else {
+      value = 'Información registrada correctamente en el sistema';
     }
+    await textarea.fill(value);
+    filled++;
+    logger.success(`Llenada textarea ${i + 1} (obligatoria) placeholder: ${placeholder}`);
   }
-  
+
+  // ── Inputs de texto / número / email ──────────────────────────────────────────
   const selectors = [
     'input[type="text"]:not([disabled]):not([readonly])',
     'input[type="number"]:not([disabled]):not([readonly])',
     'input[type="email"]:not([disabled]):not([readonly])',
     'input:not([type]):not([disabled]):not([readonly])',
   ];
-  
+
   for (const selector of selectors) {
     const fields = page.locator(selector);
     const count = await fields.count();
     logger.info(`Encontrados ${count} inputs para selector: ${selector}`);
-    
+
     for (let i = 0; i < count; i++) {
       const field = fields.nth(i);
       const isVisible = await field.isVisible().catch(() => false);
       const isEnabled = await field.isEnabled().catch(() => false);
-      
-      if (isVisible && isEnabled) {
-        const tagName = await field.evaluate((el) => el.tagName.toLowerCase());
-        
-        if (tagName === 'input') {
-          const currentValue = await field.inputValue().catch(() => '');
-          if (!currentValue) {
-            const type = await field.getAttribute('type');
-            const name = await field.getAttribute('name') || '';
-            const placeholder = await field.getAttribute('placeholder') || '';
-            
-            if (type === 'number' || name.toLowerCase().includes('glucosa') || name.toLowerCase().includes('peso')) {
-              await field.fill('70');
-            } else if (placeholder.toLowerCase().includes('mmhg') || placeholder.toLowerCase().includes('presion')) {
-              await field.fill('120/80');
-            } else if (placeholder.toLowerCase().includes('temperatura')) {
-              await field.fill('36.5');
-            } else if (name.toLowerCase().includes('referido') || placeholder.toLowerCase().includes('referido')) {
-              await field.fill('Pedro Quijada');
-            } else {
-              await field.fill('N/A');
-            }
-            logger.success(`Llenado input ${i + 1} (${name || placeholder})`);
-          }
-        }
+      if (!isVisible || !isEnabled) continue;
+
+      const currentValue = await field.inputValue().catch(() => '');
+      if (currentValue) continue;
+
+      if (!(await isRequired(field))) { skippedOptional++; continue; }
+
+      const type = await field.getAttribute('type');
+      const name = (await field.getAttribute('name')) || '';
+      const placeholder = (await field.getAttribute('placeholder')) || '';
+      const hay = `${name} ${placeholder}`.toLowerCase();
+
+      let value;
+      if (type === 'email' || hay.includes('correo') || hay.includes('email')) {
+        value = 'paciente.prueba@example.com';
+      } else if (hay.includes('mmhg') || hay.includes('presion') || hay.includes('presión')) {
+        value = '120/80';
+      } else if (type === 'number' || hay.includes('glucosa') || hay.includes('peso') ||
+                 hay.includes('talla') || hay.includes('temperatura')) {
+        value = realisticNumberFor(name, placeholder);
+      } else if (hay.includes('referido')) {
+        value = 'Pedro Quijada';
+      } else {
+        value = 'N/A';
       }
+      await field.fill(value);
+      filled++;
+      logger.success(`Llenado input ${i + 1} (obligatorio) ${name || placeholder} = ${value}`);
     }
   }
-  
+
+  // ── Selects nativos ───────────────────────────────────────────────────────────
   const selects = page.locator('select:not([disabled])');
   const selectCount = await selects.count();
   logger.info(`Encontrados ${selectCount} selects`);
   for (let i = 0; i < selectCount; i++) {
     const select = selects.nth(i);
     const isVisible = await select.isVisible().catch(() => false);
-    if (isVisible) {
-      const options = await select.locator('option').count();
-      
-      if (options > 1) {
-        const currentValue = await select.inputValue().catch(() => '');
-        if (!currentValue || currentValue === '' || currentValue === 'Selecciona...' || currentValue.includes('Seleccione')) {
-          await select.selectOption({ index: 1 });
-          logger.success(`Seleccionado en select ${i + 1}`);
-        }
-      }
-    }
+    if (!isVisible) continue;
+
+    const options = await select.locator('option').count();
+    if (options <= 1) continue;
+
+    const currentValue = await select.inputValue().catch(() => '');
+    const isEmpty = !currentValue || currentValue === '' || currentValue === 'Selecciona...' || currentValue.includes('Seleccione');
+    if (!isEmpty) continue;
+
+    if (!(await isRequired(select))) { skippedOptional++; continue; }
+
+    await select.selectOption({ index: 1 });
+    filled++;
+    logger.success(`Seleccionado en select ${i + 1} (obligatorio)`);
   }
+
+  logger.info(`fillTabFields(${tabName}): ${filled} campos obligatorios rellenados, ${skippedOptional} opcionales omitidos`);
 }
 
 async function handleModals(page) {
@@ -671,4 +715,338 @@ function setupConsoleMonitor(page) {
   return session;
 }
 
-module.exports = { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals, setupConsoleMonitor };
+// ─────────────────────────────────────────────────────────────────────────────
+// DETECTOR DE SECCIONES SIN GUARDAR
+// La app muestra un triángulo de advertencia (FontAwesome triangle-exclamation,
+// naranja) en el card-header de una sección cuando se escribió/modificó pero el
+// dato NO se guardó. No genera error HTTP ni de consola, por lo que el monitor de
+// red/consola no lo ve: hay que detectarlo en el DOM.
+//
+// Markup de referencia:
+//   <div class="card-header ..."><h3 class="card-title">Aparatos y sistemas</h3>
+//     <svg data-icon="triangle-exclamation" class="...text-orange-500 ...">
+//
+// Devuelve un array con los nombres de las secciones marcadas (vacío = todo OK).
+// ─────────────────────────────────────────────────────────────────────────────
+async function detectUnsavedSections(page, opts = {}) {
+  const icons = page.locator('svg[data-icon="triangle-exclamation"]');
+  const total = await icons.count();
+  const flagged = [];
+
+  for (let i = 0; i < total; i++) {
+    const icon = icons.nth(i);
+    if (!(await icon.isVisible().catch(() => false))) continue;
+
+    // El color naranja/amarillo es lo que marca "sin guardar"; un triángulo de
+    // otro color (o sin color de alerta) podría ser otra cosa.
+    const cls = (await icon.getAttribute('class').catch(() => '')) || '';
+    if (!/text-(orange|yellow|amber|warning)/i.test(cls)) continue;
+
+    // El título de la sección vive en el .card-header que contiene al ícono.
+    let section = '(sección desconocida)';
+    const header = icon.locator('xpath=ancestor::*[contains(@class,"card-header")][1]');
+    if (await header.count() > 0) {
+      const title = await header.locator('.card-title, h1, h2, h3, h4').first().textContent().catch(() => '');
+      if (title && title.trim()) section = title.trim();
+    }
+    flagged.push(section);
+  }
+
+  if (flagged.length > 0) {
+    logger.warning(`⚠️  ${flagged.length} sección(es) con indicador de NO guardado: ${flagged.join(', ')}`);
+    if (opts.screenshot !== false) {
+      const path = opts.screenshotPath || 'test-results/unsaved-indicator.png';
+      await page.screenshot({ path, fullPage: true }).catch(() => {});
+      logger.info(`📸 Evidencia del indicador guardada en: ${path}`);
+    }
+  } else if (total > 0) {
+    logger.success('✅ Sin indicadores de no-guardado (triángulos presentes pero no de alerta)');
+  } else {
+    logger.success('✅ Sin indicadores de no-guardado en pantalla');
+  }
+
+  return flagged;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDITORÍA DEL INDICADOR "SIN GUARDAR" POR APARTADO
+// Recorre dinámicamente cada apartado (card con título + botón Guardar propio) de
+// la consulta y valida el ciclo del triángulo de advertencia:
+//   • Tras editar, ANTES de guardar  → el triángulo DEBE aparecer.
+//       Si no aparece = 🐛 el cambio no se registró.
+//   • Tras hacer clic en Guardar     → el triángulo DEBE desaparecer.
+//       Si sigue = 🐛 no se guardó, o se clickeó el botón de guardar equivocado.
+// No tumba el test: registra cada apartado (✅/🐛) + screenshot del fallo y sigue.
+// Descubre apartados y pestañas en runtime (no usa lista fija).
+// ─────────────────────────────────────────────────────────────────────────────
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// ¿Hay un triángulo de advertencia (naranja/amarillo) visible dentro de `scope`?
+async function hasWarningTriangle(scope) {
+  const icons = scope.locator('svg[data-icon="triangle-exclamation"]');
+  const n = await icons.count().catch(() => 0);
+  for (let i = 0; i < n; i++) {
+    const icon = icons.nth(i);
+    if (!(await icon.isVisible().catch(() => false))) continue;
+    const cls = (await icon.getAttribute('class').catch(() => '')) || '';
+    if (/text-(orange|yellow|amber|warning)/i.test(cls)) return true;
+  }
+  return false;
+}
+
+// Hace una modificación en el apartado para disparar el indicador.
+// Devuelve true si logró editar algo.
+async function triggerEdit(card) {
+  // 1) textarea / contenteditable
+  const ta = card.locator('textarea:visible, [role="textbox"]:visible').first();
+  if ((await ta.count().catch(() => 0)) > 0 && await ta.isEnabled().catch(() => false)) {
+    const cur = await ta.inputValue().catch(() => null);
+    if (cur !== null) {
+      await ta.fill(((cur || '') + ' [audit]').trim()).catch(() => {});
+    } else {
+      await ta.click().catch(() => {});
+      await ta.type(' [audit]').catch(() => {});
+    }
+    return 'textarea';
+  }
+  // 2) input de texto / número
+  const inp = card.locator('input[type="text"]:visible, input[type="number"]:visible, input:not([type]):visible').first();
+  if ((await inp.count().catch(() => 0)) > 0 && await inp.isEnabled().catch(() => false)) {
+    const type = await inp.getAttribute('type').catch(() => '');
+    await inp.fill(type === 'number' ? '1' : 'audit').catch(() => {});
+    return 'input';
+  }
+  // 3) checkbox
+  const cb = card.locator('input[type="checkbox"]:visible').first();
+  if ((await cb.count().catch(() => 0)) > 0 && await cb.isEnabled().catch(() => false)) {
+    await cb.click().catch(() => {});
+    return 'checkbox';
+  }
+  return null;
+}
+
+// ¿El cuerpo del card tiene contenido visible (campo o botón Guardar)?
+async function cardBodyVisible(card) {
+  const save = await card.getByRole('button', { name: /guardar/i }).first().isVisible().catch(() => false);
+  if (save) return true;
+  return await card.locator('textarea:visible, input:visible, [role="textbox"]:visible').first().isVisible().catch(() => false);
+}
+
+// Expande el apartado si está colapsado (clic en el chevron del header).
+async function ensureExpanded(page, card) {
+  if (await cardBodyVisible(card)) return true;
+  const chevron = card.locator('.card-header button:has(svg[data-icon*="chevron"])').first();
+  if ((await chevron.count().catch(() => 0)) > 0) {
+    await chevron.click().catch(() => {});
+    await page.waitForTimeout(700);
+  }
+  return await cardBodyVisible(card);
+}
+
+// Devuelve el botón de guardar PROPIO del apartado (dentro de su card-body),
+// priorizando etiquetas específicas. Devuelve { btn, label } o null.
+async function findOwnSaveButton(card) {
+  const candidates = [
+    /^\s*guardar respuestas\s*$/i,
+    /^\s*guardar cambios\s*$/i,
+    /^\s*guardar\b.*/i,
+  ];
+  for (const re of candidates) {
+    const btn = card.getByRole('button', { name: re }).first();
+    if ((await btn.count().catch(() => 0)) > 0 && await btn.isVisible().catch(() => false)) {
+      const label = ((await btn.textContent().catch(() => '')) || '').trim();
+      return { btn, label };
+    }
+  }
+  return null;
+}
+
+async function auditConsultationIndicators(page, opts = {}) {
+  const results = [];
+  console.log('\n' + '═'.repeat(70));
+  console.log('🔎  AUDITORÍA DEL INDICADOR "SIN GUARDAR" POR APARTADO');
+  console.log('═'.repeat(70));
+
+  // Descubrir pestañas en runtime; fallback a lista conocida si no hay role=tab.
+  let tabNames = opts.tabs;
+  if (!tabNames) {
+    const tabEls = page.getByRole('tab');
+    const n = await tabEls.count().catch(() => 0);
+    tabNames = [];
+    for (let i = 0; i < n; i++) {
+      const t = ((await tabEls.nth(i).textContent().catch(() => '')) || '').trim();
+      if (t) tabNames.push(t);
+    }
+    if (tabNames.length === 0) {
+      tabNames = ['General', 'Exploración', 'Diagnóstico', 'Tratamiento', 'Notas del Médico', 'Servicios'];
+    }
+  }
+  logger.info(`Pestañas a recorrer: ${tabNames.join(' | ')}`);
+
+  for (const tabName of tabNames) {
+    // Activar la pestaña
+    const reTab = new RegExp(`^\\s*${escapeRegExp(tabName)}\\s*$`, 'i');
+    let tab = page.getByRole('tab', { name: reTab }).first();
+    if (!((await tab.count().catch(() => 0)) > 0 && await tab.isVisible().catch(() => false))) {
+      tab = page.locator(`button:has-text("${tabName}"), a:has-text("${tabName}"), li:has-text("${tabName}")`).first();
+    }
+    if ((await tab.count().catch(() => 0)) > 0 && await tab.isVisible().catch(() => false)) {
+      await handleModals(page);
+      await tab.click().catch(() => {});
+      await page.waitForLoadState('load').catch(() => {});
+      await page.waitForTimeout(1500);
+    } else {
+      logger.warning(`Pestaña "${tabName}" no encontrada, saltando`);
+      continue;
+    }
+
+    // DIAGNÓSTICO: listar todos los títulos de card visibles en esta pestaña.
+    const titles = page.locator('.card-title');
+    const titleCount = await titles.count().catch(() => 0);
+    const visibleNames = [];
+    for (let i = 0; i < titleCount; i++) {
+      if (await titles.nth(i).isVisible().catch(() => false)) {
+        visibleNames.push(((await titles.nth(i).textContent().catch(() => '')) || '').trim());
+      }
+    }
+    logger.info(`📑 [${tabName}] apartados visibles (${visibleNames.length}): ${visibleNames.join(' / ') || '—'}`);
+
+    for (let i = 0; i < titleCount; i++) {
+      const titleEl = titles.nth(i);
+      if (!(await titleEl.isVisible().catch(() => false))) continue;
+
+      const name = ((await titleEl.textContent().catch(() => '')) || '').trim() || `(apartado ${i + 1})`;
+
+      // Card contenedora del apartado (la más cercana) y su header.
+      const card = titleEl.locator('xpath=ancestor::*[contains(concat(" ",normalize-space(@class)," ")," card ")][1]');
+      const header = titleEl.locator('xpath=ancestor::*[contains(@class,"card-header")][1]');
+      if ((await card.count().catch(() => 0)) === 0) continue;
+
+      let entry = { tab: tabName, apartado: name, status: 'skip', detail: '' };
+      try {
+        // Expandir si está colapsado.
+        await ensureExpanded(page, card);
+
+        // Botón de guardar propio del apartado.
+        const save = await findOwnSaveButton(card);
+        if (!save) {
+          entry.detail = 'Sin botón "Guardar" propio (probablemente guarda con "Continuar" a nivel página)';
+          logger.info(`⏭️  [${tabName} › ${name}] ${entry.detail}`);
+          results.push(entry);
+          continue;
+        }
+
+        const edited = await triggerEdit(card);
+        if (!edited) {
+          entry.detail = 'No se pudo editar ningún campo del apartado (sin campo editable visible)';
+          logger.warning(`⏭️  [${tabName} › ${name}] ${entry.detail}`);
+          results.push(entry);
+          continue;
+        }
+
+        await page.waitForTimeout(800);
+        const triangleScope = (await header.count().catch(() => 0)) > 0 ? header : card;
+        const before = await hasWarningTriangle(triangleScope);
+
+        await save.btn.click().catch(() => {});
+        await page.waitForTimeout(1500);
+        await handleModals(page);
+        await page.waitForTimeout(500);
+        const after = await hasWarningTriangle(triangleScope);
+
+        if (!before) {
+          entry.status = 'bug';
+          entry.detail = `El triángulo NO apareció tras editar (${edited}), antes de guardar (el cambio no se registró)`;
+        } else if (after) {
+          entry.status = 'bug';
+          entry.detail = `El triángulo SIGUE tras clic en "${save.label}" (no se guardó, o el botón es el incorrecto)`;
+        } else {
+          entry.status = 'ok';
+          entry.detail = `Apareció tras editar (${edited}) y desapareció tras "${save.label}"`;
+        }
+        entry.saveLabel = save.label;
+
+        if (entry.status === 'bug' && opts.screenshot !== false) {
+          const safe = `${tabName}-${name}`.replace(/[^\w]+/g, '-').slice(0, 60);
+          entry.screenshot = `test-results/indicador-${safe}.png`;
+          await page.screenshot({ path: entry.screenshot, fullPage: true }).catch(() => {});
+        }
+
+        const icon = entry.status === 'ok' ? '✅' : '🐛';
+        logger.info(`${icon} [${tabName} › ${name}] ${entry.detail}${entry.screenshot ? ` → ${entry.screenshot}` : ''}`);
+      } catch (e) {
+        entry.status = 'error';
+        entry.detail = `Excepción durante la auditoría: ${e.message}`;
+        logger.error(`💥 [${tabName} › ${name}] ${entry.detail}`);
+      }
+      results.push(entry);
+    }
+  }
+
+  // ── Resumen ──
+  const ok = results.filter(r => r.status === 'ok').length;
+  const bugs = results.filter(r => r.status === 'bug');
+  const skipped = results.filter(r => r.status === 'skip').length;
+  const errored = results.filter(r => r.status === 'error').length;
+
+  console.log('\n' + '─'.repeat(70));
+  console.log('📋  RESUMEN AUDITORÍA INDICADOR');
+  console.log('─'.repeat(70));
+  console.log(`   Apartados auditados: ${results.length}`);
+  console.log(`   ✅ Correctos:        ${ok}`);
+  console.log(`   🐛 Con bug:          ${bugs.length}`);
+  console.log(`   ⏭️  Omitidos:         ${skipped}`);
+  console.log(`   💥 Errores:          ${errored}`);
+  if (bugs.length > 0) {
+    console.log('\n   Apartados con problema:');
+    bugs.forEach((b, i) => console.log(`     [${i + 1}] ${b.tab} › ${b.apartado} — ${b.detail}`));
+  }
+  console.log('─'.repeat(70) + '\n');
+
+  return results;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ESCANEO RESIDUAL DEL INDICADOR (instrumentación del flujo real)
+// Se llama JUSTO DESPUÉS de que un handler real terminó de editar y guardar los
+// apartados de la pestaña actual, SIN salir de la pestaña (el triángulo es un
+// indicador client-side: navegar fuera lo descarta).
+// Devuelve los apartados visibles que CONSERVAN el triángulo de advertencia, es
+// decir, cuyo dato no quedó persistido pese al guardado real → bug real.
+// ─────────────────────────────────────────────────────────────────────────────
+async function collectFlaggedApartados(page) {
+  const titles = page.locator('.card-title');
+  const n = await titles.count().catch(() => 0);
+  const flagged = [];
+  for (let i = 0; i < n; i++) {
+    const t = titles.nth(i);
+    if (!(await t.isVisible().catch(() => false))) continue;
+    const header = t.locator('xpath=ancestor::*[contains(@class,"card-header")][1]');
+    const scope = (await header.count().catch(() => 0)) > 0
+      ? header
+      : t.locator('xpath=ancestor::*[contains(concat(" ",normalize-space(@class)," ")," card ")][1]');
+    if (await hasWarningTriangle(scope)) {
+      flagged.push(((await t.textContent().catch(() => '')) || '').trim());
+    }
+  }
+  return flagged;
+}
+
+async function scanResidualIndicators(page, tabName, opts = {}) {
+  const settle = opts.settleMs != null ? opts.settleMs : 1500;
+  // Dejar asentar el re-render posterior al guardado antes de mirar.
+  await page.waitForTimeout(settle);
+  const firstPass = await collectFlaggedApartados(page);
+  if (firstPass.length === 0) return [];
+
+  // Re-verificar: el triángulo puede estar limpiándose de forma asíncrona. Solo
+  // reportamos los apartados cuyo triángulo PERSISTE en ambas pasadas (descarta
+  // falsos positivos por timing).
+  await page.waitForTimeout(1500);
+  const secondPass = await collectFlaggedApartados(page);
+  return firstPass.filter(name => secondPass.includes(name));
+}
+
+module.exports = { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals, setupConsoleMonitor, detectUnsavedSections, auditConsultationIndicators, scanResidualIndicators };

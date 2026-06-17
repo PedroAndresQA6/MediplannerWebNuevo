@@ -75,6 +75,17 @@ Al abrir el formulario de **Facturación** de un paciente, `POST /api/patients/g
 
 *Nota:* el entorno dev también es **flaky**: a veces aborta el bundle `index-*.js` (`net::ERR_ABORTED`), causando fallos distintos no relacionados con los tests.
 
+### 🐛 Indicador "sin guardar" (triángulo) que no se limpia — *Laboratorios y Procedimientos*
+
+Cada apartado de la consulta muestra un **triángulo de advertencia** (FontAwesome `triangle-exclamation`, naranja, en el `card-header`) cuando hay cambios sin guardar. **Confirmado (Pedro):** en **Tratamiento › Laboratorios y Procedimientos**, tras llenar y guardar:
+- El API responde OK: `POST /api/procedures/setProceduresConsultation → 200 "Procedimientos de consulta actualizados exitosamente"`.
+- **Pero el triángulo NO se limpia** → la data se persiste en el servidor, pero el indicador client-side de "sin guardar" se queda. Es un **bug de front**.
+- Verificado con doble verificación (no es timing): el triángulo persiste en dos pasadas.
+
+*Cómo se detecta automáticamente:* helper **`scanResidualIndicators(page, tabName)`** en `e2e/utils.js` — tras el guardado real de una pestaña (sin salir de ella; el triángulo es client-side y navegar lo descarta), escanea los apartados visibles y reporta los que conservan el triángulo. Cableado en `tests/consultation.full-flow.spec.js` para Exploración/Tratamiento/Notas/Servicios (General y Diagnóstico se excluyen: guardan con "Continuar", no con botón propio). Log-and-continue: registra + screenshot `test-results/indicador-residual-*.png` + resumen final, sin tumbar el test.
+
+*Falso positivo descartado:* "Aparatos y sistemas" (Exploración) **NO** es bug de la app — era bug del **test**: el guardado de Exploración usaba `.first()` y solo guardaba el primer apartado. Corregido: ahora `fillExplorationSection` llena todo y guarda **cada apartado una vez al final** (se quitó el guardado por-checkbox). Exploración quedó limpia.
+
 ---
 
 ## Cómo correr los tests
@@ -126,5 +137,6 @@ npx playwright test "stress tests" --list
 
 - [x] ~~Commit + push de stress tests + config + fix facturacion~~ — hecho (commit `1bb9cd7`, pusheado a main/Trabajando/Normalization el 2026-06-17).
 - [ ] Reportar a devs el bug `getFilledForm` 422 "relacion_id es requerido".
-- [ ] (Baja prioridad) Arreglar fallback de `fillTabFields` en `e2e/utils.js` (llena inputs visibles con "N/A"/"70", puede sobreescribir datos correctos).
-- [ ] Aplicar mejoras (monitor / esperas) a los tests de Staging y Producción (aún con código viejo).
+- [ ] **Reportar a devs:** indicador "sin guardar" no se limpia en **Tratamiento › Laboratorios y Procedimientos** (guarda 200 OK pero el triángulo se queda). Ver sección de hallazgos.
+- [x] ~~Arreglar fallback de `fillTabFields` en `e2e/utils.js`~~ — hecho: usa `load` en vez de networkidle, solo rellena campos obligatorios (`required`/`aria-required`), valores numéricos realistas por campo, log de resumen.
+- [~] Aplicar mejoras a Staging/Producción: **monitor DevTools ya agregado** (`setupConsoleMonitor`) a ambos `consultation.start.spec.js`. **Pendiente:** propagar el detector del indicador (`scanResidualIndicators`) y el fix de guardado de Exploración a Staging/Prod.
