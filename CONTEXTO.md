@@ -36,14 +36,12 @@ storageState.json localmente (no están en git).
 
 ## Estado actual (git)
 
-- Último commit en `Normalization`: `564cb92` — *test(ingresos): arreglar timeouts de networkidle y desacoplar de consulta* (ya en remoto).
-- **Cambios SIN commitear** en el working tree:
-  - Los **9 stress tests** de `tests/stress tests/` (mejoras: ver abajo)
-  - `playwright.config.js` (proyectos nuevos + rename de proyecto huérfano)
-  - Fix de `facturacion.stress.test.ts` (opción B, ver abajo)
-  - *(excluidos a propósito:* `storageState.json` = solo refresco de sesión; `MediplannerAppiumAutomation/` = repo aparte)*
+- Último commit: `1bb9cd7` — *test(stress): mejorar 9 stress tests con DevTools monitor y fix de networkidle*.
+- **Pusheado a las 3 ramas** (`main`, `Trabajando`, `Normalization`) — las tres apuntan a `1bb9cd7`.
+- Incluido en ese commit: los 9 stress tests, `playwright.config.js`, fix de `facturacion` (opción B), `CONTEXTO.md`.
+  - *(excluidos a propósito:* `storageState.json` = solo refresco de sesión auth; `MediplannerAppiumAutomation/` = repo aparte)*
 
-> ⚠️ **Para reproducir el estado en otra computadora hay que commitear y pushear estos cambios** (o llevarlos por patch). Con solo este documento, la otra máquina tendrá el contexto pero NO el código nuevo de los stress tests.
+> ✅ El estado ya está en GitHub: en otra computadora basta `git clone` + `git checkout main` (o cualquiera de las 3 ramas) + `npm install` + crear `.env` localmente.
 
 ---
 
@@ -54,13 +52,13 @@ storageState.json localmente (no están en git).
    - `ingresos` desacoplado de `doctor-consultation` (depende solo de `setup`): correr ingresos ya no corre la consulta primero (1.8m vs 5.3m).
    - Rename `Consultation.stress.test.spec.ts` → `consultation.inputs-validation.spec.ts`.
 
-2. **Mejoras a los 9 stress tests (SIN commitear)** — `tests/stress tests/`
+2. **Mejoras a los 9 stress tests (commit `1bb9cd7`)** — `tests/stress tests/`
    - A los 9: fix `networkidle`→`load` + `setupConsoleMonitor(page)` + `printSummary()`.
    - Bug corregido en `pacientes.stress.test.ts`: `formInputs` → `allInputs` (ReferenceError).
    - `playwright.config.js`: agregados proyectos **`stress-antecedentes`** y **`stress-diagnosticos`** (no existían, esos 2 no se podían correr); proyecto huérfano `stress-test` (apuntaba al archivo renombrado) → **`consultation-inputs-validation`**.
    - **Suite completa corrida en serie: 8/9 pasan.** Solo falla `facturacion` (determinista, por un bug de la app — ver abajo).
 
-3. **`facturacion.stress.test.ts` — opción B aplicada (SIN commitear)**
+3. **`facturacion.stress.test.ts` — opción B aplicada (commit `1bb9cd7`)**
    - `fillFacturacion` ahora hace `selectOption(..., {timeout:5000})` dentro de `try/catch` y lanza un mensaje claro (`🐛 No se pudo seleccionar tipo de persona...`) en vez del `TimeoutError` genérico de 15s.
    - El test **sigue fallando a propósito** porque señala un bug real de la app (no es falso positivo).
 
@@ -126,7 +124,7 @@ npx playwright test "stress tests" --list
 
 ## Decisiones abiertas / pendientes
 
-- [ ] **Commit + push** de los cambios de stress tests + `playwright.config.js` + fix facturacion a `Normalization` (pendiente de decisión de Pedro).
+- [x] ~~Commit + push de stress tests + config + fix facturacion~~ — hecho (commit `1bb9cd7`, pusheado a main/Trabajando/Normalization el 2026-06-17).
 - [ ] Reportar a devs el bug `getFilledForm` 422 "relacion_id es requerido".
 - [ ] (Baja prioridad) Arreglar fallback de `fillTabFields` en `e2e/utils.js` (llena inputs visibles con "N/A"/"70", puede sobreescribir datos correctos).
 - [ ] Aplicar mejoras (monitor / esperas) a los tests de Staging y Producción (aún con código viejo).
