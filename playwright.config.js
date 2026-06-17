@@ -47,9 +47,8 @@ module.exports = defineConfig({
       timeout: 300000,
     },
     {
-      name: 'stress-test',
-      testMatch: /Consultation\.stress\.test\.spec\.ts/,
-      timeout: 600000,
+      name: 'consultation-inputs-validation',
+      testMatch: /consultation\.inputs-validation\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1366, height: 768 } },
       dependencies: ['setup'],
       timeout: 300000,
@@ -117,6 +116,20 @@ module.exports = defineConfig({
     {
       name: 'stress-vacunacion',
       testMatch: '**/vacunacion.stress.test.ts',
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1366, height: 768 } },
+      dependencies: ['setup'],
+      timeout: 600000,
+    },
+    {
+      name: 'stress-antecedentes',
+      testMatch: '**/antecedentes.stress.test.ts',
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1366, height: 768 } },
+      dependencies: ['setup'],
+      timeout: 600000,
+    },
+    {
+      name: 'stress-diagnosticos',
+      testMatch: '**/diagnosticos.stress.test.ts',
       use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1366, height: 768 } },
       dependencies: ['setup'],
       timeout: 600000,

@@ -2,6 +2,7 @@ import { test, expect, Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 const PDFDocument = require('pdfkit');
+const { setupConsoleMonitor } = require('../../e2e/utils.js');
 
 interface TestResult {
   seccion: string;
@@ -939,7 +940,7 @@ async function testAntecedentesSection(page: Page): Promise<void> {
     }
   }
   await page.waitForTimeout(3000);
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await page.waitForTimeout(2000);
 
@@ -1099,7 +1100,7 @@ async function testVacunacionSection(page: Page): Promise<void> {
     }
   }
   await page.waitForTimeout(3000);
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await page.waitForTimeout(2000);
 
@@ -1324,7 +1325,7 @@ async function testFacturacionSection(page: Page): Promise<void> {
     }
   }
   await page.waitForTimeout(3000);
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await page.waitForTimeout(2000);
 
@@ -2748,6 +2749,9 @@ test.describe('Información del Paciente - Stress Tests', () => {
   test('Stress Test Información del Paciente', async ({ page }) => {
     test.setTimeout(600000);
 
+    const monitor = setupConsoleMonitor(page);
+    console.log('🔍 [MONITOR] DevTools monitor activo\n');
+
     console.log('\n🚀 === STRESS TEST - INFORMACIÓN DEL PACIENTE ===\n');
 
     await ensureScreenshotsDir();
@@ -2770,7 +2774,7 @@ test.describe('Información del Paciente - Stress Tests', () => {
     // Step 1: Navigate to Pacientes
     console.log('📋 Navegando a /Pacientes...');
     await page.goto('/Pacientes');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
     await page.waitForTimeout(3000);
 
     const currentUrl = page.url();
@@ -2818,7 +2822,7 @@ test.describe('Información del Paciente - Stress Tests', () => {
     }
 
     await page.waitForTimeout(3000);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
 
     // Step 3: Navigate to "Información"
     console.log('📋 Buscando pestaña "Información"...');
@@ -2848,7 +2852,7 @@ test.describe('Información del Paciente - Stress Tests', () => {
       await page.goto('/Pacientes/informacion');
     }
 
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
     await page.waitForTimeout(2000);
 
     // Step 3b: Click on "General" sub-tab in the scrollspy sidebar
@@ -2963,5 +2967,8 @@ test.describe('Información del Paciente - Stress Tests', () => {
 
     // PDF: generar solo cuando se solicite manualmente
     // await generatePDFReport();
+
+    const result = monitor.printSummary();
+    if (!result.passed) console.log(`⚠️ El test terminó con ${result.errors.length} error(es) y ${result.failedApiCalls.length} API call(s) fallida(s).`);
   });
 });

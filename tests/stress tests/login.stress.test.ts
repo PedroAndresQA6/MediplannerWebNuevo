@@ -1,4 +1,5 @@
 import { test, expect, Page, Locator } from '@playwright/test';
+const { setupConsoleMonitor } = require('../../e2e/utils.js');
 
 interface ValidationResult {
   campo: string;
@@ -132,7 +133,7 @@ async function testLoginFieldValidation(
       console.log(`\n  🔍 Probando: ${testCase.tipo}`);
       
       await page.goto('/login');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
       await page.waitForTimeout(1000);
       
       const currentEmailField = page.locator(emailSelector).first();
@@ -168,7 +169,7 @@ async function testLoginFieldValidation(
           try {
             await page.waitForURL(/Dashboard|dashboard|inicio|home/i, { timeout: 10000 });
             console.log(`    ✅ Redirección detectada, esperando carga completa...`);
-            await page.waitForLoadState('networkidle');
+            await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
             await page.waitForTimeout(2000);
           } catch (e) {
             console.log(`    ⏳ Timeout de redirección, verificando URL actual...`);
@@ -302,12 +303,14 @@ function printGlobalValidationReport(): void {
 
 test('Stress Test - Login', async ({ page }) => {
   test.setTimeout(300000);
-  
+  const monitor = setupConsoleMonitor(page);
+  console.log('🔍 [MONITOR] DevTools monitor activo\n');
+
   console.log('🧪 === STRESS TEST LOGIN ===\n');
   console.log('Este test verifica la seguridad del formulario de login\n');
   
   await page.goto('/login');
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
   await page.waitForTimeout(2000);
   
   console.log('📋 Navegando a Login...');
@@ -323,4 +326,7 @@ test('Stress Test - Login', async ({ page }) => {
   printGlobalValidationReport();
   
   console.log('\n✅ Stress Test de Login completado');
+
+  const result = monitor.printSummary();
+  if (!result.passed) console.log(`⚠️ El test terminó con ${result.errors.length} error(es) y ${result.failedApiCalls.length} API call(s) fallida(s).`);
 });

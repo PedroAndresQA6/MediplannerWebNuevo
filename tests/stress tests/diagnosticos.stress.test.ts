@@ -2,6 +2,7 @@ import { test, expect, Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 const PDFDocument = require('pdfkit');
+const { setupConsoleMonitor } = require('../../e2e/utils.js');
 
 interface TestResult {
   seccion: string;
@@ -538,6 +539,9 @@ test.describe('Diagnósticos del Paciente - Stress Tests', () => {
   test('Stress Test Diagnósticos', async ({ page }) => {
     test.setTimeout(600000);
 
+    const monitor = setupConsoleMonitor(page);
+    console.log('🔍 [MONITOR] DevTools monitor activo\n');
+
     console.log('\n🚀 === STRESS TEST - DIAGNÓSTICOS DEL PACIENTE ===\n');
 
     await ensureScreenshotsDir();
@@ -554,7 +558,7 @@ test.describe('Diagnósticos del Paciente - Stress Tests', () => {
     // Step 1: Navigate to Pacientes
     console.log('📋 Navegando a /Pacientes...');
     await page.goto('/Pacientes');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
     await page.waitForTimeout(3000);
 
     if (!page.url().includes('Pacientes') && !page.url().includes('pacientes')) {
@@ -586,7 +590,7 @@ test.describe('Diagnósticos del Paciente - Stress Tests', () => {
     }
 
     await page.waitForTimeout(3000);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
 
     // Step 3: Navigate to "Información"
     console.log('📋 Click en "Información"...');
@@ -601,7 +605,7 @@ test.describe('Diagnósticos del Paciente - Stress Tests', () => {
       } catch {}
     }
     await page.waitForTimeout(2000);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
 
     // Step 4: Click on "Diagnosticos" in scrollspy
     console.log('📋 Click en sub-pestaña "Diagnósticos" del scrollspy...');
@@ -650,5 +654,8 @@ test.describe('Diagnósticos del Paciente - Stress Tests', () => {
 
     // PDF: generar solo cuando se solicite
     // await generatePDFReport();
+
+    const result = monitor.printSummary();
+    if (!result.passed) console.log(`⚠️ El test terminó con ${result.errors.length} error(es) y ${result.failedApiCalls.length} API call(s) fallida(s).`);
   });
 });

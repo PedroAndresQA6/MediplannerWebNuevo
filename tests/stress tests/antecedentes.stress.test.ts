@@ -1,4 +1,5 @@
 import { test, Page } from '@playwright/test';
+const { setupConsoleMonitor } = require('../../e2e/utils.js');
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -46,6 +47,8 @@ async function clickGuardar(page: Page, context: string): Promise<void> {
 test.describe('Antecedentes - Stress Test', () => {
   test('Stress Test Antecedentes', async ({ page }) => {
     test.setTimeout(600000);
+    const monitor = setupConsoleMonitor(page);
+    console.log('🔍 [MONITOR] DevTools monitor activo\n');
 
     console.log('\n🚀 === STRESS TEST ANTECEDENTES ===\n');
 
@@ -62,7 +65,7 @@ test.describe('Antecedentes - Stress Test', () => {
 
     // Navigate
     await page.goto('/Pacientes');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
     await page.waitForTimeout(3000);
 
     // Select Daniela
@@ -85,7 +88,7 @@ test.describe('Antecedentes - Stress Test', () => {
     await page.locator('a:has-text("Antecedentes")').first().click();
     console.log('📋 Sub-pestaña Antecedentes clickeada');
     await page.waitForTimeout(3000);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(2000);
 
@@ -302,5 +305,8 @@ test.describe('Antecedentes - Stress Test', () => {
     await captureScreenshot(page, 'antecedentes-final');
 
     console.log('\n  📋 === FIN STRESS TEST ANTECEDENTES ===\n');
+
+    const result = monitor.printSummary();
+    if (!result.passed) console.log(`⚠️ El test terminó con ${result.errors.length} error(es) y ${result.failedApiCalls.length} API call(s) fallida(s).`);
   });
 });

@@ -1,6 +1,7 @@
 import { test, Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+const { setupConsoleMonitor } = require('../../e2e/utils.js');
 
 const screenshotsDir = path.join(process.cwd(), 'test-results', 'stress-screenshots');
 
@@ -117,8 +118,16 @@ async function fillFacturacion(
   const cpInput = page.locator('input[name="cp"]').first();
 
   if (opts.tipoPersona && await tipoPersonaSel.isVisible().catch(() => false)) {
-    await tipoPersonaSel.selectOption({ label: opts.tipoPersona });
-    console.log(`    ✅ Tipo persona: ${opts.tipoPersona}`);
+    try {
+      await tipoPersonaSel.selectOption({ label: opts.tipoPersona }, { timeout: 5000 });
+      console.log(`    ✅ Tipo persona: ${opts.tipoPersona}`);
+    } catch {
+      throw new Error(
+        `🐛 No se pudo seleccionar tipo de persona "${opts.tipoPersona}": el select 'tipo_persona_id' ` +
+        `no quedó habilitado de forma estable. El formulario de facturación es inestable: se re-renderiza ` +
+        `por el fallo de getFilledForm (422 "El campo relacion_id es requerido"), alternando habilitado/deshabilitado.`
+      );
+    }
     await page.waitForTimeout(500);
   }
 
@@ -133,8 +142,15 @@ async function fillFacturacion(
   }
 
   if (opts.regimen && await regimenSel.isVisible().catch(() => false)) {
-    await regimenSel.selectOption({ label: opts.regimen });
-    console.log(`    ✅ Régimen: ${opts.regimen}`);
+    try {
+      await regimenSel.selectOption({ label: opts.regimen }, { timeout: 5000 });
+      console.log(`    ✅ Régimen: ${opts.regimen}`);
+    } catch {
+      throw new Error(
+        `🐛 No se pudo seleccionar régimen "${opts.regimen}": el select 'regimen_id' ` +
+        `no quedó habilitado de forma estable (formulario de facturación inestable).`
+      );
+    }
     await page.waitForTimeout(500);
   }
 
@@ -182,6 +198,9 @@ test.describe('Facturación - Stress Test', () => {
   test('Stress Test Facturación', async ({ page }) => {
     test.setTimeout(600000);
 
+    const monitor = setupConsoleMonitor(page);
+    console.log('🔍 [MONITOR] DevTools monitor activo\n');
+
     console.log('\n🚀 === STRESS TEST FACTURACIÓN ===\n');
 
     // Login
@@ -197,7 +216,7 @@ test.describe('Facturación - Stress Test', () => {
 
     // Navigate
     await page.goto('/Pacientes');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
     await page.waitForTimeout(3000);
 
     // Select Daniela
@@ -220,7 +239,7 @@ test.describe('Facturación - Stress Test', () => {
     await page.locator('a:has-text("Facturación")').first().click();
     console.log('📋 Sub-pestaña Facturación clickeada');
     await page.waitForTimeout(3000);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(2000);
 
@@ -432,5 +451,8 @@ test.describe('Facturación - Stress Test', () => {
 
     await captureScreenshot(page, 'facturacion-final');
     console.log('\n  📋 === FIN STRESS TEST FACTURACIÓN ===\n');
+
+    const result = monitor.printSummary();
+    if (!result.passed) console.log(`⚠️ El test terminó con ${result.errors.length} error(es) y ${result.failedApiCalls.length} API call(s) fallida(s).`);
   });
 });

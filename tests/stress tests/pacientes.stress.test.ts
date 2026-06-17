@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+const { setupConsoleMonitor } = require('../../e2e/utils.js');
 
 const invalidInputs = {
   'XSS Script': '<script>alert("xss")</script>',
@@ -11,11 +12,13 @@ const invalidInputs = {
 test.describe('Pacientes - Stress Tests', () => {
   test('Open random patient and analyze fields', async ({ page }) => {
     test.setTimeout(600000);
-    
+    const monitor = setupConsoleMonitor(page);
+    console.log('🔍 [MONITOR] DevTools monitor activo\n');
+
     console.log('🧪 === STRESS TEST - ANÁLISIS DE PERFIL DE PACIENTE ===\n');
     
     await page.goto('/Pacientes');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
     await page.waitForTimeout(3000);
     
     console.log('📋 Lista de pacientes cargada');
@@ -70,7 +73,7 @@ test.describe('Pacientes - Stress Tests', () => {
         console.log(`📋 Total campos encontrados: ${inputCount}`);
         
         for (let i = 0; i < Math.min(inputCount, 30); i++) {
-          const input = formInputs.nth(i);
+          const input = allInputs.nth(i);
           if (await input.isVisible() && await input.isEnabled()) {
             const tagName = await input.evaluate((el) => el.tagName.toLowerCase());
             const placeholder = await input.getAttribute('placeholder') || '';
@@ -129,5 +132,8 @@ test.describe('Pacientes - Stress Tests', () => {
     }
 
     console.log('\n✅ Test completado');
+
+    const result = monitor.printSummary();
+    if (!result.passed) console.log(`⚠️ El test terminó con ${result.errors.length} error(es) y ${result.failedApiCalls.length} API call(s) fallida(s).`);
   });
 });

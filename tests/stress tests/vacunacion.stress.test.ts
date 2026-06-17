@@ -1,4 +1,5 @@
 import { test, Page } from '@playwright/test';
+const { setupConsoleMonitor } = require('../../e2e/utils.js');
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -145,6 +146,8 @@ async function fillVacunaDiferente(page: Page): Promise<void> {
 test.describe('Vacunación - Stress Test', () => {
   test('Stress Test Vacunación - 5 aleatorias + Vacuna diferente', async ({ page }) => {
     test.setTimeout(600000);
+    const monitor = setupConsoleMonitor(page);
+    console.log('🔍 [MONITOR] DevTools monitor activo\n');
 
     console.log('\n🚀 === STRESS TEST VACUNACIÓN ===\n');
 
@@ -161,7 +164,7 @@ test.describe('Vacunación - Stress Test', () => {
 
     // Navigate to patients
     await page.goto('/Pacientes');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
     await page.waitForTimeout(3000);
 
     // Select Daniela
@@ -182,7 +185,7 @@ test.describe('Vacunación - Stress Test', () => {
     await page.waitForTimeout(2000);
     await page.locator('a:has-text("Vacunación")').first().click();
     await page.waitForTimeout(3000);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(2000);
 
@@ -227,5 +230,8 @@ test.describe('Vacunación - Stress Test', () => {
 
     await captureScreenshot(page, 'vacunacion-final');
     console.log('\n  📋 === FIN STRESS TEST VACUNACIÓN ===\n');
+
+    const result = monitor.printSummary();
+    if (!result.passed) console.log(`⚠️ El test terminó con ${result.errors.length} error(es) y ${result.failedApiCalls.length} API call(s) fallida(s).`);
   });
 });

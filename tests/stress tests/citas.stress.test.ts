@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+const { setupConsoleMonitor } = require('../../e2e/utils.js');
 
 const MALICIOUS_INPUTS = [
   '<script>alert("XSS")</script>',
@@ -17,6 +18,9 @@ test.describe('Citas - Stress Tests', () => {
   let protections = 0;
 
   test('Stress test on Citas module', async ({ page }) => {
+    const monitor = setupConsoleMonitor(page);
+    console.log('🔍 [MONITOR] DevTools monitor activo\n');
+
     await page.goto('/Citas');
     await expect(page).toHaveURL(/Citas/);
     await page.waitForTimeout(2000);
@@ -196,5 +200,8 @@ test.describe('Citas - Stress Tests', () => {
     }
 
     console.log('\n✅ Citas Stress Test completed');
+
+    const result = monitor.printSummary();
+    if (!result.passed) console.log(`⚠️ El test terminó con ${result.errors.length} error(es) y ${result.failedApiCalls.length} API call(s) fallida(s).`);
   });
 });
