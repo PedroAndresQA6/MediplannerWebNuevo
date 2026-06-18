@@ -28,20 +28,21 @@ storageState.json localmente (no están en git).
 ### Stack / entorno (verificado 2026-06-17 en PC principal)
 - Node **v24.16.0**, npm **11.13.0**
 - Playwright **1.58.2**
-- Navegador: **Chromium 1223** (ruta fija en config: `…/ms-playwright/chromium-1223/chrome-win64/chrome.exe`)
+- Navegador: el config ya **NO** hardcodea la ruta. `executablePath` es **condicional** a la variable `PW_CHROMIUM_PATH`. En esta PC, `.env` la define apuntando a `chromium-1223`; en otra PC sin esa variable, Playwright usa su Chromium por defecto (`npx playwright install chromium`). Config portable.
 - `playwright.config.js`: solo Chromium, viewport **1366x768**, `headless: false`, `workers: 1` (serial)
-- Archivos locales **NO versionados** y necesarios para correr: `.env` (BASE_URL + credenciales) y `storageState.json` (sesión auth)
+- Archivos locales necesarios para correr: `.env` (BASE_URL + credenciales + `PW_CHROMIUM_PATH`) y `storageState.json` (sesión auth).
+  - ⚠️ **OJO seguridad:** `.env` actualmente **SÍ está trackeado en git** (con credenciales). Pendiente sacarlo del repo (`git rm --cached .env` + `.gitignore`). Por eso el cambio local de `PW_CHROMIUM_PATH` NO se commitea (es ruta de esta máquina).
 
 ---
 
 ## Estado actual (git)
 
-- Último commit: `1bb9cd7` — *test(stress): mejorar 9 stress tests con DevTools monitor y fix de networkidle*.
-- **Pusheado a las 3 ramas** (`main`, `Trabajando`, `Normalization`) — las tres apuntan a `1bb9cd7`.
-- Incluido en ese commit: los 9 stress tests, `playwright.config.js`, fix de `facturacion` (opción B), `CONTEXTO.md`.
-  - *(excluidos a propósito:* `storageState.json` = solo refresco de sesión auth; `MediplannerAppiumAutomation/` = repo aparte)*
+- **Trabajo más reciente:** automatización consolidada de **Vacunación (UI nueva)** + mapper + proyectos en config + fix de Chromium portable (ver `git log` para el hash más reciente).
+- Commits clave previos: `1bb9cd7` (9 stress tests + monitor + facturacion opción B), más `feat(consultation)` y `test(vacunacion)` que llegaron del otro equipo.
+- Se mantiene sincronizado en las **3 ramas** (`main`, `Trabajando`, `Normalization`) — apuntan al mismo commit.
+- *(excluidos de git a propósito:* `storageState.json` = refresco de sesión; cambio local de `PW_CHROMIUM_PATH` en `.env` = ruta de esta máquina; `MediplannerAppiumAutomation/` = repo aparte)*
 
-> ✅ El estado ya está en GitHub: en otra computadora basta `git clone` + `git checkout main` (o cualquiera de las 3 ramas) + `npm install` + crear `.env` localmente.
+> ✅ El estado está en GitHub: en otra computadora basta `git clone` + `git checkout main` (o cualquiera de las 3 ramas) + `npm install` + (navegador: `npx playwright install chromium` o `PW_CHROMIUM_PATH` en `.env`).
 
 ---
 
@@ -88,6 +89,28 @@ Cada apartado de la consulta muestra un **triángulo de advertencia** (FontAweso
 
 ---
 
+## 💉 Vacunación — UI NUEVA mapeada + automatización consolidada (2026-06-17)
+
+⚠️ **La UI de Vacunación cambió por completo.** Los tests viejos `tests/vacunacion.registro.spec.ts`, `tests/vacunacion.ciclo.spec.ts` y `tests/stress tests/vacunacion.stress.test.ts` usan el flujo **MUERTO** (react-calendar, `div.cursor-pointer`, botón "Vacuna diferente") → **obsoletos, pendiente borrarlos**.
+
+**Cómo funciona la UI nueva** (mapeada con `tests/vacunacion.explorar.spec.ts`, proyecto `vacunacion-explorar`):
+- Cada dosis de la **Cartilla** es un `<input type="date">` inline → selector `table.table-compact input[type="date"]`. Llenar la fecha **AUTO-GUARDA**: dispara `POST /api/vaccines/saveVaccinesUser → 200` solo, sin botón. (Confirmado.)
+- Ícono **lápiz** (`button.btn-secondary` con svg `data-icon="pencil"`) = editar folio/obs de esa dosis → abre `input[placeholder="Opcional"]` (folio) + `textarea[placeholder="Notas..."]`. Disponible tras poner la fecha.
+- **Borrar** una dosis: `button.btn-secondary` cuyo **texto es "×"** (las de dosis vacías están `hidden`). OJO: lápiz y × comparten la clase `btn-secondary`.
+- Sección **"Otra vacuna"** (abajo, fuera de la tabla): filas inline `input[name="vacuna_nombre"]`, `input[name="dosis_nombre"]`, `input[placeholder="Fecha"]`, `input[placeholder="Folio"]`, `textarea[placeholder="Comentarios"]`. Hay 2 filas-plantilla siempre presentes.
+- Botón **"Guardar cambios"** = guarda **TODO el apartado de Vacunación** (cartilla + otra vacuna), no solo la otra vacuna.
+- Al cargar lanza ~20 errores JS de consola (TypeErrors `'vacunas'`/`'map'` del bundle de vacunación) = bug de la app, NO rompen el flujo. 0 errores de API.
+
+**Automatización consolidada nueva:** `tests/vacunacion.ciclo-completo.spec.ts` (proyecto **`vacunacion-ciclo-completo`**), paciente **Agustin Tapia**. Flujo: ir → borrar todas las dosis (× auto-save) + filas otra-vacuna → refrescar y **verificar 0** → registrar dosis (fecha auto-save, cap **`MAX_DOSES`**) + 1 otra vacuna → refrescar y **verificar persistencia**.
+- ✅ **Corrida OK:** borró 2, verificó vacío (0), registró 6, verificó 6 tras refrescar. El bug viejo de "pierde interactividad tras guardar" **ya NO aplica** (el auto-save lo resolvió).
+
+**Pendiente en vacunación:**
+- [ ] Subir `MAX_DOSES` (actual 6 → 999) para registrar **TODAS** las dosis (lo pidió Pedro; iba a hacerse cuando se pausó).
+- [ ] Completar borrado + verificación real de filas **"otra vacuna"** (al iniciar solo había plantillas vacías; mi corrida dejó una guardada, así que la próxima ya puede probar el borrado). Ajustar el selector del × rojo (`button[class*="hover:text-red"]`).
+- [ ] Borrar los 3 tests viejos de vacunación (UI muerta) y su(s) proyecto(s) en el config.
+
+---
+
 ## Cómo correr los tests
 
 ```powershell
@@ -107,6 +130,12 @@ npx dotenv -e .env -- playwright test "stress tests"
 
 # Listar/validar parseo sin correr
 npx playwright test "stress tests" --list
+
+# Vacunación — ciclo completo (borrar todo → registrar → verificar)
+npx dotenv -e .env -- playwright test --project=vacunacion-ciclo-completo
+
+# Vacunación — mapeador de la UI (exploratorio)
+npx dotenv -e .env -- playwright test --project=vacunacion-explorar
 ```
 
 **Proyectos de stress disponibles:** `stress-login`, `stress-citas`, `stress-pacientes`, `stress-ingresos`, `stress-informacion-paciente`, `stress-facturacion`, `stress-vacunacion`, `stress-antecedentes`, `stress-diagnosticos`.
@@ -120,7 +149,7 @@ npx playwright test "stress tests" --list
 1. Instalar **Node 24.x** y **git** (y opcionalmente **GitHub CLI `gh`** — no está instalado en la PC principal).
 2. `git clone https://github.com/PedroAndresQA6/MediplannerWebNuevo.git` y `git checkout Normalization`.
 3. `npm install`.
-4. `npx playwright install chromium` — y verificar que la versión de Chromium coincida con la ruta del config (`chromium-1223`); si difiere, ajustar `executablePath` en `playwright.config.js`.
+4. Navegador: `npx playwright install chromium` (usa el bundled). Si prefieres uno ya instalado, pon su ruta en `.env` como `PW_CHROMIUM_PATH=...` (el config la respeta; sin esa variable usa el bundled).
 5. Crear **`.env`** localmente (BASE_URL + credenciales) — **no está en git**, pedírselo a Pedro / copiarlo de la PC principal.
 6. `storageState.json` se regenera solo al correr el proyecto `setup` (auth), o copiarlo de la PC principal.
 7. (Si los cambios de stress tests aún no están en `Normalization`) hacer `git pull` después de que se hayan pusheado.

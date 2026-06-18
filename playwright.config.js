@@ -23,7 +23,7 @@ module.exports = defineConfig({
     viewport: { width: 1366, height: 768 },
     actionTimeout: 15000,
     navigationTimeout: 30000,
-    launchOptions: { slowMo: 50 },
+    launchOptions: { slowMo: 50, ...(process.env.PW_CHROMIUM_PATH ? { executablePath: process.env.PW_CHROMIUM_PATH } : {}) },
   },
   projects: [
     {
@@ -31,6 +31,20 @@ module.exports = defineConfig({
       testMatch: /.*\.setup\.ts/,
       use: { ...devices['Desktop Chrome'] },
       timeout: 30000,
+    },
+    {
+      name: 'vacunacion-explorar',
+      testMatch: /vacunacion\.explorar\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1366, height: 768 } },
+      dependencies: ['setup'],
+      timeout: 240000,
+    },
+    {
+      name: 'vacunacion-ciclo-completo',
+      testMatch: /vacunacion\.ciclo-completo\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1366, height: 768 } },
+      dependencies: ['setup'],
+      timeout: 600000,
     },
     {
       name: 'vacunacion-ciclo',
