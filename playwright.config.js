@@ -23,7 +23,7 @@ module.exports = defineConfig({
     viewport: { width: 1366, height: 768 },
     actionTimeout: 15000,
     navigationTimeout: 30000,
-    launchOptions: { slowMo: 50, executablePath: 'C:\\Users\\pandr\\AppData\\Local\\ms-playwright\\chromium-1223\\chrome-win64\\chrome.exe' },
+    launchOptions: { slowMo: 50 },
   },
   projects: [
     {
@@ -31,6 +31,20 @@ module.exports = defineConfig({
       testMatch: /.*\.setup\.ts/,
       use: { ...devices['Desktop Chrome'] },
       timeout: 30000,
+    },
+    {
+      name: 'vacunacion-ciclo',
+      testMatch: /vacunacion\.ciclo\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1366, height: 768 } },
+      dependencies: ['setup'],
+      timeout: 600000,
+    },
+    {
+      name: 'vacunacion-registro',
+      testMatch: /vacunacion\.registro\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1366, height: 768 } },
+      dependencies: ['setup'],
+      timeout: 180000,
     },
     {
       name: 'appointments-create',
