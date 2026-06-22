@@ -22,19 +22,35 @@ class HomePage(BasePage):
 
     def abrir_perfil(self):
         """Abre la pantalla de Perfil desde el icono de menu (esquina sup. der.).
-        Si el test viene de una sub-pantalla, primero regresa al Home (back/Regresar)
-        hasta que el icono de menu sea visible."""
-        for _ in range(6):
+        Si el test viene de una sub-pantalla (incluso un formulario profundo), regresa
+        al Home antes de abrir el menu. Usa el back de Android como mecanismo principal
+        (mas confiable que el 'Regresar' in-app, que a veces no navega) y maneja
+        dialogos de descarte que puedan aparecer al salir de un formulario."""
+        import time as _t
+        for _ in range(12):
             if self.esta_visible(self.btn_menu, timeout=2):
                 self.hacer_click(self.btn_menu)
                 return self.esta_visible(self.titulo_perfil, timeout=5)
-            # Aun no estamos en Home: intentar regresar
+            # Back de Android (dismiss de formularios/modales mas fiable que 'Regresar')
+            self.driver.back()
+            _t.sleep(0.8)
+            # Si aparece un dialogo de descartar/salir, confirmarlo
+            for txt in ('Descartar', 'Salir', 'Sí', 'Si', 'Aceptar', 'Continuar'):
+                dlg = (AppiumBy.XPATH, f"//android.widget.Button[@content-desc='{txt}']")
+                if self.esta_visible(dlg, timeout=1):
+                    self.hacer_click(dlg)
+                    _t.sleep(0.6)
+                    break
+            if self.esta_visible(self.btn_menu, timeout=1):
+                continue
+            # Como respaldo, intentar el 'Regresar' in-app
             regresar = (AppiumBy.XPATH, "//*[@content-desc='Regresar']")
             if self.esta_visible(regresar, timeout=1):
-                self.hacer_click(regresar)
-            else:
-                self.driver.back()
-            import time as _t; _t.sleep(1)
+                try:
+                    self.hacer_click(regresar)
+                except Exception:
+                    pass
+                _t.sleep(0.6)
         return False
 
     def abrir_seccion_perfil(self, nombre):

@@ -151,254 +151,68 @@ def test_perfil_cuenta(driver, home_page):
 
 def test_perfil_historial_medico(driver, home_page):
     print("\n=== TEST: Historial Medico ===")
-    
-    # Navigate to Perfil first
-    for i in range(4):
-        driver.swipe(1100, 2700, 200, 2700, 500)
-        time.sleep(0.3)
-    
-    btn_perfil = driver.find_elements(AppiumBy.XPATH, "//android.widget.ImageView[contains(@content-desc, 'Perfil')]")
-    if btn_perfil:
-        btn_perfil[0].click()
-        time.sleep(0.5)
-    
-    # Click menu
-    btn_menu = driver.find_elements(AppiumBy.XPATH, "//android.widget.ImageView[@bounds='[1103,221][1220,338]']")
-    if btn_menu:
-        btn_menu[0].click()
-        time.sleep(1)
-    
-    # Click Historial Médico
-    historial = driver.find_elements(AppiumBy.XPATH, "//android.widget.ImageView[contains(@content-desc, 'Historial')]")
-    if historial:
-        historial[0].click()
-        time.sleep(0.5)
-        print("[1] Historial Medico abierto")
-    
-    # 2. Click on Antecedentes patológicos
-    patologicos = driver.find_elements(AppiumBy.XPATH, "//android.view.View[@content-desc='Antecedentes patológicos']")
-    if patologicos:
-        patologicos[0].click()
-        time.sleep(0.5)
-        print("[2] Antecedentes patológicos abierto")
-        
-        # Click Formulario
-        btn_formulario = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Formulario']")
-        if btn_formulario:
-            btn_formulario[0].click()
-            time.sleep(0.5)
-            print("[3] Formulario abierto")
-            
-            # Select option (e.g., Asma)
-            btn_opcion = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='(J45) Asma']")
-            if btn_opcion:
-                btn_opcion[0].click()
-                time.sleep(0.3)
-                print("[OK] Seleccionado: Asma")
-            
-            # Click Enviar Reporte
-            btn_enviar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Enviar Reporte']")
-            if btn_enviar:
-                btn_enviar[0].click()
-                time.sleep(1)
-                print("[OK] Enviar Reporte")
-            
-# Click back button
-                btn_atras = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[12,168][156,312]']")
-                if btn_atras:
-                    btn_atras[0].click()
-                    time.sleep(0.5)
-                
-                # Close dropdown by clicking same section
-                try:
-                    patologicos[0].click()
-                    time.sleep(0.3)
-                    print("[OK] Cerrando dropdown")
-                except:
-                    pass
-    
-    # 3. Scroll down and click on Antecedentes Heredofamiliares
-    driver.swipe(600, 1500, 600, 600, 300)
-    time.sleep(0.3)
-    
-    heredofamiliares = driver.find_elements(AppiumBy.XPATH, "//android.view.View[@content-desc='Antecedentes Heredofamiliares']")
-    if heredofamiliares:
-        heredofamiliares[0].click()
-        time.sleep(0.5)
-        print("[4] Antecedentes Heredofamiliares abierto")
-        
-        # Click Formulario
-        btn_formulario = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Formulario']")
-        if btn_formulario:
-            btn_formulario[0].click()
-            time.sleep(0.5)
-            print("[OK] Formulario abierto")
-            
-            # Select option (e.g., Miopia)
-            btn_opcion = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[contains(@content-desc, 'Miopia')]")
-            if btn_opcion:
-                btn_opcion[0].click()
-                time.sleep(0.3)
-                print("[OK] Seleccionado: Miopía")
-            
-            # Click Enviar Reporte
-            btn_enviar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Enviar Reporte']")
-            if btn_enviar:
-                btn_enviar[0].click()
-                time.sleep(1)
-                print("[OK] Enviar Reporte")
-            
-            # Click back to return to historial
-            btn_atras = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[12,168][156,312]']")
-            if btn_atras:
-                btn_atras[0].click()
-                time.sleep(0.5)
-            
-            # Close dropdown clicking same section
-            try:
-                heredofamiliares[0].click()
-                time.sleep(0.3)
-                print("[OK] Cerrando dropdown")
-            except:
-                pass
-    
-    # 4. Scroll down and click on Alergias
-    driver.swipe(600, 1500, 600, 600, 300)
-    time.sleep(0.3)
-    
-    alergias = driver.find_elements(AppiumBy.XPATH, "//android.view.View[@content-desc='Alergias']")
-    if alergias:
-        alergias[0].click()
-        time.sleep(0.5)
-        print("[5] Alergias abierto")
-        
-        # Click Formulario button inside Alergias section
-        btn_formulario = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Formulario']")
-        if btn_formulario:
-            btn_formulario[0].click()
-            time.sleep(0.5)
-            print("[OK] Formulario abierto")
-            
-            # Delete existing allergy first
-            btn_eliminar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Eliminar']")
-            if btn_eliminar:
-                btn_eliminar[0].click()
-                time.sleep(0.5)
-                print("[OK] Eliminando allergy")
-            
-            # Add new allergy - enter in EditText field
-            txt_alergia = driver.find_elements(AppiumBy.XPATH, "//android.widget.EditText[@bounds='[48,372][852,516]']")
-            if txt_alergia:
-                palabras_alergia = [
-                    "Penicilina", "Aspirina", "Ibuprofeno", "Polen", "Ácaros",
-                    "Mariscos", "Cacahuetes", "Leche", "Huevos", "Trigo",
-                    "Soja", "Latex", "Picaduras", "Perros", "Gatos",
-                    "Hierbas", "Moho", "Niquel", "Perfume", "Detergente"
-                ]
-                import random
-                palabra = random.choice(palabras_alergia)
-                txt_alergia[0].click()
-                txt_alergia[0].send_keys(palabra)
-                print(f"[OK] Adding: {palabra}")
-            
-            # Click Agregar
-            btn_agregar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Agregar']")
-            if btn_agregar:
-                btn_agregar[0].click()
-                time.sleep(0.5)
-                print("[OK] Agregar clicked")
-            
-# Click back to exit form
-                btn_atras = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[12,168][156,312]']")
-                if btn_atras:
-                    btn_atras[0].click()
-                    time.sleep(0.5)
-                
-                # Close dropdown clicking same section
-                try:
-                    alergias[0].click()
-                    time.sleep(0.3)
-                    print("[OK] Cerrando dropdown")
-                except:
-                    pass
-    
-    # 5. Click on Antecedentes Gineco-Obstetricos
-    # No swipe needed - already visible after closing Alergias
-    
-    gineco = driver.find_elements(AppiumBy.XPATH, "//android.view.View[@content-desc='Antecedentes gineco-obstétricos']")
-    if gineco:
-        gineco[0].click()
-        time.sleep(0.5)
-        print("[6] Antecedentes Gineco-Obstetricos abierto")
-        
-        # Click Formulario - usando bounds ya identificados
-        btn_formulario = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Formulario']")
-        if btn_formulario:
-            btn_formulario[0].click()
-            time.sleep(0.5)
-            print("[OK] Formulario abierto")
-            
-            # Click each option to toggle between Si/No
-            # Oppcion 1: Planificación * - bounds [48,654][1232,822]
-            btn_plan = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[48,654][1232,822]']")
-            if btn_plan:
-                btn_plan[0].click()
-                time.sleep(0.5)
-                print("[OK] Planificación clickeado")
-                # Esperar popup y clickear "No" - usar content-desc
-                btn_no = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='No']")
-                if btn_no:
-                    btn_no[0].click()
-                    time.sleep(0.3)
-                    print("[OK] Seleccionado: No")
-            
-            # Opcion 2: Embarazos * - bounds [48,918][1232,1086]
-            btn_emb = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[48,918][1232,1086]']")
-            if btn_emb:
-                btn_emb[0].click()
-                time.sleep(0.5)
-                print("[OK] Embarazos clickeado")
-                # Esperar popup y clickear "No" - usar content-desc
-                btn_no = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='No']")
-                if btn_no:
-                    btn_no[0].click()
-                    time.sleep(0.3)
-                    print("[OK] Seleccionado: No")
-            
-            # Opcion 3: Citologías y mamografías * - bounds [48,1182][1232,1350]
-            btn_cito = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[48,1182][1232,1350]']")
-            if btn_cito:
-                btn_cito[0].click()
-                time.sleep(0.5)
-                print("[OK] Citologías clickeado")
-                # Esperar popup y clickear "No" - usar content-desc
-                btn_no = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='No']")
-                if btn_no:
-                    btn_no[0].click()
-                    time.sleep(0.3)
-                    print("[OK] Seleccionado: No")
-            
-            # Click Enviar Reporte - bounds [383,1494][897,1638]
-            btn_enviar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[383,1494][897,1638]']")
-            if btn_enviar:
-                btn_enviar[0].click()
-                time.sleep(1)
-                print("[OK] Enviar Reporte")
-            
-            # Click back - bounds [12,168][156,312]
-            btn_atras = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[12,168][156,312]']")
-            if btn_atras:
-                btn_atras[0].click()
-                time.sleep(0.5)
-    
-    # Click back to return to Perfil
-    btn_atras = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[12,168][156,312]']")
-    if btn_atras:
-        btn_atras[0].click()
-        time.sleep(0.5)
-        print("[8] Regresando a Perfil")
-    
-    print("[9] Test completado")
+    time.sleep(2)
+    assert home_page.abrir_perfil(), "No se pudo abrir Perfil"
+    home_page.abrir_seccion_perfil("Historial")
+    time.sleep(1.5)
+
+    titulo = (AppiumBy.XPATH, "//*[contains(@content-desc, 'Historial')]")
+    assert home_page.esta_visible(titulo, timeout=5), "No se abrio Historial Medico"
+
+    # Las secciones de antecedentes deben estar presentes
+    secciones = ['HEREDOFAMILIARES', 'NO PATOL', 'Alergias']
+    for s in secciones:
+        loc = (AppiumBy.XPATH, f"//*[contains(@content-desc, '{s}')]")
+        if not home_page.esta_visible(loc, timeout=2):
+            for _ in range(3):
+                home_page.scroll_abajo(); time.sleep(0.4)
+                if home_page.esta_visible(loc, timeout=1):
+                    break
+        assert home_page.esta_visible(loc, timeout=1), f"Falta la seccion de antecedentes: {s}"
+    print("[1] Secciones de antecedentes presentes")
+
+    # Flujo completo en Antecedentes Patologicos: expandir -> Formulario -> opcion -> Enviar
+    patologicos = (AppiumBy.XPATH, "//*[contains(@content-desc, 'PATOL') and not(contains(@content-desc, 'NO PATOL'))]")
+    home_page.scroll_arriba(); time.sleep(0.5)
+    home_page.hacer_click(patologicos); time.sleep(1.5)
+
+    formulario = (AppiumBy.XPATH, "//android.widget.Button[contains(@content-desc, 'Formulario')]")
+    assert home_page.esta_visible(formulario, timeout=5), "No aparecio el boton Formulario en Patologicos"
+    home_page.hacer_click(formulario); time.sleep(1.5)
+
+    opcion = (AppiumBy.XPATH, "//android.widget.Button[@content-desc='Asma']")
+    assert home_page.esta_visible(opcion, timeout=5), "No aparecieron las opciones del formulario de Patologicos"
+    home_page.hacer_click(opcion); time.sleep(0.5)
+    print("[2] Opcion 'Asma' seleccionada")
+
+    # 'Enviar Reporte' suele estar bajo el fold (el formulario tiene muchas opciones)
+    enviar = (AppiumBy.XPATH, "//android.widget.Button[contains(@content-desc, 'Enviar')]")
+    if not home_page.esta_visible(enviar, timeout=2):
+        for _ in range(5):
+            home_page.scroll_abajo(); time.sleep(0.5)
+            if home_page.esta_visible(enviar, timeout=1):
+                break
+    assert home_page.esta_visible(enviar, timeout=2), "No aparecio el boton 'Enviar Reporte'"
+    home_page.hacer_click(enviar)
+    time.sleep(1.5)
+
+    # El banner "Respuestas guardadas correctamente" es un toast que (a) puede no estar
+    # en el arbol de accesibilidad y (b) solo aparece si hubo cambio respecto al estado
+    # guardado. Por eso se valida como best-effort y NO como condicion de fallo.
+    exito = (AppiumBy.XPATH,
+             "//*[contains(@text, 'guardadas correctamente') "
+             "or contains(@content-desc, 'guardadas correctamente') "
+             "or contains(@text, 'Respuestas guardadas') "
+             "or contains(@content-desc, 'Respuestas guardadas')]")
+    if home_page.esta_visible(exito, timeout=4):
+        print("[3] OK: confirmacion 'Respuestas guardadas correctamente' detectada")
+    else:
+        # Aserción confiable: el flujo no crasheó (el formulario o Historial siguen vivos).
+        vivo = home_page.esta_visible(enviar, timeout=2) or home_page.esta_visible(titulo, timeout=2)
+        assert vivo, "Tras enviar el reporte la app no quedó en un estado válido (posible crash)"
+        print("[3] Reporte enviado; banner no visible en el arbol (flujo del formulario OK)")
+    home_page.tomar_screenshot("perfil_historial")
+    print("[4] Test completado")
 
 
 def test_perfil_progreso(driver, home_page):
