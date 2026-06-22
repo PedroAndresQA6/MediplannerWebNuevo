@@ -426,33 +426,65 @@ async function fillDiagnosticoSection(page) {
       console.log('ℹ️ Input consultaInicial no encontrado, continuando de todos modos');
     }
     
-    // 2. DESPUÉS: Llenar textareas de diagnóstico
-    console.log('📝 Llenando textareas de diagnóstico...');
-    const textareas = page.locator('textarea:not([disabled]):not([readonly])');
-    const taCount = await textareas.count();
-    
-    for (let i = 0; i < taCount; i++) {
-      const textarea = textareas.nth(i);
-      if (await textarea.isVisible() && await textarea.isEnabled()) {
-        const currentValue = await textarea.inputValue();
-        if (!currentValue || currentValue.trim() === '') {
-          const placeholder = await textarea.getAttribute('placeholder') || '';
-          let fillText = 'Diagnóstico pendiente de confirmación.';
-          
-          if (placeholder.toLowerCase().includes('impresión') || placeholder.toLowerCase().includes('diagnóstico')) {
-            fillText = 'Impresión diagnóstica: Condición médica a evaluar. Se solicitan estudios complementarios.';
-          } else if (placeholder.toLowerCase().includes('nota')) {
-            fillText = 'Notas adicionales del diagnóstico.';
-          }
-          
-          await textarea.fill(fillText);
-          console.log(`✅ Textarea ${i+1} llenado`);
-        }
+    // 2. DESPUÉS: Llenar SOLO la impresión diagnóstica.
+    // OJO: NO iterar todos los textareas — el buscador CIE-10 es un textarea[role=combobox]
+    // y escribir en él mete texto basura y rompe la selección (y oculta observaciones).
+    console.log('📝 Llenando impresión diagnóstica...');
+    const impresion = page.locator('textarea[placeholder="Impresión diagnóstica"]').first();
+    if (await impresion.isVisible({ timeout: 2000 }).catch(() => false)) {
+      const cur = await impresion.inputValue().catch(() => '');
+      if (!cur.trim()) {
+        await impresion.fill('Impresión diagnóstica: Condición médica a evaluar. Se solicitan estudios complementarios.');
+        console.log('✅ Impresión diagnóstica llenada');
       }
+    } else {
+      console.log('⚠️ No se encontró el textarea de Impresión diagnóstica');
     }
     
+    // 3. OBSERVACIONES: aparecen SOLO tras seleccionar un diagnóstico (último paso
+    // antes de Continuar). NO togglear el checkbox si el textarea ya está visible
+    // (clickearlo lo ocultaría). Defensivo para no tumbar el flujo.
+    await page.waitForTimeout(1000);
+    console.log('📝 Llenando observaciones del diagnóstico...');
+    try {
+      // "Agregar observaciones" es un toggle con <input type=checkbox class="sr-only peer">
+      // (oculto). Hay que activarlo con force; al activarlo se revela el textarea.
+      const obsCheckbox = page.locator('label:has-text("Agregar observaciones") input[type="checkbox"]').first();
+      if (await obsCheckbox.count() > 0) {
+        const ya = await obsCheckbox.isChecked().catch(() => false);
+        if (!ya) {
+          await obsCheckbox.check({ force: true }).catch(async () => {
+            await page.locator('label:has-text("Agregar observaciones")').first().click({ force: true }).catch(() => {});
+          });
+          await page.waitForTimeout(1000);
+          console.log('   ☑️ Toggle "Agregar observaciones" activado');
+        }
+        // Tras activarlo, llenar el textarea revelado: visible, vacío, que NO sea la
+        // impresión ni un combobox react-select.
+        const tas = page.locator('textarea:visible:not([readonly]):not([disabled])');
+        const n = await tas.count();
+        let filled = false;
+        for (let i = 0; i < n; i++) {
+          const ta = tas.nth(i);
+          const ph = (await ta.getAttribute('placeholder').catch(() => '')) || '';
+          const id = (await ta.getAttribute('id').catch(() => '')) || '';
+          const val = await ta.inputValue().catch(() => '');
+          if (ph === 'Impresión diagnóstica' || id.includes('react-select') || val.trim()) continue;
+          await ta.fill('Observaciones: paciente estable, se indica seguimiento ambulatorio y vigilancia de signos de alarma.');
+          console.log(`   ✅ Observaciones del diagnóstico llenadas (textarea #${i})`);
+          filled = true;
+          break;
+        }
+        if (!filled) console.log('   ⚠️ No se encontró textarea de observaciones tras activar el toggle');
+      } else {
+        console.log('   ⚠️ No se encontró el toggle "Agregar observaciones"');
+      }
+    } catch (e) {
+      console.log(`   ⚠️ Error llenando observaciones: ${e.message}`);
+    }
+
     console.log('✅ Diagnóstico completado, continuando...');
-    
+
   } catch (error) {
     console.log(`⚠️ Error en Diagnóstico: ${error.message}`);
   }
@@ -1434,6 +1466,7 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     const requiredFields = tabInfo.fields;
 
     await test.step(`Pestaña: ${tabName}`, async () => {
+      monitor.mark(`tab:${tabName}`);
       console.log(`\n🔍 Buscando pestaña: ${tabName}`);
 
       const tabSelectors = [
@@ -1469,6 +1502,19 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
         console.log(`🎯 Llenando campos específicos para ${tabName}`);
         for (const fieldName of requiredFields) {
           await fillSpecificField(page, fieldName);
+        }
+        // "Motivo de la consulta" = input[name="visitaPaciente"] (placeholder
+        // "¿Cuál es la razón de visita del paciente?"). fillSpecificField no lo
+        // detecta (busca "motivo"), por lo que se enviaba vacío. Llenado explícito.
+        const motivoInput = page.locator('input[name="visitaPaciente"]');
+        if (await motivoInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+          const cur = await motivoInput.inputValue().catch(() => '');
+          if (!cur.trim()) {
+            await motivoInput.fill('Paciente acude a consulta por cefalea persistente de 3 días de evolución, de intensidad moderada, sin respuesta a analgésicos de venta libre.');
+            console.log('✅ Motivo de la consulta llenado (input[name="visitaPaciente"])');
+          }
+        } else {
+          console.log('⚠️ No se encontró el campo de motivo (visitaPaciente)');
         }
       }
 
@@ -1558,7 +1604,9 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
   }
   console.log('─'.repeat(70) + '\n');
 
+  let finalizadaOk = false;
   await test.step('Finalizar consulta', async () => {
+    monitor.mark('Finalizar');
     console.log('\n🏁 === INICIANDO FINALIZACIÓN DE CONSULTA ===');
     await page.waitForTimeout(200);
     await page.waitForLoadState('networkidle');
@@ -1578,6 +1626,7 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
 
       await page.waitForTimeout(500);
       await page.screenshot({ path: 'test-results/consultation-finalized.png', fullPage: true });
+      finalizadaOk = true;
       console.log('\n🎉 === CONSULTA COMPLETADA EXITOSAMENTE ===');
     } else {
       throw new Error('No se encontró el botón de finalizar consulta');
@@ -1588,4 +1637,41 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
   if (!result.passed) {
     console.log(`⚠️  El test terminó con ${result.errors.length} error(es) y ${result.failedApiCalls.length} API call(s) fallida(s).`);
   }
+
+  // Volcar métricas estructuradas (baseline para comparar entre corridas).
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const metrics = monitor.dumpMetrics(`test-results/consultation-metrics-${stamp}.json`, {
+    test: 'consultation.full-flow',
+    environment: process.env.BASE_URL || 'unknown',
+    runAt: new Date().toISOString(),
+    functionality: {
+      finalizada: finalizadaOk,
+      monitorPassed: result.passed,
+      residualIndicators: indicatorFindings,
+    },
+  });
+
+  // Verificación de CONTENIDO (no solo status): un guardado puede responder 200
+  // con campos críticos vacíos = "falso registro". Falla el test si eso ocurre.
+  await test.step('Verificar contenido persistido (anti falso-registro)', async () => {
+    const lastPayload = (frag) => {
+      const hits = (metrics.writePayloads || []).filter(w => w.endpoint.includes(frag));
+      return hits.length ? hits[hits.length - 1].postData : null;
+    };
+    const problemas = [];
+    const checkCampo = (frag, campo) => {
+      const raw = lastPayload(frag);
+      if (!raw) { problemas.push(`No se capturó payload de ${frag}`); return; }
+      try {
+        const v = JSON.parse(raw)[campo];
+        if (!v || !String(v).trim()) problemas.push(`${frag}.${campo} se envió VACÍO`);
+        else console.log(`✅ ${frag}.${campo} OK: "${String(v).substring(0, 50)}..."`);
+      } catch (e) {
+        problemas.push(`No se pudo parsear payload de ${frag}: ${e.message}`);
+      }
+    };
+    checkCampo('editConsultation', 'motivo');
+    checkCampo('addDiagnosis', 'observaciones');
+    expect(problemas, `Falso registro detectado → ${problemas.join(' | ')}`).toEqual([]);
+  });
 });
