@@ -216,93 +216,41 @@ def test_perfil_historial_medico(driver, home_page):
 
 
 def test_perfil_progreso(driver, home_page):
-    print("\n=== TEST: Progreso ===")
-    
-    # Navegar a Perfil usando swipe
-    for i in range(4):
-        driver.swipe(1100, 2700, 200, 2700, 500)
-        time.sleep(0.3)
-    
-    btn_perfil = driver.find_elements(AppiumBy.XPATH, "//android.widget.ImageView[contains(@content-desc, 'Perfil')]")
-    if btn_perfil:
-        btn_perfil[0].click()
-        time.sleep(0.5)
-        print("[0] Navegó a Perfil")
-    
-    # Scroll para ver Progreso
-    driver.swipe(600, 600, 600, 1800, 300)
-    time.sleep(0.3)
-    
-    # Click Progreso usando bounds
-    progreso = driver.find_elements(AppiumBy.XPATH, "//android.widget.ImageView[@bounds='[48,1794][1232,2049]']")
-    if progreso:
-        progreso[0].click()
-        time.sleep(0.5)
-        print("[1] Progreso abierto")
-    
-    # 2. Click on Retos section
-    retos = driver.find_elements(AppiumBy.XPATH, "//android.view.View[@content-desc='Retos']")
-    if retos:
-        retos[0].click()
-        time.sleep(0.5)
-        print("[2] Click en Retos")
-    
-    # 3. Verificar insignias obtenidas
-    insignias_obtenidas = driver.find_elements(AppiumBy.XPATH, 
-        "//android.view.View[contains(@content-desc, 'Insignias obtenidas')]")
-    
-    if insignias_obtenidas:
-        print("[OK] Insignias obtenidas encontrado")
-        # Click en insignia con content-desc que contenga #
-        insignias = driver.find_elements(AppiumBy.XPATH, 
-            "//android.widget.ImageView[contains(@content-desc, '#')]")
-        if insignias:
-            insignias[0].click()
-            time.sleep(0.5)
-            print("[3] Click en insignia obtenida")
-    else:
-        print("[OK] No hay insignias obtenidas - Próximas Insignias")
-        # Buscar insignias disponibles (content-desc sin #)
-        insignias = driver.find_elements(AppiumBy.XPATH, 
-            "//android.widget.ImageView[@content-desc='Bienvenida']")
-        if insignias:
-            insignias[0].click()
-            time.sleep(0.5)
-            print("[3] Click en insignia 'Bienvenida'")
-    
-    # Regresar a Retos usando botón
-    btn_regresar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[12,168][156,312]']")
-    if btn_regresar:
-        btn_regresar[0].click()
-        time.sleep(0.5)
-    
-    # Regresar a Progreso usando botón
-    btn_regresar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[12,168][156,312]']")
-    if btn_regresar:
-        btn_regresar[0].click()
-        time.sleep(0.5)
-    
-    print("[4] Regresando a Progreso")
-    
-    # Scroll down para ver Medicamentos
-    driver.swipe(600, 1500, 600, 1200, 300)
-    time.sleep(0.3)
-    
-    # 5. Click on Medicamentos
-    medicamentos = driver.find_elements(AppiumBy.XPATH, "//android.view.View[@content-desc='Medicamentos']")
-    if medicamentos:
-        medicamentos[0].click()
-        time.sleep(1.5)
-        print("[5] Click en Medicamentos")
-    
-    # 6. Click en tab Inicio
-    btn_inicio = driver.find_elements(AppiumBy.XPATH, "//android.widget.ImageView[@content-desc='Inicio\nPestaña 1 de 5']")
-    if btn_inicio:
-        btn_inicio[0].click()
-        time.sleep(0.5)
-        print("[6] Click en Inicio")
-    
-    print("[7] Test completado")
+    print("=== TEST: Progreso ===")
+    time.sleep(2)
+    assert home_page.abrir_perfil(), "No se pudo abrir Perfil"
+    home_page.abrir_seccion_perfil("Progreso")
+    time.sleep(1.5)
+
+    titulo = (AppiumBy.XPATH, "//*[@content-desc='Progreso']")
+    assert home_page.esta_visible(titulo, timeout=5), "No se abrio Progreso"
+
+    # Seccion Retos con al menos una insignia
+    assert home_page.esta_visible((AppiumBy.XPATH, "//*[@content-desc='Retos']"), timeout=3),         "Falta la seccion Retos"
+    insignia = (AppiumBy.XPATH,
+                "//*[@content-desc='Bienvenida' or @content-desc='Tamiz' "
+                "or @content-desc='Primera Semana' or @content-desc='Primera consulta agendada']")
+    assert home_page.esta_visible(insignia, timeout=3), "No se ven insignias en Retos"
+    print("[1] Retos e insignias presentes")
+
+    # Estadisticas
+    assert home_page.esta_visible(
+        (AppiumBy.XPATH, "//*[contains(@content-desc, 'Insignias obtenidas')]"), timeout=3),         "Faltan las estadisticas (Insignias obtenidas)"
+    print("[2] Estadisticas presentes")
+
+    # Secciones inferiores (requieren scroll): Medicamentos y Medidas
+    for nombre in ("Medicamentos", "Medidas"):
+        loc = (AppiumBy.XPATH, f"//*[@content-desc='{nombre}']")
+        if not home_page.esta_visible(loc, timeout=2):
+            for _ in range(4):
+                home_page.scroll_abajo(); time.sleep(0.4)
+                if home_page.esta_visible(loc, timeout=1):
+                    break
+        assert home_page.esta_visible(loc, timeout=1), f"Falta la seccion {nombre}"
+    print("[3] Secciones Medicamentos y Medidas presentes")
+
+    home_page.tomar_screenshot("perfil_progreso")
+    print("[4] Test completado")
 
 
 def test_perfil_documentos(driver, home_page):
