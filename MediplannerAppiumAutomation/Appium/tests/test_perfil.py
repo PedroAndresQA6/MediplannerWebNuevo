@@ -254,130 +254,45 @@ def test_perfil_progreso(driver, home_page):
 
 
 def test_perfil_documentos(driver, home_page):
-    print("\n=== TEST: Documentos ===")
-    
-    # Verificar si ya está en pantalla de Perfil
-    en_perfil = driver.find_elements(AppiumBy.XPATH, 
-        "//android.view.View[@content-desc='Perfil' and @bounds='[578,207][702,273]']")
-    
-    if en_perfil:
-        print("[0] Ya está en Perfil")
-    else:
-        print("[0] Navegando a Perfil...")
-        # Navigate to Perfil
-        for i in range(4):
-            driver.swipe(1100, 2700, 200, 2700, 500)
-            time.sleep(0.3)
-        
-        btn_perfil = driver.find_elements(AppiumBy.XPATH, "//android.widget.ImageView[contains(@content-desc, 'Perfil')]")
-        if btn_perfil:
-            btn_perfil[0].click()
-            time.sleep(0.5)
-    
-    # Click menu
-    btn_menu = driver.find_elements(AppiumBy.XPATH, "//android.widget.ImageView[@bounds='[1103,221][1220,338]']")
-    if btn_menu:
-        btn_menu[0].click()
-        time.sleep(1)
-    
-    # Click Documentos
-    documentos = driver.find_elements(AppiumBy.XPATH, "//android.widget.ImageView[contains(@content-desc, 'Documentos')]")
-    if documentos:
-        documentos[0].click()
-        time.sleep(0.5)
-        print("[1] Documentos abierto")
-    
-    # Click button to add document - bounds [1100,162][1256,318]
-    btn_agregar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[1100,162][1256,318]']")
-    if btn_agregar:
-        btn_agregar[0].click()
-        time.sleep(0.5)
-        print("[2] Agregar Documento abierto")
-    
-    # Enter document name - bounds [72,672][1208,816]
-    txt_nombre = driver.find_elements(AppiumBy.XPATH, "//android.widget.EditText[@bounds='[72,672][1208,816]']")
-    if txt_nombre:
-        import random
-        nombres = [
-            "Análisis de sangre completa",
-            "Electrocardiograma",
-            "Radiografía de tórax",
-            "Resonancia magnética cerebral",
-            "Ultrasonido abdominal",
-            "Prueba de esfuerzo físico",
-            "Perfil lipídico",
-            "Hemoglobina glicosilada"
-        ]
-        nombre_doc = random.choice(nombres)
-        txt_nombre[0].click()
-        txt_nombre[0].send_keys(nombre_doc)
-        print(f"[3] Nombre: {nombre_doc}")
-    
-    # Enter comments - bounds [72,1422][1208,1782]
-    txt_comentarios = driver.find_elements(AppiumBy.XPATH, "//android.widget.EditText[@bounds='[72,1422][1208,1782]']")
-    if txt_comentarios:
-        comentarios = [
-            "Paciente requiere seguimiento médico.",
-            "Resultado dentro de parámetros normales.",
-            "Se recomienda monitoreo continuo.",
-            "Evaluar con especialista.",
-            "Documento para expediente clínico."
-        ]
-        comentario = random.choice(comentarios)
-        txt_comentarios[0].click()
-        txt_comentarios[0].send_keys(comentario)
-        print(f"[4] Comentario: {comentario}")
-    
-    # Click "Tomar foto o seleccionar archivo" - bounds [72,981][1208,1209]
-    btn_archivo = driver.find_elements(AppiumBy.XPATH, "//android.view.View[@content-desc='Tomar foto o seleccionar archivo']")
-    if btn_archivo:
-        btn_archivo[0].click()
-        time.sleep(0.5)
-        print("[5] Click Tomar foto o seleccionar archivo")
-    
-    # Click "Seleccionar Archivo (Foto o PDF)" - bounds [0,2616][1280,2784]
-    btn_seleccionar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Seleccionar Archivo (Foto o PDF)']")
-    if btn_seleccionar:
-        btn_seleccionar[0].click()
-        time.sleep(1)
-        print("[6] Click Seleccionar Archivo")
-    
-    # Select first file from recent files - need to scroll and find the file
-    # Wait for file picker to open
+    print("=== TEST: Documentos ===")
     time.sleep(2)
-    
-    # Click on first file in grid
-    archivos = driver.find_elements(AppiumBy.XPATH, "//androidx.cardview.widget.CardView")
-    if archivos:
-        archivos[0].click()
-        time.sleep(1)
-        print("[7] Archivo seleccionado")
-    else:
-        # Fallback: click on file name
-        btn_file = driver.find_elements(AppiumBy.XPATH, "//android.widget.TextView[contains(@text, '.jpeg') or contains(@text, '.png') or contains(@text, '.jpg')]")
-        if btn_file:
-            btn_file[0].click()
-            time.sleep(1)
-            print("[7] Archivo seleccionado")
-    
-    # Wait to return to form and click Guardar
-    time.sleep(1)
-    
-    # Click Guardar - bounds [72,2124][1208,2268] (after file selected)
-    btn_guardar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Guardar']")
-    if btn_guardar:
-        btn_guardar[0].click()
-        time.sleep(1)
-        print("[8] Guardar clicked")
-    
-    # Click back to return to Perfil
-    btn_atras = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[12,168][156,312]']")
-    if btn_atras:
-        btn_atras[0].click()
-        time.sleep(0.5)
-        print("[9] Regresando a Perfil")
-    
-    print("[10] Test completado")
+    assert home_page.abrir_perfil(), "No se pudo abrir Perfil"
+    home_page.abrir_seccion_perfil("Documentos")
+    time.sleep(1.5)
+
+    titulo = (AppiumBy.XPATH, "//*[@content-desc='Documentos']")
+    assert home_page.esta_visible(titulo, timeout=5), "No se abrio Documentos"
+
+    # Best-effort: documentos existentes (su content-desc incluye fecha dd/mm/aaaa)
+    docs = driver.find_elements(AppiumBy.XPATH, "//*[contains(@content-desc, '/202')]")
+    print(f"[1] Documentos existentes detectados: {len(docs)}")
+
+    # Abrir el formulario de agregar documento (boton superior derecho)
+    add = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[1100,162][1256,318]']")
+    assert add, "No se encontro el boton de agregar documento"
+    add[0].click(); time.sleep(1.5)
+
+    # El formulario debe mostrar sus campos clave
+    assert home_page.esta_visible(
+        (AppiumBy.XPATH, "//*[@content-desc='Agregar Documento']"), timeout=5),         "No se abrio el formulario Agregar Documento"
+    for etiqueta in ("Nombre", "Tomar foto o seleccionar archivo", "Guardar"):
+        assert home_page.esta_visible(
+            (AppiumBy.XPATH, f"//*[@content-desc='{etiqueta}']"), timeout=3),             f"Falta el campo/boton '{etiqueta}' en el formulario"
+    print("[2] Formulario Agregar Documento con sus campos")
+
+    # Los campos Nombre (0) y Comentarios (1) deben aceptar texto
+    ets = driver.find_elements(AppiumBy.XPATH, "//android.widget.EditText")
+    assert len(ets) >= 2, f"Se esperaban 2 campos (Nombre, Comentarios), hay {len(ets)}"
+    ets[0].click(); ets[0].send_keys("Documento de prueba QA"); time.sleep(0.3)
+    ets[1].click(); ets[1].send_keys("Comentario de prueba"); time.sleep(0.3)
+    assert (ets[0].get_attribute("text") or "").strip(), "El campo Nombre no acepto texto"
+    print("[3] Campos Nombre y Comentarios aceptan texto")
+
+    home_page.tomar_screenshot("perfil_documentos")
+    # No se completa la subida (picker nativo de galeria, fragil) ni se guarda: salir
+    # sin crear el documento (no destructivo).
+    driver.back(); time.sleep(1)
+    print("[4] Test completado (formulario validado; subida de archivo no automatizada)")
 
 
 def test_perfil_compartir(driver, home_page):
