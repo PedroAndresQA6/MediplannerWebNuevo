@@ -13,8 +13,10 @@ class LoginPage(BasePage):
         self.btn_registrarse = (AppiumBy.ACCESSIBILITY_ID, "Regístrate")
         
         # Login form - Spanish
-        self.campo_email = (AppiumBy.XPATH, "//android.widget.EditText[@hint='email@email.com']")
-        self.campo_password = (AppiumBy.XPATH, "//android.widget.EditText[@hint='Escribe tu contraseña']")
+        # El email/contraseña ya no dependen del hint (cambia segun estado): se
+        # distinguen por el atributo password (false=email, true=contraseña).
+        self.campo_email = (AppiumBy.XPATH, "//android.widget.EditText[@password='false']")
+        self.campo_password = (AppiumBy.XPATH, "//android.widget.EditText[@password='true']")
         self.btn_entrar = (AppiumBy.ACCESSIBILITY_ID, "Entrar a Mediplanner")
         
         # Home - menu button (top right) - bounds updated
@@ -103,8 +105,8 @@ class LoginPage(BasePage):
         # Ahora debe aparecer pantalla con "Regístrate" e "Inicia sesión"
         time.sleep(3)
         
-        # Click en "Inicia sesión" (android.view.View con bounds [751,2451][1024,2529])
-        btn_iniciar = (AppiumBy.XPATH, "//android.view.View[@content-desc='Inicia sesión']")
+        # Click en "Inicia sesión" (es un android.widget.Button, no View)
+        btn_iniciar = (AppiumBy.XPATH, "//*[@content-desc='Inicia sesión']")
         if self.esta_visible(btn_iniciar, timeout=3):
             self.hacer_click(btn_iniciar)
             time.sleep(4)

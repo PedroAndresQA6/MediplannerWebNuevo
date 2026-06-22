@@ -5,13 +5,16 @@ import time
 def test_login(driver, login_page, credenciales):
     """Test basic login flow"""
     print("\n=== TEST: Login ===")
-    
+
     login_page.tomar_screenshot("01_login_inicio")
-    
+
     login_page.iniciar_sesion(credenciales["email"], credenciales["password"])
     time.sleep(3)
-    
+
     login_page.tomar_screenshot("02_login_fin")
+
+    # Verificar que el login realmente llego al Home (no basta con no fallar)
+    assert login_page.esta_logueado(), "El login no llego al Home (pestañas no visibles)"
     print("Login completado")
 
 

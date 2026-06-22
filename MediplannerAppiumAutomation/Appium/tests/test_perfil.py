@@ -5,251 +5,147 @@ import time
 from appium.webdriver.common.appiumby import AppiumBy
 
 
+def _abrir_datos_personales(driver, home_page):
+    """Navega Home -> Perfil -> Datos Personales y deja el form Datos Generales visible."""
+    time.sleep(2)
+    assert home_page.abrir_perfil(), "No se pudo abrir la pantalla de Perfil"
+    home_page.abrir_seccion_perfil("Datos Personales")
+    time.sleep(1.5)
+    tab_generales = (AppiumBy.XPATH, "//*[contains(@content-desc, 'Datos Generales')]")
+    assert home_page.esta_visible(tab_generales, timeout=5), "No se abrió Datos Personales"
+
+
+def _siguiente_habilitado(driver):
+    btn = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Siguiente']")
+    return bool(btn) and btn[0].get_attribute("enabled") == "true"
+
+
+def _guardar_habilitado(driver):
+    btn = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Guardar y Continuar']")
+    return bool(btn) and btn[0].get_attribute("enabled") == "true"
+
+
 def test_perfil_datos_personales(driver, home_page):
     print("\n=== TEST: Datos Personales ===")
-    
-    time.sleep(3)
-    
-    # Verificar si ya está en pantalla de Perfil (buscar título con content-desc='Perfil')
-    en_perfil = driver.find_elements(AppiumBy.XPATH, 
-        "//android.view.View[@content-desc='Perfil' and @bounds='[578,207][702,273]']")
-    
-    if en_perfil:
-        print("[0] Ya está en Perfil")
-    else:
-        print("[0] No está en Perfil - navegando...")
-        # Click en botón de menú (bounds [1103,221][1220,338])
-        btn_menu = driver.find_elements(AppiumBy.XPATH, 
-            "//android.widget.ImageView[@bounds='[1103,221][1220,338]']")
-        if btn_menu:
-            btn_menu[0].click()
-            time.sleep(0.5)
-    
-    # Buscar y click en "Datos Personales" usando bounds fijos
-    datos_personales = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.ImageView[@bounds='[48,921][1232,1176]']")
-    if datos_personales:
-        datos_personales[0].click()
-        time.sleep(0.5)
-        print("[1] Datos Personales abierto")
-    
-    # Obtener campos
-    nombre = driver.find_elements(AppiumBy.XPATH, "//android.widget.EditText[@bounds='[48,624][1232,768]']")
-    apellido = driver.find_elements(AppiumBy.XPATH, "//android.widget.EditText[@bounds='[48,945][1232,1089]']")
-    curp = driver.find_elements(AppiumBy.XPATH, "//android.widget.EditText[@bounds='[48,1587][1232,1731]']")
-    
-    # Guardar valores originales
-    nombre_original = nombre[0].get_attribute("text") if nombre else "Test"
-    apellido_original = apellido[0].get_attribute("text") if apellido else "User"
-    curp_original = curp[0].get_attribute("text") if curp else "TEST841116HDFRNC01"
-    
-    print(f"[2] Nombre original: {nombre_original}")
-    print(f"[3] Apellido original: {apellido_original}")
-    print(f"[4] CURP original: {curp_original}")
-    
-    # Limpiar y re-ingresar nombre
-    if nombre:
-        nombre[0].click()
-        nombre[0].clear()
-        time.sleep(0.3)
-        nombre[0].send_keys(nombre_original)
-        print(f"[5] Nombre re-ingresado: {nombre_original}")
-    
-    # Limpiar y re-ingresar apellido
-    if apellido:
-        apellido[0].click()
-        apellido[0].clear()
-        time.sleep(0.3)
-        apellido[0].send_keys(apellido_original)
-        print(f"[6] Apellido re-ingresado: {apellido_original}")
-    
-    # PRUEBA CURP - puras letras
-    if curp:
-        curp[0].click()
-        curp[0].clear()
-        curp[0].send_keys("A" * 18)
-        btn = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[48,2592][1232,2736]']")
-        if btn and btn[0].get_attribute("enabled") == "false":
-            print("[OK] Boton deshabilitado con puras letras")
-        
-        # INSTANCIA 2: puras numeros
-        curp[0].click()
-        curp[0].clear()
-        curp[0].send_keys("1" * 18)
-        btn = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[48,2592][1232,2736]']")
-        if btn and btn[0].get_attribute("enabled") == "false":
-            print("[OK] Boton deshabilitado con puras numeros")
-        
-        # Re-ingresar CURP original
-        curp[0].clear()
-        time.sleep(0.3)
-        curp[0].send_keys(curp_original)
-        print(f"[7] CURP re-ingresada: {curp_original}")
-    
-    # Click Siguiente
-    btn = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[48,2592][1232,2736]']")
-    if btn and btn[0].get_attribute("enabled") == "true":
-        btn[0].click()
-        print("[8] Siguiente - Datos de Contacto")
-    
-    # Scroll down para ver correo y telefono
-    for i in range(2):
-        driver.swipe(600, 1800, 600, 600, 300)
-    
-# 8. Verificar si switch usa datos del titular
-        switch_titular = driver.find_elements(AppiumBy.XPATH, 
-            "//android.widget.Switch[@content-desc='Usar los datos de contacto del titular de la cuenta']")
-        
-        usar_titular = switch_titular and switch_titular[0].get_attribute("checked") == "true"
-        
-        if usar_titular:
-            print("[8] Usando datos del titular - skip pruebas de correo/telefono")
-        else:
-            # PRUEBAS CORREO
-            print("[8] === PRUEBAS CORREO ===")
-            correo = driver.find_elements(AppiumBy.XPATH, "//android.widget.EditText[@bounds='[48,978][1232,1122]']")
-            
-            if correo:
-                original = correo[0].get_attribute("text") or ""
-                
-                # Sin @
-                correo[0].click()
-                correo[0].clear()
-                correo[0].send_keys("pacienterym.com")
-                btn_guardar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Guardar y Continuar']")
-                estado = btn_guardar[0].get_attribute("enabled") if btn_guardar else "no encontrado"
-                print(f"   [OK] Sin @ - boton: {estado}")
-                
-                # Sin dominio
-                correo[0].clear()
-                correo[0].send_keys("paciente@")
-                btn_guardar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Guardar y Continuar']")
-                estado = btn_guardar[0].get_attribute("enabled") if btn_guardar else "no encontrado"
-                print(f"   [OK] Sin dominio - boton: {estado}")
-                
-                # Restaurar
-                correo[0].clear()
-                correo[0].send_keys(original)
-                print(f"   [OK] Restaurado: {original}")
-            
-            # PRUEBAS TELEFONO
-            print("[9] === PRUEBAS TELEFONO ===")
-            telefono = driver.find_elements(AppiumBy.XPATH, "//android.widget.EditText[@bounds='[48,1299][1232,1503]']")
-            
-            if telefono:
-                original = telefono[0].get_attribute("text") or ""
-                
-                # Con letras
-                telefono[0].click()
-                telefono[0].clear()
-                telefono[0].send_keys("abcABCdefg")
-                btn_guardar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Guardar y Continuar']")
-                estado = btn_guardar[0].get_attribute("enabled") if btn_guardar else "no encontrado"
-                print(f"   [OK] Con letras - boton: {estado}")
-                
-                # Restaurar
-                telefono[0].clear()
-                telefono[0].send_keys(original)
-                print(f"   [OK] Restaurado: {original}")
-        
-        # 10. Verificar boton Guardar y dar click
-        btn_guardar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Guardar y Continuar']")
-        if btn_guardar:
-            print(f"[OK] Boton Guardar: enabled={btn_guardar[0].get_attribute('enabled')}")
-            btn_guardar[0].click()
-            time.sleep(0.5)
-            print("[OK] Guardar clickeado")
-        
-        print("[10] Test completado")
+
+    _abrir_datos_personales(driver, home_page)
+    home_page.tomar_screenshot("perfil_datos_generales")
+
+    # --- Datos Generales: los campos deben cargar con datos reales del paciente ---
+    # EditTexts por orden: 0=Nombre, 1=Apellido paterno, 2=Apellido materno, 3=CURP
+    ets = driver.find_elements(AppiumBy.XPATH, "//android.widget.EditText")
+    assert len(ets) >= 4, f"Se esperaban >=4 campos en Datos Generales, hay {len(ets)}"
+
+    nombre_original = ets[0].get_attribute("text") or ""
+    apellido_original = ets[1].get_attribute("text") or ""
+    curp_original = ets[3].get_attribute("text") or ""
+    print(f"[1] Nombre={nombre_original!r} Apellido={apellido_original!r} CURP={curp_original!r}")
+
+    assert nombre_original.strip(), "El nombre no cargó (campo vacío)"
+    assert apellido_original.strip(), "El apellido no cargó (campo vacío)"
+    assert len(curp_original) == 18, f"CURP debería tener 18 caracteres, tiene {len(curp_original)}"
+
+    # --- Validación de CURP: una CURP inválida debe deshabilitar 'Siguiente' ---
+    assert _siguiente_habilitado(driver), "Con datos válidos 'Siguiente' debería estar habilitado"
+
+    curp = ets[3]
+    curp.click(); curp.clear(); curp.send_keys("A" * 18); time.sleep(0.6)
+    assert not _siguiente_habilitado(driver), "CURP de puras letras debería deshabilitar 'Siguiente'"
+    print("[2] OK: CURP inválida (18 letras) deshabilita 'Siguiente'")
+
+    # Restaurar CURP original y confirmar que se rehabilita
+    curp.click(); curp.clear(); curp.send_keys(curp_original); time.sleep(0.6)
+    assert _siguiente_habilitado(driver), "Al restaurar la CURP válida 'Siguiente' debería rehabilitarse"
+    print("[3] OK: CURP restaurada rehabilita 'Siguiente'")
+
+    # --- Tab Datos de Contacto: validación de correo ---
+    tab_contacto = (AppiumBy.XPATH, "//*[contains(@content-desc, 'Datos de Contacto')]")
+    home_page.hacer_click(tab_contacto)
+    time.sleep(1.5)
+
+    # El correo está por debajo del fold: hacer scroll hasta encontrarlo
+    correo = None
+    for _ in range(4):
+        candidatos = driver.find_elements(AppiumBy.XPATH, "//android.widget.EditText")
+        correo = next((e for e in candidatos if "@" in (e.get_attribute("text") or "")), None)
+        if correo:
+            break
+        home_page.scroll_abajo(); time.sleep(0.6)
+    assert correo is not None, "No se encontró el campo de correo en Datos de Contacto"
+
+    correo_original = correo.get_attribute("text") or ""
+    print(f"[4] Correo original={correo_original!r}")
+
+    # Correo inválido (sin @) debe deshabilitar 'Guardar y Continuar'
+    correo.click(); correo.clear(); correo.send_keys("pacienterym.com"); time.sleep(0.6)
+    assert not _guardar_habilitado(driver), "Correo sin @ debería deshabilitar 'Guardar y Continuar'"
+    print("[5] OK: correo sin @ deshabilita 'Guardar y Continuar'")
+
+    # Restaurar correo válido y confirmar rehabilitación
+    correo.click(); correo.clear(); correo.send_keys(correo_original); time.sleep(0.6)
+    assert _guardar_habilitado(driver), "Al restaurar un correo válido debería rehabilitarse 'Guardar y Continuar'"
+    print("[6] OK: correo válido rehabilita 'Guardar y Continuar'")
+
+    home_page.tomar_screenshot("perfil_datos_contacto")
+    print("[7] Test completado")
+
+
+def _click_si_existe(driver, home_page, nombre, max_scrolls=4):
+    """Hace scroll buscando un elemento por content-desc y lo clickea. Devuelve True si lo encontró."""
+    loc = (AppiumBy.XPATH, f"//*[contains(@content-desc, '{nombre}')]")
+    for _ in range(max_scrolls):
+        if home_page.esta_visible(loc, timeout=1):
+            home_page.hacer_click(loc)
+            return True
+        home_page.scroll_abajo(); time.sleep(0.5)
+    return False
 
 
 def test_perfil_cuenta(driver, home_page):
     print("\n=== TEST: Cuenta ===")
-    
-    # Verificar si ya está en pantalla de Perfil
-    en_perfil = driver.find_elements(AppiumBy.XPATH, 
-        "//android.view.View[@content-desc='Perfil' and @bounds='[578,207][702,273]']")
-    
-    if en_perfil:
-        print("[0] Ya está en Perfil")
-    else:
-        print("[0] Navegando a Perfil...")
-        # Navegar a Perfil
-        for i in range(4):
-            driver.swipe(1100, 2700, 200, 2700, 500)
-            time.sleep(0.3)
-        
-        btn_perfil = driver.find_elements(AppiumBy.XPATH, "//android.widget.ImageView[contains(@content-desc, 'Perfil')]")
-        if btn_perfil:
-            btn_perfil[0].click()
-            time.sleep(0.5)
-    
-    # Click en Cuenta usando bounds
-    cuenta = driver.find_elements(AppiumBy.XPATH, "//android.widget.ImageView[@bounds='[48,1212][1232,1467]']")
-    if cuenta:
-        cuenta[0].click()
-        time.sleep(0.5)
-        print("[1] Cuenta abierto")
-    
-    # Scroll down para ver opciones
-    for i in range(2):
-        driver.swipe(600, 1800, 600, 600, 300)
-    
-    # Click en "Ver todos los planes"
-    btn_planes = driver.find_elements(AppiumBy.XPATH, "//android.view.View[@content-desc='Ver todos los planes']")
-    if btn_planes:
-        btn_planes[0].click()
-        time.sleep(0.5)
-        print("[2] Ver todos los planes abierto")
-        
-        # Scroll down para ver planes
-        driver.swipe(600, 1500, 600, 800, 300)
-        
-        # Verificar planes
-        planes = driver.find_elements(AppiumBy.XPATH, "//android.view.View[contains(@content-desc, '$')]")
-        print(f"   [OK] Planes encontrados: {len(planes)}")
-        
-        # Cerrar
-        driver.back()
-        time.sleep(0.5)
-    
-    # Scroll up y click "Cambiar ciclo de facturación"
-    driver.swipe(600, 800, 600, 1800, 300)
-    btn_ciclo = driver.find_elements(AppiumBy.XPATH, "//android.view.View[@content-desc='Cambiar ciclo de facturación']")
-    if btn_ciclo:
-        btn_ciclo[0].click()
-        time.sleep(0.5)
-        print("[3] Ciclo de facturación abierto")
-        
-        # Click Guardar cambios
-        btn_guardar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Guardar cambios']")
-        if btn_guardar:
-            btn_guardar[0].click()
-            time.sleep(0.5)
-            print("[OK] Guardar cambios clicked")
-        
-        # Volver
-        driver.back()
-        time.sleep(0.5)
-    
-    # Scroll down y click "Cancelar suscripción"
-    driver.swipe(600, 1800, 600, 600, 300)
-    btn_cancelar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Cancelar suscripción']")
-    if btn_cancelar:
-        btn_cancelar[0].click()
-        time.sleep(0.5)
-        print("[4] Cancelar suscripción abierto")
-        
-        # Click "Mantener Suscripción"
-        btn_mantener = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Mantener Suscripción']")
-        if btn_mantener:
-            btn_mantener[0].click()
-            time.sleep(0.5)
-            print("[OK] Mantener Suscripción clicked")
-    
-    # Volver
-    driver.back()
-    time.sleep(0.5)
+
+    time.sleep(2)
+    assert home_page.abrir_perfil(), "No se pudo abrir Perfil"
+    home_page.abrir_seccion_perfil("Cuenta")
+    time.sleep(1.5)
+
+    # La pantalla Cuenta debe mostrar la info de suscripción
+    assert _click_si_existe(driver, home_page, "Ver todos los planes"), \
+        "No se encontró 'Ver todos los planes' en Cuenta"
+    time.sleep(1)
+    print("[1] 'Ver todos los planes' abierto")
+
+    # Debe listar planes con precio ('$')
+    planes = None
+    for _ in range(4):
+        planes = driver.find_elements(AppiumBy.XPATH, "//*[contains(@content-desc, '$')]")
+        if planes:
+            break
+        home_page.scroll_abajo(); time.sleep(0.5)
+    assert planes, "No se encontraron planes con precio ('$')"
+    print(f"[2] OK: {len(planes)} planes con precio encontrados")
+    driver.back(); time.sleep(1)
+
+    # Cambiar ciclo de facturación -> guardar cambios y volver
+    if _click_si_existe(driver, home_page, "Cambiar ciclo de facturación"):
+        time.sleep(1)
+        guardar = (AppiumBy.XPATH, "//android.widget.Button[@content-desc='Guardar cambios']")
+        assert home_page.esta_visible(guardar, timeout=3), "No apareció 'Guardar cambios' al cambiar ciclo"
+        home_page.hacer_click(guardar); time.sleep(1)
+        print("[3] OK: ciclo de facturación - Guardar cambios")
+        driver.back(); time.sleep(1)
+
+    # Cancelar suscripción -> NO cancelar, mantener (no destructivo)
+    assert _click_si_existe(driver, home_page, "Cancelar suscripción"), \
+        "No se encontró 'Cancelar suscripción'"
+    time.sleep(1)
+    mantener = (AppiumBy.XPATH, "//android.widget.Button[@content-desc='Mantener Suscripción']")
+    assert home_page.esta_visible(mantener, timeout=3), \
+        "El flujo de cancelación no ofreció 'Mantener Suscripción'"
+    home_page.hacer_click(mantener); time.sleep(1)
+    print("[4] OK: 'Mantener Suscripción' (no se canceló)")
+
+    home_page.tomar_screenshot("perfil_cuenta")
     print("[5] Test Cuenta completado")
 
 
