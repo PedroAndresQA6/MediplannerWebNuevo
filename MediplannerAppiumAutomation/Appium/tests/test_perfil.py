@@ -295,133 +295,53 @@ def test_perfil_documentos(driver, home_page):
     print("[4] Test completado (formulario validado; subida de archivo no automatizada)")
 
 
+def _invitar_habilitado(driver):
+    btn = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[contains(@content-desc, 'Invitar')]")
+    return bool(btn) and btn[0].get_attribute("enabled") == "true"
+
+
 def test_perfil_compartir(driver, home_page):
-    print("\n=== TEST: Compartir ===")
-    
-    # Verificar si ya está en pantalla de Perfil
-    en_perfil = driver.find_elements(AppiumBy.XPATH, 
-        "//android.view.View[@content-desc='Perfil' and @bounds='[578,207][702,273]']")
-    
-    if en_perfil:
-        print("[0] Ya está en Perfil")
-    else:
-        print("[0] Navegando a Perfil...")
-        # Navigate to Perfil
-        for i in range(4):
-            driver.swipe(1100, 2700, 200, 2700, 500)
-            time.sleep(0.3)
-        
-        btn_perfil = driver.find_elements(AppiumBy.XPATH, "//android.widget.ImageView[contains(@content-desc, 'Perfil')]")
-        if btn_perfil:
-            btn_perfil[0].click()
-            time.sleep(0.5)
-    
-    # Click menu
-    btn_menu = driver.find_elements(AppiumBy.XPATH, "//android.widget.ImageView[@bounds='[1103,221][1220,338]']")
-    if btn_menu:
-        btn_menu[0].click()
-        time.sleep(1)
-    
-    # Click Compartir
-    compartir = driver.find_elements(AppiumBy.XPATH, "//android.widget.ImageView[contains(@content-desc, 'Compartir')]")
-    if compartir:
-        compartir[0].click()
-        time.sleep(0.5)
-        print("[1] Compartir abierto")
-    
-    # 1. View "Compartido Parcialmente" contacts
-    compartido = driver.find_elements(AppiumBy.XPATH, "//android.view.View[@content-desc='Compartido Parcialmente']")
-    if compartido:
-        print("[OK] Compartido Parcialmente encontrado")
-    
-    # 2. Click on first shared contact (Pedro Quijada Anaya)
-    btn_pedro = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Pedro Quijada Anaya']")
-    if btn_pedro:
-        btn_pedro[0].click()
-        time.sleep(0.5)
-        print("[2] Click en Pedro Quijada Anaya")
-        
-        # Verify switches are ON
-        sw_medicamentos = driver.find_elements(AppiumBy.XPATH, "//android.widget.Switch[@content-desc='Medicamentos']")
-        sw_estudios = driver.find_elements(AppiumBy.XPATH, "//android.widget.Switch[@content-desc='Estudios']")
-        sw_documentos = driver.find_elements(AppiumBy.XPATH, "//android.widget.Switch[@content-desc='Documentos']")
-        
-        if sw_medicamentos and sw_medicamentos[0].get_attribute("checked") == "true":
-            print("   [OK] Medicamentos: ON")
-        if sw_estudios and sw_estudios[0].get_attribute("checked") == "true":
-            print("   [OK] Estudios: ON")
-        if sw_documentos and sw_documentos[0].get_attribute("checked") == "true":
-            print("   [OK] Documentos: ON")
-        
-        # Go back
-        driver.back()
-        time.sleep(0.5)
-    
-    # 3. Click on share button (top right) to add new contact
-    btn_add = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[1100,162][1256,318]']")
-    if btn_add:
-        btn_add[0].click()
-        time.sleep(0.5)
-        print("[3] Click boton añadir contacto")
-    
-    # 4. Click "Añadir manualmente"
-    btn_manual = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='o Añadir manualmente']")
-    if btn_manual:
-        btn_manual[0].click()
-        time.sleep(0.5)
-        print("[4] Añadir manualmente abierto")
-    
-    # 5. PRUEBAS DE VALIDACION DE TELEFONO - bounds [72,1359][1208,1563]
-    telefono = driver.find_elements(AppiumBy.XPATH, "//android.widget.EditText[@bounds='[72,1359][1208,1563]']")
-    nombre = driver.find_elements(AppiumBy.XPATH, "//android.widget.EditText[@bounds='[72,1083][1208,1227]']")
-    
-    print("[5] === PRUEBAS VALIDACION TELEFONO ===")
-    
-    if telefono and nombre:
-        # Enter name first
-        nombre[0].click()
-        nombre[0].send_keys("Juan Perez")
-        print("   [OK] Nombre: Juan Perez")
-        
-        # INSTANCE 1: Letters only
-        telefono[0].click()
-        telefono[0].clear()
-        telefono[0].send_keys("abcdeabcde")
-        time.sleep(0.3)
-        btn_invitar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Invitar y compartir']")
-        estado = btn_invitar[0].get_attribute("enabled") if btn_invitar else "no encontrado"
-        print(f"   [OK] 10 letras - boton: {estado}")
-        
-        # INSTANCE 2: 9 digits (should be invalid - needs 10)
-        telefono[0].clear()
-        telefono[0].send_keys("5551013613")
-        time.sleep(0.3)
-        btn_invitar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Invitar y compartir']")
-        estado = btn_invitar[0].get_attribute("enabled") if btn_invitar else "no encontrado"
-        print(f"   [OK] 9 digitos - boton: {estado}")
-        
-        # Valid: 10 digits
-        telefono[0].clear()
-        telefono[0].send_keys("5551013614")
-        time.sleep(0.3)
-        btn_invitar = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Invitar y compartir']")
-        estado = btn_invitar[0].get_attribute("enabled") if btn_invitar else "no encontrado"
-        print(f"   [OK] 10 digitos validos - boton: {estado}")
-        
-        # 6. Click Invitar yCompartir
-        if btn_invitar and btn_invitar[0].get_attribute("enabled") == "true":
-            btn_invitar[0].click()
-            time.sleep(1)
-            print("[6] Invitar yCompartir clicked")
-            
-            # Click "Listo" button - bounds [48,2664][1232,2808]
-            btn_listo = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@content-desc='Listo']")
-            if btn_listo:
-                btn_listo[0].click()
-                time.sleep(0.5)
-                print("[OK] Listo clicked")
-    
-    print("[7] Test Compartir completado")
+    print("=== TEST: Compartir ===")
+    time.sleep(2)
+    assert home_page.abrir_perfil(), "No se pudo abrir Perfil"
+    home_page.abrir_seccion_perfil("Compartir")
+    time.sleep(1.5)
 
+    titulo = (AppiumBy.XPATH, "//*[@content-desc='Compartir']")
+    assert home_page.esta_visible(titulo, timeout=5), "No se abrio Compartir"
 
+    # Debe listar contactos con los que se comparte
+    assert home_page.esta_visible(
+        (AppiumBy.XPATH, "//*[contains(@content-desc, 'compartiendo')]"), timeout=3),         "No se ve la lista de contactos compartidos"
+    print("[1] Lista de contactos compartidos presente")
 
+    # Abrir el flujo de agregar contacto (boton superior derecho) -> pantalla Contactos
+    add = driver.find_elements(AppiumBy.XPATH, "//android.widget.Button[@bounds='[1100,162][1256,318]']")
+    assert add, "No se encontro el boton de agregar contacto"
+    add[0].click(); time.sleep(2)
+
+    manual = (AppiumBy.XPATH, "//android.widget.Button[contains(@content-desc, 'adir manualmente')]")
+    assert home_page.esta_visible(manual, timeout=5), "No aparecio 'Anadir manualmente' en Contactos"
+    home_page.hacer_click(manual); time.sleep(1.5)
+    print("[2] Formulario 'Anadir manualmente' abierto")
+
+    # Validacion de telefono: la app exige 10 digitos para habilitar 'Invitar y compartir'
+    nombre = driver.find_elements(AppiumBy.XPATH, "//android.widget.EditText[@hint='Nombre completo']")
+    telefono = driver.find_elements(AppiumBy.XPATH, "//android.widget.EditText[@hint='10 dígitos']")
+    assert nombre and telefono, "No se encontraron los campos Nombre/Telefono del formulario manual"
+
+    nombre[0].click(); nombre[0].send_keys("Juan Perez QA"); time.sleep(0.3)
+
+    # Telefono invalido (3 digitos) -> 'Invitar' deshabilitado
+    telefono[0].click(); telefono[0].send_keys("123"); time.sleep(0.5)
+    assert not _invitar_habilitado(driver),         "Con telefono invalido (3 digitos) 'Invitar' deberia estar deshabilitado"
+    print("[3] OK: telefono de 3 digitos deshabilita 'Invitar'")
+
+    # Telefono valido (10 digitos) -> 'Invitar' habilitado
+    telefono[0].clear(); telefono[0].send_keys("5551013614"); time.sleep(0.6)
+    assert _invitar_habilitado(driver),         "Con telefono valido (10 digitos) 'Invitar' deberia habilitarse"
+    print("[4] OK: telefono de 10 digitos habilita 'Invitar'")
+
+    home_page.tomar_screenshot("perfil_compartir")
+    # No se envia la invitacion (no destructivo).
+    print("[5] Test completado (validacion de telefono; no se envio invitacion)")
