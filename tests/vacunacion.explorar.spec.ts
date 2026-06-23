@@ -115,16 +115,111 @@ test('MAPEAR v2 Vacunación (date nativo, iconos, otra vacuna)', async ({ page }
     log('  ⚠️ No hay botón lápiz visible');
   }
 
-  section('Sección "Otra vacuna" (filas inline custom)');
-  const otra = await page.evaluate(() => {
-    const inputs = Array.from(document.querySelectorAll('input[name="vacuna_nombre"]'));
-    return {
-      filasOtraVacuna: inputs.length,
-      camposPorFila: ['input[name="vacuna_nombre"]', 'input[name="dosis_nombre"]', 'input[placeholder="Fecha"]', 'input[placeholder="Folio"]', 'textarea[placeholder="Comentarios"]']
-        .map(s => ({ sel: s, count: document.querySelectorAll(s).length })),
-    };
+  section('Sección "Otra vacuna" — ESTADO ACTUAL (sin filas registradas)');
+  // La sección tiene 2 presentaciones: (a) estado vacío = CTA para agregar la
+  // primera, (b) estado con 1+ = filas inline con inputs. Mapeamos ambos.
+  const otraVacio = await page.evaluate(() => {
+    const campos = ['input[name="vacuna_nombre"]', 'input[name="dosis_nombre"]', 'input[placeholder="Fecha"]', 'input[placeholder="Folio"]', 'textarea[placeholder="Comentarios"]']
+      .map(s => ({ sel: s, count: document.querySelectorAll(s).length }));
+    // Buscar el bloque/heading "Otra vacuna" y los botones cercanos (CTA agregar)
+    const heads = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,p,span,div,label'))
+      .filter(e => /otra\s+vacuna/i.test((e.textContent || '').trim()) && (e.textContent || '').trim().length < 40)
+      .slice(0, 5)
+      .map(e => ({ tag: e.tagName.toLowerCase(), txt: (e.textContent || '').trim().substring(0, 40), cls: (e.getAttribute('class') || '').substring(0, 40) }));
+    return { filasOtraVacuna: document.querySelectorAll('input[name="vacuna_nombre"]').length, campos, headings: heads };
   });
-  log(JSON.stringify(otra, null, 2));
+  log(`ESTADO VACÍO:\n${JSON.stringify(otraVacio, null, 2)}`);
+
+  section('Botones candidatos para AGREGAR "otra vacuna" (texto + clase)');
+  const addCandidates = await page.evaluate(() => {
+    return Array.from(document.querySelectorAll('button, a, [role="button"]'))
+      .map(b => ({ txt: (b.textContent || '').trim(), cls: (b.getAttribute('class') || '').substring(0, 50), tag: b.tagName.toLowerCase() }))
+      .filter(b => /vacuna|agregar|añadir|nuevo|nueva|\+/i.test(b.txt) && b.txt.length > 0 && b.txt.length < 50);
+  });
+  log(JSON.stringify(addCandidates, null, 2));
+  await page.screenshot({ path: 'test-results/vac-map2-otra-vacia.png', fullPage: true });
+
+  section('Hacer CLICK en el botón para agregar "otra vacuna" y mapear ESTADO CON FILA');
+  // Probar varios textos posibles del CTA, en orden de probabilidad.
+  const ctaSelectors = [
+    'button:has-text("Vacuna diferente")',
+    'button:has-text("Otra vacuna")',
+    'button:has-text("Agregar vacuna")',
+    'button:has-text("Agregar otra")',
+    'button:has-text("Añadir vacuna")',
+    'button:has-text("Nueva vacuna")',
+  ];
+  let ctaClicked = false;
+  for (const sel of ctaSelectors) {
+    const btn = page.locator(sel).filter({ hasNotText: 'cambios' }).first();
+    if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) {
+      log(`  ✅ CTA encontrado con selector: ${sel}`);
+      await btn.scrollIntoViewIfNeeded().catch(() => {});
+      await btn.click({ force: true }).catch((e) => log(`  ⚠️ click falló: ${e.message}`));
+      await page.waitForTimeout(2000);
+      ctaClicked = true;
+      break;
+    }
+  }
+  if (!ctaClicked) log('  ⚠️ Ningún CTA de "agregar otra vacuna" encontrado con los textos probados');
+
+  const otraConFila = await page.evaluate(() => {
+    const campos = ['input[name="vacuna_nombre"]', 'input[name="dosis_nombre"]', 'input[placeholder="Fecha"]', 'input[placeholder="Folio"]', 'input[placeholder="Comentarios"]', 'textarea[placeholder="Comentarios"]']
+      .map(s => ({ sel: s, count: document.querySelectorAll(s).length }));
+    // Volcar TODOS los inputs/textarea recién visibles con sus atributos clave
+    const inputs = Array.from(document.querySelectorAll('input, textarea'))
+      .filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; })
+      .map(e => ({ tag: e.tagName.toLowerCase(), type: e.getAttribute('type') || '', name: e.getAttribute('name') || '', ph: e.getAttribute('placeholder') || '', cls: (e.getAttribute('class') || '').substring(0, 30) }))
+      .filter(e => e.name || e.ph)
+      .slice(0, 40);
+    return { campos, inputsVisibles: inputs };
+  });
+  log(`ESTADO CON FILA (tras click):\n${JSON.stringify(otraConFila, null, 2)}`);
+  await page.screenshot({ path: 'test-results/vac-map2-otra-con-fila.png', fullPage: true });
+
+  section('Volcado COMPLETO de la fila "Vacuna diferente" (incluye selects + nombre)');
+  const filaCompleta = await page.evaluate(() => {
+    // Localizar la fila nueva por su input de placeholder "Fecha" y subir al contenedor.
+    const fecha = document.querySelector('input[placeholder="Fecha"]') as HTMLElement | null;
+    let cont: HTMLElement | null = fecha;
+    for (let i = 0; i < 5 && cont; i++) cont = cont.parentElement;
+    const scope = cont || document.body;
+    const els = Array.from(scope.querySelectorAll('input, textarea, select, button'))
+      .filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; })
+      .map(e => ({
+        tag: e.tagName.toLowerCase(),
+        type: e.getAttribute('type') || '',
+        name: e.getAttribute('name') || '',
+        ph: e.getAttribute('placeholder') || '',
+        role: e.getAttribute('role') || '',
+        txt: (e.textContent || '').trim().substring(0, 20),
+        cls: (e.getAttribute('class') || '').substring(0, 40),
+        opciones: e.tagName === 'SELECT' ? (e as HTMLSelectElement).options.length : undefined,
+      }));
+    return { contenedorTag: scope.tagName.toLowerCase(), contenedorCls: (scope.getAttribute('class') || '').substring(0, 60), elementos: els };
+  });
+  log(JSON.stringify(filaCompleta, null, 2));
+
+  section('Botones de la fila "otra vacuna" — DETALLE para identificar el de BORRAR');
+  const botonesFila = await page.evaluate(() => {
+    const ancla = (document.querySelector('input[placeholder="Fecha"]')
+      || Array.from(document.querySelectorAll('select')).find(s => /Seleccione vacuna/i.test(s.textContent || ''))) as HTMLElement | null;
+    let cont: HTMLElement | null = ancla;
+    for (let i = 0; i < 6 && cont; i++) cont = cont.parentElement;
+    const scope = cont || document.body;
+    return Array.from(scope.querySelectorAll('button')).map((b, i) => {
+      const svg = b.querySelector('svg');
+      return {
+        idx: i,
+        txt: (b.textContent || '').replace(/\s+/g, ' ').trim().substring(0, 16),
+        icon: svg?.getAttribute('data-icon') || '',
+        title: b.getAttribute('title') || '',
+        aria: b.getAttribute('aria-label') || '',
+        cls: (b.getAttribute('class') || '').substring(0, 55),
+      };
+    });
+  });
+  log(JSON.stringify(botonesFila, null, 2));
 
   section('Mapear BORRADO de una dosis registrada');
   // Buscar elementos clickeables tipo "borrar" cerca de una fecha con valor.

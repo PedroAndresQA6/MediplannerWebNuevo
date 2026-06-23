@@ -590,6 +590,17 @@ async function fillTreatmentSection(page) {
     console.log('\n➕ Agregando tratamiento diferente...');
     const agregarBtn = page.locator('button:has-text("Agrega tratamiendo diferente")');
     if (await agregarBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      // Cerrar cualquier modal abierto antes de intentar el click.
+      // EVIDENCIA: si hay un modal aquí, probablemente sea consecuencia de un
+      // auto-save de setTreatments con 500 (bug de plataforma). El monitor
+      // DevTools ya lo registró como 🔴 arriba — este log lo correlaciona.
+      const modalAntes = await page.locator('.swal2-container:visible').count();
+      if (modalAntes > 0) {
+        console.log(`⚠️ [EVIDENCIA] Modal detectado antes de "Agrega tratamiento diferente" — probable 500 de auto-save setTreatments. Cerrando modal para continuar.`);
+        await handleModals(page);
+        await page.waitForTimeout(500);
+      }
+
       // Contar inputs existentes antes del click
       const nombreInputsAntes = await page.locator('input[maxlength="240"]').count();
       const indicInputsAntes = await page.locator('input[type="text"][maxlength="700"]').count();
@@ -1529,10 +1540,13 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
           await page.waitForTimeout(2000);
           await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
           await page.waitForTimeout(500);
+          await handleModals(page);
+          await page.waitForTimeout(300);
           const allGuardar = page.locator('button:has-text("Guardar cambios")');
           const retryCount = await allGuardar.count();
           for (let i = 0; i < retryCount; i++) {
             if (await allGuardar.nth(i).isVisible({ timeout: 1000 }).catch(() => false)) {
+              await handleModals(page);
               await allGuardar.nth(i).click();
               console.log(`✅ Retry: Guardar #${i+1} clickeado`);
               await page.waitForTimeout(1500);
