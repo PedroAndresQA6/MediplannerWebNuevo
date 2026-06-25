@@ -75,9 +75,59 @@ test('MAPEAR módulo Recetas del paciente', async ({ page }) => {
   });
   log(JSON.stringify(estructura, null, 2));
 
+  // ── NUEVO: mapear los ITEMS clicables de la lista izquierda ────────────────
+  section('Items clicables de la lista (los que contienen fecha dd/mm/yyyy)');
+  const itemsInfo = await page.evaluate(() => {
+    const norm = (s: string) => (s || '').replace(/\s+/g, ' ').trim();
+    const dateRe = /\d{2}\/\d{2}\/\d{4}/;
+    // Buscar el contenedor "hoja" más pequeño que tenga una fecha y sea clicable.
+    const all = Array.from(document.querySelectorAll('div,li,tr,a,button')) as HTMLElement[];
+    const leaves = all.filter(el => {
+      const t = norm(el.textContent || '');
+      if (!dateRe.test(t) || t.length > 120) return false;
+      // que ningún hijo directo también tenga la fecha (=> es la hoja)
+      const childWithDate = Array.from(el.children).some(c => dateRe.test(norm(c.textContent || '')));
+      return !childWithDate;
+    });
+    const sample = leaves.slice(0, 4).map(el => ({
+      tag: el.tagName.toLowerCase(),
+      cls: (el.getAttribute('class') || '').substring(0, 70),
+      clickable: el.getAttribute('role') === 'button' || /cursor-pointer/.test(el.getAttribute('class') || '') || el.tagName === 'A' || el.tagName === 'BUTTON' || !!(el as any).onclick,
+      txt: norm(el.textContent || '').substring(0, 70),
+    }));
+    return { totalConFecha: leaves.length, sample };
+  });
+  log(JSON.stringify(itemsInfo, null, 2));
+
+  // ── NUEVO: seleccionar el primer item y mapear el PANEL DE DETALLE ──────────
+  section('Panel de detalle tras seleccionar el primer item');
+  const firstDate = page.locator('text=/\\d{2}\\/\\d{2}\\/\\d{4}/').first();
+  let nombreItem = '';
+  if (await firstDate.isVisible({ timeout: 3000 }).catch(() => false)) {
+    const itemBox = firstDate.locator('xpath=ancestor::*[self::div or self::li or self::tr or self::a or self::button][1]');
+    nombreItem = norm(await itemBox.textContent().catch(() => '') || '');
+    log(`  Texto del item seleccionado: "${nombreItem}"`);
+    await itemBox.click().catch(async () => { await firstDate.click().catch(() => {}); });
+    await page.waitForTimeout(2500);
+  }
+  await page.screenshot({ path: 'test-results/recetas-03-detalle.png', fullPage: true });
+  const detalle = await page.evaluate(() => {
+    const norm = (s: string) => (s || '').replace(/\s+/g, ' ').trim();
+    const heads = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,.card-title'))
+      .filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; })
+      .map(e => norm(e.textContent || '')).filter(Boolean).slice(0, 12);
+    const labels = Array.from(document.querySelectorAll('label,th,.font-semibold,strong'))
+      .map(e => norm(e.textContent || '')).filter(Boolean).slice(0, 20);
+    const sigueVacio = /Sin receta seleccionada/i.test(document.body.innerText);
+    return { heads, labels, sigueVacioDetalle: sigueVacio };
+  });
+  log(JSON.stringify(detalle, null, 2));
+
   section('API observada (recipes/prescriptions/treatments/consultations)');
   apiRecetas.forEach((c, i) => log(`  [${i + 1}] ${c}`));
 
   const result = monitor.printSummary();
   log(`  Errores consola/JS: ${result.errors.length}`);
 });
+
+function norm(s: string) { return (s || '').replace(/\s+/g, ' ').trim(); }

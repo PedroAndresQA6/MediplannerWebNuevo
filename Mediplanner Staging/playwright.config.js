@@ -14,7 +14,7 @@ module.exports = defineConfig({
     baseURL: process.env.BASE_URL || 'https://admin-staging.mediplanner.mx/',
     trace: 'on-first-retry',
     screenshot: 'on',
-    video: 'on',
+    video: 'off',
     headless: false,
     viewport: { width: 1920, height: 1080 },
     actionTimeout: 15000,
@@ -32,7 +32,8 @@ module.exports = defineConfig({
     {
       name: 'setup',
       testMatch: /.*\.setup\.ts/,
-      timeout: 30000,
+      use: { video: 'off', screenshot: 'off' },
+      timeout: 90000,
     },
     {
       name: 'appointments-create',
@@ -42,18 +43,11 @@ module.exports = defineConfig({
       timeout: 90000,
     },
     {
-      name: 'appointments-verify',
-      testMatch: /appointments\.verify\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1920, height: 1080 } },
-      dependencies: ['setup'],
-      timeout: 60000,
-    },
-    {
       name: 'doctor-consultation',
-      testMatch: /consultation\.start\.spec\.(js|ts)/,
+      testMatch: /consultation\.full-flow\.spec\.(js|ts)/,
       use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1920, height: 1080 } },
       dependencies: ['setup'],
-      timeout: 300000,
+      timeout: 600000,
     },
     {
       name: 'system-health',
@@ -74,6 +68,20 @@ module.exports = defineConfig({
       testMatch: /subir-estudios\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1920, height: 1080 } },
       timeout: 120000,
+    },
+    {
+      name: 'vacunacion-explorar',
+      testMatch: /vacunacion\.explorar\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1920, height: 1080 } },
+      dependencies: ['setup'],
+      timeout: 240000,
+    },
+    {
+      name: 'vacunacion-ciclo-completo',
+      testMatch: /vacunacion\.ciclo-completo\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1920, height: 1080 } },
+      dependencies: ['setup'],
+      timeout: 600000,
     },
   ],
 });

@@ -2,7 +2,7 @@
 
 > **Qué es este archivo:** documento vivo de contexto del proyecto. Sirve para (a) comunicar en qué estamos trabajando y (b) poner al tanto a una sesión nueva de Claude Code (en esta u otra computadora). **Mantenerlo actualizado y commitearlo** cada vez que cambie el estado del trabajo.
 >
-> **Última actualización:** 2026-06-17
+> **Última actualización:** 2026-06-25
 
 ---
 
@@ -162,6 +162,23 @@ npx dotenv -e .env -- playwright test --project=vacunacion-explorar
 
 ---
 
+## 🟣 STAGING — porteo de automatizaciones y hallazgos (2026-06-25)
+
+**Entorno:** `https://admin-staging.mediplanner.mx/` · carpeta **`Mediplanner Staging/`** (config propio, `baseURL` staging, NO usa `.env`; credenciales staging por fallback en `Tests_Staging/auth.setup.ts`: `dr@rym-solutions.com`). Se corre con CWD = `Mediplanner Staging/` (usa `node_modules` y Chromium de la raíz). No hay `package.json` ni `node_modules` propios.
+
+**Patrón de porteo dev → staging** (lo aplicado con consulta y vacunación): copiar el spec **idéntico** de `tests/` a `Tests_Staging/`; `e2e/utils.js` y `e2e/config.js` ya están copiados idénticos en `Mediplanner Staging/e2e/`; agregar el proyecto al `Mediplanner Staging/playwright.config.js`; ajustar datos propios de staging (p.ej. el nombre del paciente). El `auth.setup.ts` de staging ya está adaptado.
+
+- **Consulta** (`doctor-consultation`): porteada y verificada. Arranca desde "Inicio" (no depende de paciente por nombre). Corrida 3× el 2026-06-25, todas PASAN.
+- **Vacunación** (`vacunacion-explorar`, `vacunacion-ciclo-completo`): porteada el 2026-06-25. Paciente fijado en ambos specs = **`Pedro Quijada Anaya`** (Agustin Tapia es de dev, NO existe en staging). `vacunacion-explorar` corrió OK (no destructivo). ⚠️ `vacunacion-ciclo-completo` **portado pero aún NO ejecutado** (es destructivo: borra todas las dosis del paciente).
+
+### 🐛 Hallazgos de consulta en STAGING (3 corridas, 100% reproducible → bug de plataforma)
+1. **422 `POST /api/patients/getFilledForm` → "El campo relacion_id es requerido"**. Es el **mismo bug de dev**, confirmado que **también ocurre en staging**.
+2. **404 `POST /api/patients/getFilledForm` (×2) → "No se encontró el formulario asignado al paciente"**, al **finalizar la consulta** (+ `Error fetching formularios paciente: undefined`). **Nuevo en staging** (en dev se ve el 422, no este 404).
+- ✅ El indicador "sin guardar" (triángulo) de Lab/Procedimientos **NO se reproduce en staging** (en dev sí). Resto del flujo sólido.
+- 📄 Reporte: `Reporte_QA_Consulta_Staging_2026-06-25.pdf` (raíz).
+
+---
+
 ## Decisiones abiertas / pendientes
 
 - [x] ~~Commit + push de stress tests + config + fix facturacion~~ — hecho (commit `1bb9cd7`, pusheado a main/Trabajando/Normalization el 2026-06-17).
@@ -169,3 +186,5 @@ npx dotenv -e .env -- playwright test --project=vacunacion-explorar
 - [ ] **Reportar a devs:** indicador "sin guardar" no se limpia en **Tratamiento › Laboratorios y Procedimientos** (guarda 200 OK pero el triángulo se queda). Ver sección de hallazgos.
 - [x] ~~Arreglar fallback de `fillTabFields` en `e2e/utils.js`~~ — hecho: usa `load` en vez de networkidle, solo rellena campos obligatorios (`required`/`aria-required`), valores numéricos realistas por campo, log de resumen.
 - [~] Aplicar mejoras a Staging/Producción: **monitor DevTools ya agregado** (`setupConsoleMonitor`) a ambos `consultation.start.spec.js`. **Pendiente:** propagar el detector del indicador (`scanResidualIndicators`) y el fix de guardado de Exploración a Staging/Prod.
+- [ ] **Reportar a devs (staging):** 422 `getFilledForm` "relacion_id es requerido" (ya está en staging) y 404 `getFilledForm` "No se encontró el formulario asignado al paciente" al finalizar consulta (nuevo en staging). Ver sección STAGING + `Reporte_QA_Consulta_Staging_2026-06-25.pdf`.
+- [ ] **Ejecutar en staging** `vacunacion-ciclo-completo` (destructivo) sobre `Pedro Quijada Anaya` cuando se decida correrlo.
