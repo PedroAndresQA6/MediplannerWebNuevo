@@ -2,10 +2,32 @@ import pytest
 import os
 import sys
 import time
+import re
+import json
 from appium import webdriver
 from appium.options.android import UiAutomator2Options
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+APP_PACKAGE = "mx.mediplanner.app"
+
+# Señales INEQUÍVOCAS de crash/ANR en logcat. Solo estas tumban el test; el resto
+# del ruido de logcat (líneas 'E/' sueltas de React Native) va al reporte pero NO
+# hace fallar (equivalente al 'log-and-continue' del monitor de consola en web).
+CRASH_PATTERNS = re.compile(
+    r"FATAL EXCEPTION|ANR in |E/AndroidRuntime|"
+    r"has died|Force finishing activity|"
+    r"mx\.mediplanner\.app.*(crash|SIGSEGV|SIGABRT)",
+    re.IGNORECASE,
+)
+
+# Errores relevantes (no fatales) que se recolectan al reporte para dar visibilidad
+# a fallos de red/JS que la UI podría ocultar (análogo a los 4xx/5xx del web).
+NONFATAL_PATTERNS = re.compile(
+    r"\bE/|ReactNativeJS.*(Error|Warning)|OkHttp.*(4\d\d|5\d\d)|"
+    r"Retrofit|Unhandled|Exception",
+    re.IGNORECASE,
+)
 
 
 @pytest.fixture(scope="session")
@@ -70,12 +92,87 @@ def get_driver_options(device_name):
 def driver(appium_server_url, device_name):
     options = get_driver_options(device_name)
     driver = webdriver.Remote(command_executor=appium_server_url, options=options)
-    driver.implicitly_wait(10)
+    # Implicit wait bajo (era 10): con 10s, cada find_elements que no encuentra nada
+    # esperaba 10s completos -> un no-op podía tardar minutos. Las esperas explícitas
+    # de base_page (WebDriverWait) son las que marcan el ritmo real. Se conserva un
+    # colchón mínimo para los tests aún no migrados a esperas explícitas.
+    driver.implicitly_wait(3)
     yield driver
     try:
         driver.quit()
     except:
         pass
+
+
+def _leer_logcat(driver):
+    """Lee el buffer de logcat acumulado en la sesión. Devuelve lista de mensajes."""
+    try:
+        return [e.get("message", "") for e in driver.get_log("logcat")]
+    except Exception:
+        return []
+
+
+@pytest.fixture(scope="function", autouse=True)
+def crash_monitor(request, driver):
+    """Monitor global de crash/ANR/errores nativos (equivalente Appium del
+    setupConsoleMonitor de Playwright). Antes del test drena el logcat; al terminar
+    lo revisa + verifica que la app siga en foreground.
+
+    - Crash/ANR/app-cerrada  -> HARD-FAIL (tumba el test aunque la UI 'pase').
+    - Errores E/ no fatales    -> se recolectan al reporte JSON, NO tumban.
+    """
+    # Drenar el logcat previo para que solo veamos lo de ESTE test.
+    _leer_logcat(driver)
+    inicio = time.time()
+
+    yield
+
+    duracion = round(time.time() - inicio, 1)
+    lineas = _leer_logcat(driver)
+    crash = [ln for ln in lineas if CRASH_PATTERNS.search(ln)]
+    no_fatales = [ln for ln in lineas if not CRASH_PATTERNS.search(ln) and NONFATAL_PATTERNS.search(ln)]
+
+    # Estado de la app: 4 = corriendo en foreground. <4 = background/cerrada/crash.
+    try:
+        estado = driver.query_app_state(APP_PACKAGE)
+    except Exception:
+        estado = None
+
+    # Reporte por test (baseline comparable, análogo a dumpMetrics).
+    reporte = {
+        "test": request.node.name,
+        "duracion_seg": duracion,
+        "app_state": estado,
+        "crash_count": len(crash),
+        "crash_lineas": crash[:30],
+        "errores_no_fatales_count": len(no_fatales),
+        "errores_no_fatales": no_fatales[:30],
+    }
+    try:
+        mon_dir = os.path.join(os.path.dirname(__file__), "reports", "monitor")
+        os.makedirs(mon_dir, exist_ok=True)
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        with open(os.path.join(mon_dir, f"{request.node.name}_{stamp}.json"), "w", encoding="utf-8") as f:
+            json.dump(reporte, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+    if no_fatales:
+        print(f"\n[MONITOR][WARN] {len(no_fatales)} error(es) no fatal(es) en logcat (ver reporte JSON)")
+
+    # HARD-FAIL ante señales inequívocas de crash.
+    problemas = []
+    if crash:
+        problemas.append(f"{len(crash)} crash/ANR en logcat")
+    if estado is not None and estado < 4:
+        problemas.append(f"la app no quedó en foreground (app_state={estado})")
+    if problemas:
+        detalle = "\n".join(crash[:15])
+        pytest.fail(
+            f"[MONITOR][CRASH] {request.node.name}: " + "; ".join(problemas) +
+            (f"\n{detalle}" if detalle else ""),
+            pytrace=False,
+        )
 
 
 @pytest.fixture(scope="function")

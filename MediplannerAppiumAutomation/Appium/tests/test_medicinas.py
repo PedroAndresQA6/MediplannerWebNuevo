@@ -27,11 +27,14 @@ def test_medicinas_ver_lista_detalles(driver, home_page):
         "Falta la sub-pestaña 'Inactivas'"
     print("[1] Pantalla Medicinas con sub-pestañas")
 
-    # Si hay medicamentos, abrir el detalle del último; si no, validar el estado vacío
-    meds = driver.find_elements(
-        AppiumBy.XPATH,
-        "//android.widget.ImageView[contains(@content-desc, 'mg') "
-        "or contains(@content-desc, 'mililitros') or contains(@content-desc, 'ml')]")
+    # Si hay medicamentos, abrir el detalle del último; si no, validar el estado vacío.
+    # Espera dinámica (no un find único): la lista o el estado vacío pueden tardar
+    # en renderizar, sobre todo si el emulador viene lento.
+    meds = home_page.buscar_elementos(
+        (AppiumBy.XPATH,
+         "//android.widget.ImageView[contains(@content-desc, 'mg') "
+         "or contains(@content-desc, 'mililitros') or contains(@content-desc, 'ml')]"),
+        timeout=6)
 
     if meds:
         loc = (AppiumBy.XPATH, f"//android.widget.ImageView[@bounds='{meds[-1].get_attribute('bounds')}']")
@@ -45,7 +48,7 @@ def test_medicinas_ver_lista_detalles(driver, home_page):
         driver.back(); time.sleep(1)
     else:
         vacio = home_page.esta_visible(
-            (AppiumBy.XPATH, "//*[contains(@content-desc, 'No hay medicamentos')]"), timeout=3)
+            (AppiumBy.XPATH, "//*[contains(@content-desc, 'No hay medicamentos')]"), timeout=6)
         assert vacio, "Sin medicamentos, pero no se mostró el estado vacío esperado"
         print("[2] Estado vacío correcto ('No hay medicamentos para mostrar')")
 

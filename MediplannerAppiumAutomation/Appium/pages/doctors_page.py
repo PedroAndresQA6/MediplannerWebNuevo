@@ -3,50 +3,50 @@ from appium.webdriver.common.appiumby import AppiumBy
 
 
 class DoctorsPage(BasePage):
-    
+
     def __init__(self, driver):
         super().__init__(driver)
-        
-        # Search
-        self.campo_busqueda = (AppiumBy.XPATH, "//android.widget.EditText[contains(@hint, 'Buscar')]")
-        self.btn_filtro = (AppiumBy.XPATH, "//android.widget.ImageView[@bounds='[1052,192][1232,372]']")
-        
-        # Filter modal
-        self.campo_estado = (AppiumBy.ACCESSIBILITY_ID, "Queretaro")
-        self.campo_ciudad = (AppiumBy.ACCESSIBILITY_ID, "City")
-        self.btn_cancel = (AppiumBy.ACCESSIBILITY_ID, "Cancel")
-        self.btn_buscar = (AppiumBy.ACCESSIBILITY_ID, "Search")
-        
-        # Bottom tabs - Spanish
+
+        # Búsqueda (EditText superior de la pantalla Médicos).
+        self.campo_busqueda = (AppiumBy.XPATH, "//android.widget.EditText")
+
+        # Modal de filtros: todo por content-desc (resolución-independiente).
+        self.btn_estado = (AppiumBy.XPATH, "//android.widget.Button[@content-desc='Estado']")
+        self.btn_ciudad = (AppiumBy.XPATH, "//android.widget.Button[@content-desc='Ciudad']")
+        self.btn_cancelar = (AppiumBy.XPATH, "//android.widget.Button[@content-desc='Cancelar']")
+        self.btn_buscar = (AppiumBy.XPATH, "//android.widget.Button[@content-desc='Buscar']")
+
+        # Cualquier médico de la lista.
+        self.doctores = (AppiumBy.XPATH, "//*[contains(@content-desc, 'Dr.')]")
+
+        # Pestañas inferiores.
         self.tab_inicio = (AppiumBy.ACCESSIBILITY_ID, "Inicio\nPestaña 1 de 5")
         self.tab_medicos = (AppiumBy.ACCESSIBILITY_ID, "Médicos\nPestaña 2 de 5")
-        self.tab_consultas = (AppiumBy.ACCESSIBILITY_ID, "Consultas\nPestaña 3 de 5")
-        self.tab_medicinas = (AppiumBy.ACCESSIBILITY_ID, "Medicinas\nPestaña 4 de 5")
-        self.tab_estudios = (AppiumBy.ACCESSIBILITY_ID, "Estudios\nPestaña 5 de 5")
-    
-    def buscar(self, termino):
+
+    def ir_a_medicos(self):
+        self.hacer_click(self.tab_medicos)
+
+    def esta_en_doctors(self):
+        return self.esta_visible(self.campo_busqueda, timeout=5)
+
+    def abrir_filtro(self):
+        """Abre el modal de filtros (icono superior derecha, por posición)."""
+        return self.tap_esquina_sup_derecha("android.widget.ImageView", timeout=8)
+
+    def buscar_texto(self, termino):
         self.ingresar_texto(self.campo_busqueda, termino)
         self.ocultar_keyboard()
-    
-    def abrir_filtro(self):
-        self.hacer_click(self.btn_filtro)
-    
-    def cerrar_filtro(self):
-        if self.esta_visible(self.btn_cancel):
-            self.hacer_click(self.btn_cancel)
-    
-    def ir_a_inicio(self):
-        self.hacer_click(self.tab_inicio)
-    
-    def ir_a_tab(self, tab_name):
-        tabs = {
-            "inicio": self.tab_inicio,
-            "medicos": self.tab_medicos,
-            "consultas": self.tab_consultas,
-            "medicinas": self.tab_medicinas,
-            "estudios": self.tab_estudios
-        }
-        self.hacer_click(tabs.get(tab_name, self.tab_inicio))
-    
-    def esta_en_doctors(self):
-        return self.esta_visible(self.campo_busqueda)
+
+    def seleccionar_estado(self, estado="Querétaro", max_scrolls=8):
+        """En el modal, abre 'Estado' y elige uno (scroll hasta encontrarlo)."""
+        self.hacer_click(self.btn_estado)
+        loc = (AppiumBy.XPATH, f"//*[@content-desc='{estado}']")
+        for _ in range(max_scrolls):
+            if self.esta_visible(loc, timeout=1):
+                self.hacer_click(loc)
+                return True
+            self.scroll_abajo()
+        return False
+
+    def hay_doctores(self, timeout=6):
+        return len(self.buscar_elementos(self.doctores, timeout=timeout)) > 0

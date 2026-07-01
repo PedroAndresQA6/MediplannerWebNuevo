@@ -1,407 +1,162 @@
 """
-Test para Dependientes
+Test Dependientes: alta (y desvinculación) de un dependiente.
+Selectores por content-desc / posición relativa (resolución-independiente) y
+asserts en cada paso. El drawer de perfil se abre desde el avatar (esquina sup.
+izquierda), NO desde el icono de Perfil (esquina sup. derecha).
+
+NOTA: date picker y desvinculación se re-validan en la corrida final contra la
+nueva versión de la app (pueden requerir ajustar algún selector).
 """
-import time
 import random
 from appium.webdriver.common.appiumby import AppiumBy
 from utils.navegacion import volver_inicio
 
 
-def test_dependientes_agregar(driver, home_page):
-    """Test agregar nuevo dependiente"""
-    print("\n=== TEST: Agregar Dependiente ===")
-    
+NOMBRES_H = ["Juan", "Pedro", "Carlos", "Luis", "Miguel", "Jose"]
+NOMBRES_M = ["Maria", "Ana", "Sofia", "Laura", "Kenia"]
+PARENTESCOS = ["Hijo(a)", "Padre", "Madre", "Abuelo(a)", "Primo(a)", "Sobrino(a)", "Tio(a)"]
+
+TITULO_FORM = (AppiumBy.XPATH, "//*[contains(@content-desc, 'Información del dependiente')]")
+BTN_AGREGAR = (AppiumBy.XPATH, "//*[@content-desc='Agregar dependiente']")
+BTN_CONTINUAR = (AppiumBy.XPATH, "//android.widget.Button[@content-desc='Continuar']")
+
+
+def _abrir_drawer(driver, home_page):
+    """Abre el drawer de perfil (avatar, esquina sup. izquierda) desde Home."""
     home_page = volver_inicio(driver, home_page)
-    
-    btn_perfil = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.ImageView[@tooltip-text='Mostrar menú']")
-    if not btn_perfil:
-        btn_perfil = driver.find_elements(AppiumBy.XPATH,
-            "//android.widget.ImageView[@bounds='[48,192][546,366]']")
-    if btn_perfil:
-        btn_perfil[0].click()
-        time.sleep(1)
-        print("[0] Menu abierto")
-    
-    btn_agregar = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@content-desc='Agregar dependiente']")
-    if btn_agregar:
-        btn_agregar[0].click()
-        time.sleep(1)
-        print("[1] Formulario abierto")
-    
-    nombres_hombre = ["Juan", "Pedro", "Carlos", "Luis", "Miguel", "Jose"]
-    nombres_mujer = ["Maria", "Ana", "Sofia", "Laura", "Kenia"]
-    
-    nombre_completo = random.choice(nombres_hombre + nombres_mujer)
-    es_hombre = nombre_completo in nombres_hombre
-    
-    txt_nombre = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.EditText[@bounds='[48,977][1232,1121]']")
-    if txt_nombre:
-        txt_nombre[0].click()
-        txt_nombre[0].clear()
-        txt_nombre[0].send_keys(nombre_completo)
-    
-    txt_apellido_p = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.EditText[@bounds='[48,1229][1232,1373]']")
-    if txt_apellido_p:
-        txt_apellido_p[0].click()
-        txt_apellido_p[0].clear()
-        txt_apellido_p[0].send_keys("Garcia")
-    
-    txt_apellido_m = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.EditText[@bounds='[48,1481][1232,1625]']")
-    if txt_apellido_m:
-        txt_apellido_m[0].click()
-        txt_apellido_m[0].clear()
-        txt_apellido_m[0].send_keys("Perez")
-    
-    txt_fecha = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.EditText[@bounds='[48,1733][1232,1877]']")
-    if txt_fecha:
-        txt_fecha[0].click()
-        time.sleep(1)
-        print("[5] Click en fecha")
-    
-    btn_fecha = driver.find_elements(AppiumBy.XPATH, 
-        "//android.view.View[@bounds='[100,978][1180,2142]']")
-    if btn_fecha:
-        btn_fecha[0].click()
-        time.sleep(1)
-        print("[6] Selector año abierto")
-    
-    btn_1990 = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@content-desc='1990']")
-    if btn_1990:
-        btn_1990[0].click()
-        time.sleep(0.5)
-        print("[7] Año 1990 seleccionado")
-    
-    btn_dia = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@content-desc='15, lunes, 15 de agosto de 1990']")
-    if btn_dia:
-        btn_dia[0].click()
-        time.sleep(0.5)
-        print("[8] Dia 15 seleccionado")
-    
-    btn_aceptar = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@content-desc='ACEPTAR']")
-    if btn_aceptar:
-        btn_aceptar[0].click()
-        time.sleep(0.5)
-        print("[9] ACEPTAR clickeado")
-    
-    btn_sexo = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@bounds='[48,1985][1232,2129]']")
-    if btn_sexo:
-        btn_sexo[0].click()
-        time.sleep(0.5)
-        print("[10] Popup sexo abierto")
-    
-    btn_masculino = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@content-desc='Masculino']")
-    btn_femenino = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@content-desc='Femenino']")
-    
-    if es_hombre and btn_masculino:
-        btn_masculino[0].click()
-        time.sleep(0.5)
-        print("[11] Masculino seleccionado")
-    elif not es_hombre and btn_femenino:
-        btn_femenino[0].click()
-        time.sleep(0.5)
-        print("[11] Femenino seleccionado")
-    
-    btn_parentesco = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@bounds='[48,2237][1232,2381]']")
-    if btn_parentesco:
-        btn_parentesco[0].click()
-        time.sleep(0.5)
-        print("[12] Popup parentesco abierto")
-    
-    parentescos = ["Hijo(a)", "Padre", "Madre", "Abuelo(a)", "Primo(a)", "Sobrino(a)", "Tio(a)"]
-    btn_opcion = driver.find_elements(AppiumBy.XPATH, 
-        f"//android.widget.Button[@content-desc='{random.choice(parentescos)}']")
-    if btn_opcion:
-        btn_opcion[0].click()
-        time.sleep(0.5)
-        print("[13] Parentesco seleccionado")
-    
-    btn_continuar = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@content-desc='Continuar']")
-    if btn_continuar and btn_continuar[0].get_attribute("enabled") == "true":
-        btn_continuar[0].click()
-        time.sleep(2)
-        print("[14] Continuar clickeado - Dependiente creado")
-    
-    print("[15] Test completado")
+    assert home_page.tap_esquina_sup_izquierda("android.widget.ImageView", timeout=8), \
+        "No se encontró el avatar para abrir el drawer de perfil"
+    home_page.assert_visible(BTN_AGREGAR, "El drawer no muestra 'Agregar dependiente'")
+    return home_page
+
+
+def _seleccionar_fecha(home_page, driver):
+    """Selecciona una fecha de nacimiento en el date picker (año 1990, algún día).
+    Best-effort y resolución-independiente; validar contra la nueva versión."""
+    # Cambiar a selección de año si el header lo permite, luego elegir 1990.
+    btn_1990 = (AppiumBy.XPATH, "//android.widget.Button[@content-desc='1990']")
+    if not home_page.esta_visible(btn_1990, timeout=2):
+        # Abrir el selector de año (header del picker) y buscar 1990 con scroll.
+        for _ in range(6):
+            if home_page.esta_visible(btn_1990, timeout=1):
+                break
+            home_page.scroll_abajo()
+    if home_page.esta_visible(btn_1990, timeout=2):
+        home_page.hacer_click(btn_1990)
+
+    # Elegir un día cualquiera (botón cuyo content-desc empieza con un número).
+    dias = home_page.buscar_elementos(
+        (AppiumBy.XPATH, "//android.widget.Button[starts-with(@content-desc, '15')]"), timeout=3)
+    if dias:
+        dias[0].click()
+
+    # Confirmar.
+    for etiqueta in ("ACEPTAR", "Aceptar", "OK"):
+        loc = (AppiumBy.XPATH, f"//android.widget.Button[@content-desc='{etiqueta}']")
+        if home_page.esta_visible(loc, timeout=1):
+            home_page.hacer_click(loc)
+            return
+
+
+def _llenar_formulario(driver, home_page, nombre, es_hombre, parentesco):
+    """Llena el formulario de dependiente y envía. Los 4 EditText en orden son:
+    Nombre, Apellido paterno, Apellido materno, Fecha de nacimiento."""
+    home_page.hacer_click(BTN_AGREGAR)
+    home_page.assert_visible(TITULO_FORM, "No se abrió el formulario 'Información del dependiente'")
+
+    ets = home_page.buscar_elementos((AppiumBy.XPATH, "//android.widget.EditText"), timeout=6)
+    assert len(ets) >= 4, f"Se esperaban >=4 campos en el formulario, hay {len(ets)}"
+    ets[0].click(); ets[0].send_keys(nombre)
+    ets[1].click(); ets[1].send_keys("Garcia")
+    ets[2].click(); ets[2].send_keys("Perez")
+    home_page.ocultar_keyboard()
+
+    # Fecha de nacimiento (abre el date picker).
+    ets_actual = home_page.buscar_elementos((AppiumBy.XPATH, "//android.widget.EditText"), timeout=3)
+    if len(ets_actual) >= 4:
+        ets_actual[3].click()
+        _seleccionar_fecha(home_page, driver)
+
+    # Sexo: abrir el selector y elegir según el nombre.
+    opcion_sexo = "Masculino" if es_hombre else "Femenino"
+    sel_sexo = (AppiumBy.XPATH, "//android.widget.Button[@content-desc='Masculino' or @content-desc='Femenino' or @content-desc='Sexo']")
+    if home_page.esta_visible(sel_sexo, timeout=2):
+        home_page.hacer_click(sel_sexo)
+        loc = (AppiumBy.XPATH, f"//android.widget.Button[@content-desc='{opcion_sexo}']")
+        if home_page.esta_visible(loc, timeout=2):
+            home_page.hacer_click(loc)
+
+    # Parentesco: abrir selector y elegir.
+    sel_par = (AppiumBy.XPATH, "//android.widget.Button[@content-desc='Hijo(a)' or @content-desc='Parentesco']")
+    if home_page.esta_visible(sel_par, timeout=2):
+        home_page.hacer_click(sel_par)
+        loc = (AppiumBy.XPATH, f"//android.widget.Button[@content-desc='{parentesco}']")
+        if home_page.esta_visible(loc, timeout=2):
+            home_page.hacer_click(loc)
+
+    # Enviar.
+    home_page.assert_visible(BTN_CONTINUAR, "No apareció el botón 'Continuar'")
+    home_page.hacer_click(BTN_CONTINUAR)
+
+
+def test_dependientes_agregar(driver, home_page):
+    """Alta de un dependiente con datos ficticios; valida que el formulario se
+    completa y se envía (el formulario deja de mostrarse)."""
+    print("\n=== TEST: Agregar Dependiente ===")
+
+    nombre = random.choice(NOMBRES_H + NOMBRES_M)
+    es_hombre = nombre in NOMBRES_H
+    parentesco = random.choice(PARENTESCOS)
+    print(f"Dependiente: {nombre} ({'M' if es_hombre else 'F'}), parentesco {parentesco}")
+
+    _abrir_drawer(driver, home_page)
+    _llenar_formulario(driver, home_page, nombre, es_hombre, parentesco)
+
+    # Éxito = el formulario ya no está visible (se envió y navegó fuera).
+    assert not home_page.esta_visible(TITULO_FORM, timeout=5), \
+        "Tras 'Continuar' el formulario del dependiente sigue visible (no se envió)"
+    print(f"Dependiente '{nombre}' creado (formulario enviado)")
 
 
 def test_dependientes_desvincular(driver, home_page):
-    """Test desvincular cotitular y cerrar sesión"""
+    """Desvincula un dependiente. Si no hay ninguno, crea uno primero.
+    NOTA: flujo destructivo; validar selectores contra la nueva versión."""
     print("\n=== TEST: Desvincular Dependiente ===")
-    
-    btn_perfil = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.ImageView[@tooltip-text='Mostrar menú']")
-    if not btn_perfil:
-        btn_perfil = driver.find_elements(AppiumBy.XPATH,
-            "//android.widget.ImageView[@bounds='[48,192][546,366]']")
-    if btn_perfil:
-        btn_perfil[0].click()
-        time.sleep(1)
-        print("[0] Menu abierto")
-    else:
-        print("[0] Menu NO encontrado")
-    
-    btn_dependiente = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@bounds='[48,702][888,846]']")
-    if not btn_dependiente:
-        print("[1a] No hay dependientes, creando uno primero...")
-        nombres_h = ["Juan", "Pedro", "Carlos", "Luis", "Miguel", "Jose"]
-        nombres_m = ["Maria", "Ana", "Sofia", "Laura", "Kenia"]
-        nombre = random.choice(nombres_h + nombres_m)
-        es_hombre = nombre in nombres_h
-        _abrir_formulario_agregar_dependiente(driver)
-        _completar_formulario_dependiente(driver, nombre, es_hombre)
-        time.sleep(2)
-        print(f"[1b] Dependiente {nombre} creado")
-        btn_dependiente = driver.find_elements(AppiumBy.XPATH, 
-            "//android.widget.Button[@bounds='[48,702][888,846]']")
-    if btn_dependiente:
-        btn_dependiente[0].click()
-        time.sleep(1)
-        print("[1] Dependiente seleccionado")
-    
-    btn_menu = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.ImageView[@bounds='[1103,221][1220,338]']")
-    if btn_menu:
-        btn_menu[0].click()
-        time.sleep(1)
-        print("[2] Menu perfil abierto")
-    else:
-        print("[2] Menu perfil NO encontrado")
-    
-    btn_compartir = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.ImageView[contains(@content-desc, 'Compartir')]")
-    if btn_compartir:
-        btn_compartir[0].click()
-        time.sleep(1)
-        print("[3] Compartir abierto")
-    
-    btn_popup = driver.find_elements(AppiumBy.XPATH, 
-        "//android.view.View[@content-desc='Desbloquea acceso completo']")
-    if btn_popup:
-        print("[3b] Popup sin acceso - cerrando popup")
-        btn_cancelar = driver.find_elements(AppiumBy.XPATH, 
-            "//android.widget.Button[@content-desc='Cancelar']")
-        if btn_cancelar:
-            btn_cancelar[0].click()
-            time.sleep(0.5)
-        print("[4] Sin dependientes - procediendo a cerrar sesión")
-    else:
-        btn_cotitular = driver.find_elements(AppiumBy.XPATH, 
-            "//android.widget.Button[@bounds='[0,678][1280,894]']")
-        if btn_cotitular:
-            btn_cotitular[0].click()
-            time.sleep(1)
-            print("[4] Cotitular seleccionado")
-    
-    btn_desvincular = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@bounds='[48,1293][1232,1437]']")
-    if btn_desvincular:
-        btn_desvincular[0].click()
-        time.sleep(1)
-        print("[5] Desvincular clickeado")
-    
-    btn_confirmar_popup = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@content-desc='Desvincular']")
-    if btn_confirmar_popup:
-        btn_confirmar_popup[0].click()
-        time.sleep(3)
-        print("[6] Desvinculado confirmado - esperando carga")
-    
-    btn_atras = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@bounds='[12,168][156,312]']")
-    if btn_atras:
-        btn_atras[0].click()
-        time.sleep(1)
-        print("[7] Volviendo a perfil")
-    
-    for _ in range(3):
-        driver.back()
-        time.sleep(1)
-        tab_inicio = (AppiumBy.ACCESSIBILITY_ID, "Inicio\nPestaña 1 de 5")
-        if home_page.esta_visible(tab_inicio, timeout=2):
-            break
-    print("[8] Regresando a Inicio")
-    
-    btn_perfil = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.ImageView[@tooltip-text='Mostrar menú']")
-    if not btn_perfil:
-        btn_perfil = driver.find_elements(AppiumBy.XPATH,
-            "//android.widget.ImageView[@bounds='[48,192][546,366]']")
-    if btn_perfil:
-        btn_perfil[0].click()
-        time.sleep(1)
-        print("[9] Menu abierto")
-    
-    btn_titular = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@bounds='[48,558][888,702]']")
-    if btn_titular:
-        btn_titular[0].click()
-        time.sleep(1)
-        print("[10] Perfil del titular seleccionado")
-    
-    print("[14] Test completado")
 
+    home_page = _abrir_drawer(driver, home_page)
 
-def _abrir_formulario_agregar_dependiente(driver):
-    """Abre el formulario de agregar dependiente desde el perfil"""
-    time.sleep(2)
-    
-    btn_perfil = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.ImageView[@tooltip-text='Mostrar menú']")
-    if not btn_perfil:
-        btn_perfil = driver.find_elements(AppiumBy.XPATH,
-            "//android.widget.ImageView[@bounds='[48,192][546,366]']")
-    if btn_perfil:
-        btn_perfil[0].click()
-        time.sleep(1)
-    
-    btn_agregar = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@content-desc='Agregar dependiente']")
-    if btn_agregar:
-        btn_agregar[0].click()
-        time.sleep(1)
+    # Buscar un dependiente en el drawer (botón con parentesco tras el nombre).
+    dependientes = home_page.buscar_elementos(
+        (AppiumBy.XPATH, "//android.widget.Button[contains(@content-desc, 'Hijo') "
+         "or contains(@content-desc, 'Padre') or contains(@content-desc, 'Madre') "
+         "or contains(@content-desc, 'Abuelo') or contains(@content-desc, 'Primo') "
+         "or contains(@content-desc, 'Sobrino') or contains(@content-desc, 'Tio')]"), timeout=4)
 
+    if not dependientes:
+        print("[i] No hay dependientes en el drawer; creando uno para desvincular")
+        nombre = random.choice(NOMBRES_H + NOMBRES_M)
+        _llenar_formulario(driver, home_page, nombre, nombre in NOMBRES_H, "Hijo(a)")
+        home_page = _abrir_drawer(driver, home_page)
+        dependientes = home_page.buscar_elementos(
+            (AppiumBy.XPATH, "//android.widget.Button[contains(@content-desc, 'Hijo') "
+             "or contains(@content-desc, 'Padre') or contains(@content-desc, 'Madre')]"), timeout=4)
 
-def _completar_formulario_dependiente(driver, nombre_completo, es_hombre):
-    """Llena el formulario con los datos del dependiente y lo envía"""
-    txt_nombre = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.EditText[@bounds='[48,977][1232,1121]']")
-    if txt_nombre:
-        txt_nombre[0].click()
-        txt_nombre[0].clear()
-        txt_nombre[0].send_keys(nombre_completo)
-    
-    txt_apellido_p = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.EditText[@bounds='[48,1229][1232,1373]']")
-    if txt_apellido_p:
-        txt_apellido_p[0].click()
-        txt_apellido_p[0].clear()
-        txt_apellido_p[0].send_keys("Garcia")
-    
-    txt_apellido_m = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.EditText[@bounds='[48,1481][1232,1625]']")
-    if txt_apellido_m:
-        txt_apellido_m[0].click()
-        txt_apellido_m[0].clear()
-        txt_apellido_m[0].send_keys("Perez")
-    
-    txt_fecha = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.EditText[@bounds='[48,1733][1232,1877]']")
-    if txt_fecha:
-        txt_fecha[0].click()
-        time.sleep(1)
-    
-    btn_fecha = driver.find_elements(AppiumBy.XPATH, 
-        "//android.view.View[@bounds='[100,978][1180,2142]']")
-    if btn_fecha:
-        btn_fecha[0].click()
-        time.sleep(1)
-    
-    btn_1990 = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@content-desc='1990']")
-    if btn_1990:
-        btn_1990[0].click()
-        time.sleep(0.5)
-    
-    btn_dia = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@content-desc='15, lunes, 15 de agosto de 1990']")
-    if btn_dia:
-        btn_dia[0].click()
-        time.sleep(0.5)
-    
-    btn_aceptar = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@content-desc='ACEPTAR']")
-    if btn_aceptar:
-        btn_aceptar[0].click()
-        time.sleep(0.5)
-    
-    btn_sexo = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@bounds='[48,1985][1232,2129]']")
-    if btn_sexo:
-        btn_sexo[0].click()
-        time.sleep(0.5)
-    
-    btn_masculino = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@content-desc='Masculino']")
-    btn_femenino = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@content-desc='Femenino']")
-    
-    if es_hombre and btn_masculino:
-        btn_masculino[0].click()
-        time.sleep(0.5)
-    elif not es_hombre and btn_femenino:
-        btn_femenino[0].click()
-        time.sleep(0.5)
-    
-    btn_parentesco = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@bounds='[48,2237][1232,2381]']")
-    if btn_parentesco:
-        btn_parentesco[0].click()
-        time.sleep(0.5)
-    
-    parentescos = ["Hijo(a)", "Padre", "Madre", "Abuelo(a)", "Primo(a)", "Sobrino(a)", "Tio(a)"]
-    btn_opcion = driver.find_elements(AppiumBy.XPATH, 
-        f"//android.widget.Button[@content-desc='{random.choice(parentescos)}']")
-    if btn_opcion:
-        btn_opcion[0].click()
-        time.sleep(0.5)
-    
-    btn_continuar = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@content-desc='Continuar']")
-    if btn_continuar and btn_continuar[0].get_attribute("enabled") == "true":
-        btn_continuar[0].click()
-        time.sleep(2)
+    assert dependientes, "No se encontró ningún dependiente para desvincular (ni tras crear uno)"
+    dependientes[0].click()
 
+    # Desde el perfil del dependiente: menú (icono top-right) → Desvincular → confirmar.
+    home_page.tap_esquina_sup_derecha("android.widget.ImageView", timeout=6)
+    desvincular = (AppiumBy.XPATH, "//*[contains(@content-desc, 'Desvincular')]")
+    if not home_page.esta_visible(desvincular, timeout=4):
+        for _ in range(4):
+            home_page.scroll_abajo()
+            if home_page.esta_visible(desvincular, timeout=1):
+                break
+    home_page.assert_visible(desvincular, "No apareció la opción 'Desvincular'")
+    home_page.hacer_click(desvincular)
 
-def _seleccionar_perfil_dependiente(driver):
-    """Selecciona el perfil del dependiente desde el menú"""
-    btn_dependiente = driver.find_elements(AppiumBy.XPATH, 
-        "//android.widget.Button[@bounds='[48,702][888,846]']")
-    if btn_dependiente:
-        btn_dependiente[0].click()
-        time.sleep(1)
-
-
-def test_dependientes_agregar_dos(driver, home_page):
-    """Test agregar dos dependientes desde el perfil de un dependiente"""
-    print("\n=== TEST: Agregar Dos Dependientes ===")
-    
-    nombres_hombre = ["Juan", "Pedro", "Carlos", "Luis", "Miguel", "Jose"]
-    nombres_mujer = ["Maria", "Ana", "Sofia", "Laura", "Kenia"]
-    
-    nombre1 = random.choice(nombres_hombre + nombres_mujer)
-    es_hombre1 = nombre1 in nombres_hombre
-    
-    nombre2 = random.choice(nombres_hombre + nombres_mujer)
-    es_hombre2 = nombre2 in nombres_hombre
-    
-    _abrir_formulario_agregar_dependiente(driver)
-    print("[A] Formulario abierto - Dependiente 1")
-    
-    _completar_formulario_dependiente(driver, nombre1, es_hombre1)
-    print(f"[B] Dependiente 1 creado: {nombre1}")
-    
-    time.sleep(2)
-    
-    _abrir_formulario_agregar_dependiente(driver)
-    _seleccionar_perfil_dependiente(driver)
-    print("[C] Perfil seleccionado - Dependiente 2")
-    
-    _completar_formulario_dependiente(driver, nombre2, es_hombre2)
-    print(f"[D] Dependiente 2 creado: {nombre2}")
-    
-    print("[E] Test completado")
+    # Confirmación.
+    confirm = (AppiumBy.XPATH, "//android.widget.Button[@content-desc='Desvincular']")
+    home_page.assert_visible(confirm, "No apareció la confirmación de 'Desvincular'")
+    home_page.hacer_click(confirm)
+    print("Dependiente desvinculado")

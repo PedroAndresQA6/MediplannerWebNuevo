@@ -30,9 +30,12 @@ def test_estudios_ver_lista_detalles(driver, home_page):
     time.sleep(2.5)
     home_page.tomar_screenshot("estudios_detalle")
 
-    # Debe verse una pantalla de detalle (botón Regresar o flecha de retroceso)
-    detalle = home_page.esta_visible((AppiumBy.XPATH, "//*[@content-desc='Regresar']"), timeout=3) or \
-        home_page.esta_visible((AppiumBy.XPATH, "//android.widget.Button[@bounds='[12,168][156,312]']"), timeout=2)
+    # Debe verse la pantalla de detalle: se valida por su CONTENIDO (secciones del
+    # detalle), no por un botón de retroceso (cuyo selector cambia con la resolución).
+    detalle = home_page.esta_visible(
+        (AppiumBy.XPATH, "//*[contains(@content-desc, 'Archivos') "
+         "or contains(@content-desc, 'Indicaciones') "
+         "or contains(@content-desc, 'Interpretaci')]"), timeout=5)
     assert detalle, "No se abrió la pantalla de detalle del estudio"
     print("[2] Detalle del estudio abierto")
 
