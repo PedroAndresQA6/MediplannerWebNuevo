@@ -33,6 +33,13 @@ module.exports = defineConfig({
       timeout: 30000,
     },
     {
+      name: 'percentil-explorar',
+      testMatch: /percentil\.explorar\.spec\.js/,
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: null, deviceScaleFactor: undefined },
+      dependencies: ['setup'],
+      timeout: 180000,
+    },
+    {
       name: 'recetas-explorar',
       testMatch: /recetas\.explorar\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: null, deviceScaleFactor: undefined },
