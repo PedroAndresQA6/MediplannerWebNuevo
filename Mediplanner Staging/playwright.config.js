@@ -36,6 +36,13 @@ module.exports = defineConfig({
       timeout: 90000,
     },
     {
+      name: 'percentil-explorar',
+      testMatch: /percentil\.explorar\.spec\.js/,
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1920, height: 1080 } },
+      dependencies: ['setup'],
+      timeout: 180000,
+    },
+    {
       name: 'appointments-create',
       testMatch: /appointments\.create\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1920, height: 1080 } },

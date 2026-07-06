@@ -275,8 +275,9 @@ async function checkNextDaysForIniciarButton(page) {
   return false;
 }
 
-async function createAppointment(page) {
+async function createAppointment(page, patientSearch = '') {
   logger.info('Explorando próximos 5 días para registrar una cita...');
+  if (patientSearch) logger.info(`Paciente objetivo de la cita: "${patientSearch}"`);
   
   // Navegar a la página de citas usando el sidebar "Agendar"
   await page.goto('/Citas');
@@ -337,23 +338,53 @@ async function createAppointment(page) {
           logger.success(`Opción seleccionada: "${secondText}" (${secondValue})`);
         }
       }
+    } else if (searchText) {
+      // Búsqueda por texto con reintentos: dev es flaky (los bundles abortan),
+      // a veces las opciones del react-select tardan en cargar. Reintentar
+      // re-escribiendo hasta que aparezca una opción y se pueda seleccionar.
+      const optSel = '[id*="react-select"][id*="option"], [role="option"], [class*="option"], li:visible';
+      let seleccionada = false;
+      for (let intento = 1; intento <= 5 && !seleccionada; intento++) {
+        await inputLoc.click();
+        await inputLoc.fill('');
+        await inputLoc.fill(searchText);
+        logger.info(`Buscando: "${searchText}" (intento ${intento}/5)...`);
+        await page.waitForTimeout(2000);
+        const opciones = page.locator(optSel);
+        const count = await opciones.count();
+        logger.info(`Opciones encontradas: ${count}`);
+        if (count > 0) {
+          // Elegir la opción cuyo texto coincida con la búsqueda (no la primera a
+          // ciegas: si el filtro aún no aplicó, la primera sería OTRO paciente).
+          let elegido = null;
+          for (let k = 0; k < count; k++) {
+            const t = (await opciones.nth(k).textContent().catch(() => '') || '').toLowerCase();
+            if (t.includes(searchText.toLowerCase())) { elegido = opciones.nth(k); break; }
+          }
+          if (elegido) {
+            const txt = (await elegido.textContent().catch(() => '') || '').trim();
+            await elegido.click();
+            logger.success(`Opción seleccionada (coincide "${searchText}"): "${txt}"`);
+            seleccionada = true;
+          } else {
+            logger.warning(`Las ${count} opciones no coinciden con "${searchText}" todavía, reintentando...`);
+          }
+        }
+      }
+      if (!seleccionada) {
+        throw new Error(`No se encontró la opción del paciente "${searchText}" tras 5 intentos`);
+      }
     } else {
       await inputLoc.click();
-      if (searchText) {
-        await inputLoc.fill(searchText);
-        logger.info(`Buscando: "${searchText}"...`);
-        await page.waitForTimeout(1500);
-      } else {
-        logger.info('Esperando 2s a que carguen opciones...');
-        await page.waitForTimeout(2000);
-      }
+      logger.info('Esperando 2s a que carguen opciones...');
+      await page.waitForTimeout(2000);
       const opciones = page.locator('[id*="react-select"][id*="option"], [role="option"], [class*="option"], li:visible');
       const count = await opciones.count();
       logger.info(`Opciones encontradas: ${count}`);
       if (count > 0) {
         await opciones.first().click();
         logger.success('Opción seleccionada');
-      } else if (!searchText) {
+      } else {
         logger.info('Sin opciones, reintentando con búsqueda...');
         try {
           await inputLoc.fill('a');
@@ -379,9 +410,10 @@ async function createAppointment(page) {
   const combosCount = await combos.count();
   logger.info(`Comboboxes en wizard: ${combosCount}`);
   
-  // Paciente - React-Select
+  // Paciente - React-Select. Si se pasó patientSearch, buscar y seleccionar ese
+  // paciente; si no, se queda con el comportamiento previo (primera opción).
   await expect(combos.first()).toBeVisible();
-  await selectReactOption(combos.nth(0));
+  await selectReactOption(combos.nth(0), patientSearch);
   
   const continueBtn = page.getByRole('button', { name: /continuar/i });
   await page.waitForTimeout(1000);

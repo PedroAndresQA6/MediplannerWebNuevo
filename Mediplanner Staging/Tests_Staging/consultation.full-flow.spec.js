@@ -1273,6 +1273,106 @@ function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PERCENTIL — paciente pediátrico fijo + medidas antropométricas incrementales.
+// El paciente "Percentil Prueba Prueba" (masculino, ~3 años) ya existe en dev.
+// Cada corrida usa un set de medidas MAYOR que la anterior para que la gráfica
+// de Percentil muestre crecimiento. Se elige el set con la variable de entorno
+// PERCENTIL_RUN (1, 2 o 3); por defecto 1.
+// ─────────────────────────────────────────────────────────────────────────────
+const PACIENTE_NOMBRE = 'Percentil Prueba Prueba';
+const PACIENTE_BUSQUEDA = 'Percentil';
+
+// Sets crecientes (peso kg, talla cm, perímetro cefálico cm) para un niño ~3 años.
+const PERCENTIL_SETS = {
+  1: { peso: '13', talla: '92',  perimetro: '48' },
+  2: { peso: '16', talla: '99',  perimetro: '49' },
+  3: { peso: '19', talla: '106', perimetro: '50' },
+};
+const PERCENTIL_RUN = parseInt(process.env.PERCENTIL_RUN || '1', 10);
+const MEDIDAS = PERCENTIL_SETS[PERCENTIL_RUN] || PERCENTIL_SETS[1];
+
+// Llena, si existe, el campo de perímetro cefálico en signos vitales (pediátrico).
+async function fillPerimetroCefalico(page, valor) {
+  const selectores = [
+    'input[name*="cefal" i]',
+    'input[name*="perimetro" i]',
+    'input[name*="perímetro" i]',
+    'input[placeholder*="cefál" i]',
+    'input[placeholder*="cefal" i]',
+    'input[placeholder*="perímetro" i]',
+    'input[placeholder*="perimetro" i]',
+  ];
+  for (const sel of selectores) {
+    const inp = page.locator(sel).first();
+    if (await inp.count() > 0 && await inp.isVisible().catch(() => false)) {
+      await inp.fill(valor);
+      console.log(`🧠 Perímetro cefálico llenado (${sel}): ${valor} cm`);
+      return true;
+    }
+  }
+  // Fallback por label adyacente
+  const lbl = page.locator('label:has-text("cefál"), label:has-text("Cefál"), label:has-text("Perímetro"), label:has-text("perímetro")').first();
+  if (await lbl.count() > 0) {
+    // XPath único (el prefijo "xpath=" aplica a toda la expresión; repetirlo dentro
+    // del union la invalida y lanza un TypeError de evaluate).
+    const inp = lbl.locator('xpath=following::input[1] | ../input | ..//input').first();
+    if (await inp.count() > 0 && await inp.isVisible().catch(() => false)) {
+      await inp.fill(valor);
+      console.log(`🧠 Perímetro cefálico llenado (por label): ${valor} cm`);
+      return true;
+    }
+  }
+  console.log('ℹ️ No se encontró campo de perímetro cefálico en signos vitales (puede no aplicar).');
+  return false;
+}
+
+// Inicia la consulta del paciente objetivo: crea una cita para ÉL (hoy/primer
+// horario disponible) y luego pulsa el botón "Iniciar" de SU fila concreta en el
+// Dashboard (no la cita más temprana de cualquier paciente).
+async function iniciarConsultaDelPaciente(page) {
+  console.log(`📅 Creando cita para "${PACIENTE_NOMBRE}"...`);
+  await createAppointment(page, PACIENTE_BUSQUEDA);
+
+  console.log('🏠 Volviendo a Dashboard para iniciar SU cita...');
+  await page.goto('/Dashboard');
+  await page.waitForLoadState('load').catch(() => {});
+  await page.waitForTimeout(3000);
+
+  // Buscar el botón "Iniciar" cuya fila contenga el nombre del paciente.
+  const buscarIniciarDelPaciente = async () => {
+    const botones = page.getByRole('button', { name: /iniciar/i });
+    const total = await botones.count();
+    for (let i = 0; i < total; i++) {
+      const btn = botones.nth(i);
+      if (!(await btn.isVisible().catch(() => false))) continue;
+      const fila = btn.locator('xpath=ancestor::*[self::div or self::tr][1]');
+      const texto = (await fila.textContent().catch(() => '') || '');
+      if (texto.toLowerCase().includes(PACIENTE_BUSQUEDA.toLowerCase())) return btn;
+    }
+    return null;
+  };
+
+  let iniciarBtn = await buscarIniciarDelPaciente();
+  if (!iniciarBtn) {
+    console.log('🔁 No apareció en Dashboard; revisando próximos días/citas...');
+    await checkNextDaysForIniciarButton(page);
+    await page.waitForTimeout(2000);
+    iniciarBtn = await buscarIniciarDelPaciente();
+  }
+  if (!iniciarBtn) {
+    throw new Error(`No se encontró botón "Iniciar" para "${PACIENTE_NOMBRE}" tras crear su cita`);
+  }
+
+  const overlay = page.locator('div.fixed.inset-0.bg-black.bg-opacity-50');
+  if (await overlay.count() > 0 && await overlay.first().isVisible().catch(() => false)) {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(1000);
+  }
+  console.log(`▶️ Iniciando consulta de "${PACIENTE_NOMBRE}" (set #${PERCENTIL_RUN})...`);
+  await iniciarBtn.click({ force: true });
+}
+
 // Test principal
 test('Start a scheduled consultation from Inicio', async ({ page }) => {
   test.setTimeout(300000); // 5 minutos de timeout
@@ -1280,75 +1380,11 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
   const monitor = setupConsoleMonitor(page);
   console.log('🔍 [MONITOR] DevTools monitor activo — capturando consola y red...\n');
 
-  console.log('🏠 Navegando a Dashboard (Inicio)...');
-  await page.goto('/Dashboard');
-  await page.waitForTimeout(3000);
-  
-  let iniciarButtons = page.getByRole('button', { name: /iniciar/i });
-  let count = await iniciarButtons.count();
-  
-  if (count === 0) {
-    console.log('⚠️ No hay citas con botón Iniciar hoy');
-    console.log('🔍 Revisando próximos 5 días...');
-    
-    const foundInNextDays = await checkNextDaysForIniciarButton(page);
-    
-    if (!foundInNextDays) {
-      console.log('📅 No se encontraron citas en 5 días, creando una cita...');
-      await createAppointment(page);
-      
-      console.log('🔙 Volviendo a Dashboard...');
-      await page.goto('/Dashboard');
-      await page.waitForTimeout(3000);
-      
-      const foundAfterCreate = await checkNextDaysForIniciarButton(page);
-      
-      if (!foundAfterCreate) {
-        throw new Error('No se pudieron encontrar o crear citas disponibles para iniciar');
-      }
-    }
-  } else {
-    console.log(`✅ Encontradas ${count} cita(s) con botón Iniciar`);
-  }
-  
-  iniciarButtons = page.getByRole('button', { name: /iniciar/i });
-  count = await iniciarButtons.count();
-    
-  if (count === 0) {
-    throw new Error('No hay citas disponibles para iniciar');
-  }
-  
-  // Seleccionar la cita más temprana
-  let selectedIndex = 0;
-  let earliestMinutes = Infinity;
-  
-  for (let i = 0; i < count; i++) {
-    const button = iniciarButtons.nth(i);
-    const row = button.locator('xpath=ancestor::*[self::div or self::tr][1]');
-    try {
-      const timeText = await row.locator('text=/\\d{2}:\\d{2}/').first().textContent();
-      if (timeText) {
-        const [hours, minutes] = timeText.split(':').map(Number);
-        const totalMinutes = hours * 60 + minutes;
-        if (totalMinutes < earliestMinutes) {
-          earliestMinutes = totalMinutes;
-          selectedIndex = i;
-        }
-      }
-    } catch (e) {
-      // Continuar con siguiente
-    }
-  }
-    
+  console.log(`🎯 Paciente objetivo: "${PACIENTE_NOMBRE}" — set #${PERCENTIL_RUN} (peso=${MEDIDAS.peso} talla=${MEDIDAS.talla} perímetro=${MEDIDAS.perimetro})`);
+
   await test.step('Iniciar consulta y signos vitales', async () => {
-    console.log('▶️ Iniciando consulta...');
-    await page.waitForTimeout(1000);
-    const overlay = page.locator('div.fixed.inset-0.bg-black.bg-opacity-50');
-    if (await overlay.count() > 0 && await overlay.first().isVisible()) {
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(1000);
-    }
-    await iniciarButtons.nth(selectedIndex).click({ force: true });
+    // Crea la cita del paciente objetivo e inicia SU consulta concreta.
+    await iniciarConsultaDelPaciente(page);
 
     const signosButton = page.getByRole('button', { name: /capturar signos vitales/i });
     await expect(signosButton).toBeVisible({ timeout: 10000 });
@@ -1362,20 +1398,25 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     console.log(`📝 Encontrados ${inputCount} inputs en signos vitales`);
 
     const sv = DATOS_CLINICOS.signosVitales;
-    const svPeso    = pick(sv.pesos);
-    const svTalla   = pick(sv.tallas);
+    // PERCENTIL: peso/talla/perímetro vienen del set incremental (no aleatorios)
+    // para que la gráfica de crecimiento muestre aumento entre las 3 corridas.
+    const svPeso    = MEDIDAS.peso;
+    const svTalla   = MEDIDAS.talla;
     const svPresion = pick(sv.presiones);
     const svTemp    = pick(sv.temperaturas);
     const svFC      = pick(sv.frecuenciasCardiacas);
     const svSat     = pick(sv.saturaciones);
     const svFR      = pick(sv.frecuenciasRespiratorias);
     const svGlucosa = pick(sv.glucosas);
-    console.log(`💉 Signos vitales: peso=${svPeso} talla=${svTalla} PA=${svPresion} temp=${svTemp} FC=${svFC} sat=${svSat} FR=${svFR} glucosa=${svGlucosa}`);
+    console.log(`💉 Signos vitales [set #${PERCENTIL_RUN}]: peso=${svPeso} talla=${svTalla} perímetro=${MEDIDAS.perimetro} PA=${svPresion} temp=${svTemp} FC=${svFC} sat=${svSat} FR=${svFR} glucosa=${svGlucosa}`);
 
     await page.locator('input[name="peso"]').fill(svPeso);
 
     const tallaInput = page.locator('input[name*="talla" i]');
     if (await tallaInput.count() > 0) await tallaInput.first().fill(svTalla);
+
+    // Perímetro cefálico (campo pediátrico; solo si existe en el formulario).
+    await fillPerimetroCefalico(page, MEDIDAS.perimetro);
 
     const presionInput = page.locator('input[placeholder="000/000 mmHg"]');
     if (await presionInput.isVisible().catch(() => false)) {
