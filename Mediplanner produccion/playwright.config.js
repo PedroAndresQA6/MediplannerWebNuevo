@@ -50,10 +50,10 @@ module.exports = defineConfig({
     },
     {
       name: 'doctor-consultation',
-      testMatch: /consultation\.start\.spec\.(js|ts)/,
+      testMatch: /consultation\.full-flow\.spec\.(js|ts)/,
       use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1920, height: 1080 } },
       dependencies: ['setup'],
-      timeout: 300000,
+      timeout: 600000,
     },
     {
       name: 'system-health',
@@ -74,6 +74,20 @@ module.exports = defineConfig({
       testMatch: /subir-estudios\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1920, height: 1080 } },
       timeout: 120000,
+    },
+    {
+      name: 'vacunacion-explorar',
+      testMatch: /vacunacion\.explorar\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1920, height: 1080 } },
+      dependencies: ['setup'],
+      timeout: 240000,
+    },
+    {
+      name: 'vacunacion-ciclo-completo',
+      testMatch: /vacunacion\.ciclo-completo\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1920, height: 1080 } },
+      dependencies: ['setup'],
+      timeout: 600000,
     },
   ],
 });

@@ -75,8 +75,11 @@ test.describe('Subir Estudios', () => {
       logger.success('Perfil del paciente cargado');
 
       // 6. Dar clic en "Consultas"
+      // NOTA: en el nuevo layout del perfil del paciente, la navegación de secciones
+      // (Información / Consultas / Recetas / Estudios / ...) son <button>, no <a>.
+      // Antes era page.locator('a:has-text("Consultas")'); ahora es un botón.
       logger.info('Buscando sección "Consultas"...');
-      const consultasLink = page.locator('a:has-text("Consultas")').first();
+      const consultasLink = page.getByRole('button', { name: /^Consultas$/ }).first();
 
       if (await consultasLink.isVisible({ timeout: 10000 }).catch(() => false)) {
         await consultasLink.click();
@@ -230,7 +233,9 @@ test.describe('Subir Estudios', () => {
                 const fileInput = page.locator('div[role="presentation"] input[type="file"]');
 
                 if (await fileInput.count() > 0) {
-                  const filePath = 'tests/Estuidos_ejemplo_mediplanner.pdf';
+                  // El PDF de ejemplo vive junto al spec (Tests_Produccion/), no en tests/.
+                  // Usamos ruta absoluta basada en __dirname para no depender del cwd.
+                  const filePath = require('path').join(__dirname, 'Estuidos_ejemplo_mediplanner.pdf');
                   await fileInput.setInputFiles(filePath);
                   logger.success(`Archivo "${filePath}" subido exitosamente`);
                   await page.waitForTimeout(3000);

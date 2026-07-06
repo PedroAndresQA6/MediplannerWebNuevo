@@ -1,56 +1,39 @@
 import { test as setup, expect } from '@playwright/test';
 
 const BASE_URL = process.env.BASE_URL || 'https://admin.mediplanner.mx/';
-const GOOGLE_EMAIL = process.env.GOOGLE_EMAIL || 'pedroandresqa6@gmail.com';
-const GOOGLE_PASSWORD = process.env.GOOGLE_PASSWORD || 'Soypedrito2';
+const EMAIL = process.env.MEDIPLANNER_EMAIL || 'dr@rym-solutions.com';
+const PASSWORD = process.env.MEDIPLANNER_PASSWORD || '@RyM2025';
 
-setup('authenticate with Google', async ({ page }) => {
-  console.log('Iniciando autenticacion con Google OAuth...');
+setup('authenticate', async ({ page }) => {
+  console.log('Iniciando proceso de autenticacion en produccion...');
   console.log(`URL base: ${BASE_URL}`);
-  console.log(`Email: ${GOOGLE_EMAIL.replace(/(.{3}).*(@.*)/, '$1***$2')}`);
+  console.log(`Email: ${EMAIL.replace(/(.{3}).*(@.*)/, '$1***$2')}`);
 
   try {
     await page.goto(BASE_URL);
     console.log('Pagina cargada');
 
-    await page.waitForSelector('button:has-text("Usar Google")', {
+    await page.waitForSelector('input[type="email"], input[name="user_email"], input[placeholder*="email"]', {
       timeout: 15000,
       state: 'visible',
     });
-    console.log('Boton de Google detectado');
+    console.log('Formulario de login detectado');
 
-    await page.click('button:has-text("Usar Google")');
-    console.log('Redirigiendo a Google...');
-
-    await page.waitForURL(/accounts\.google\.com/, { timeout: 20000 });
-    console.log('Pagina de login de Google cargada');
-
-    await page.waitForURL(/accounts\.google\.com/, { timeout: 20000 });
-
-    const emailInput = page.locator('#identifierId');
-    await emailInput.waitFor({ state: 'visible', timeout: 20000 });
-    await emailInput.fill(GOOGLE_EMAIL);
+    const emailInput = page.locator('input[type="email"], input[name="user_email"], input[placeholder*="email"]').first();
+    await emailInput.fill(EMAIL);
     console.log('Email ingresado');
-    await page.click('#identifierNext');
-    console.log('Click en Siguiente (email)');
 
-    await page.waitForTimeout(2000);
-    const passwordInput = page.locator('#password input[type="password"]').first();
-    await passwordInput.waitFor({ state: 'visible', timeout: 15000 });
-    await passwordInput.fill(GOOGLE_PASSWORD);
+    const passwordInput = page.locator('input[type="password"]').first();
+    await passwordInput.fill(PASSWORD);
     console.log('Password ingresado');
-    await page.click('#passwordNext');
-    console.log('Click en Siguiente (password)');
 
-    try {
-      await page.waitForURL(/admin\.mediplanner\.mx/, { timeout: 30000 });
-      console.log('Redireccion exitosa a MediPlanner');
-    } catch {
-      console.log('Esperando redireccion...');
-    }
+    const loginButton = page.locator('button:has-text("Entrar"), button:has-text("Login")').first();
+    await expect(loginButton).toBeVisible({ timeout: 5000 });
+    await loginButton.click();
+    console.log('Boton de login clickeado');
 
-    await page.waitForLoadState('networkidle', { timeout: 30000 });
-    console.log('Sesion establecida');
+    await page.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    console.log('Pagina principal cargada');
 
     await page.waitForTimeout(3000);
 
