@@ -194,47 +194,6 @@ def doctors_page(driver):
 
 
 @pytest.fixture(scope="function")
-def volver_inicio(driver, home_page):
-    """Asegura que we're on Home tab before each test"""
-    from appium.webdriver.common.appiumby import AppiumBy
-    
-    # Check if we're on Home tab
-    tab_inicio = (AppiumBy.ACCESSIBILITY_ID, "Inicio\nPestaña 1 de 5")
-    
-    # Try to find Home tab, if not found, use back button
-    max_attempts = 5
-    for attempt in range(max_attempts):
-        if home_page.esta_visible(tab_inicio, timeout=2):
-            break
-        # Try different tabs
-        tabs = [
-            (AppiumBy.ACCESSIBILITY_ID, "Inicio\nPestaña 1 de 5"),
-            (AppiumBy.ACCESSIBILITY_ID, "Médicos\nPestaña 2 de 5"),
-            (AppiumBy.ACCESSIBILITY_ID, "Consultas\nPestaña 3 de 5"),
-            (AppiumBy.ACCESSIBILITY_ID, "Medicinas\nPestaña 4 de 5"),
-            (AppiumBy.ACCESSIBILITY_ID, "Estudios\nPestaña 5 de 5"),
-        ]
-        tab_found = False
-        for tab in tabs:
-            if home_page.esta_visible(tab, timeout=1):
-                home_page.hacer_click(tab)
-                time.sleep(1)
-                tab_found = True
-                break
-        
-        if not tab_found:
-            # Use in-app back button instead of driver.back()
-            try:
-                btn_back = driver.find_element(AppiumBy.XPATH, "//android.widget.Button[@bounds='[12,168][156,312]']")
-                if btn_back:
-                    btn_back.click()
-                    time.sleep(1)
-            except:
-                pass
-    
-    # Final check - click on Home tab to ensure we're there
-    if home_page.esta_visible(tab_inicio, timeout=2):
-        home_page.hacer_click(tab_inicio)
-        time.sleep(1)
-    
-    return home_page
+def consultas_page(driver):
+    from pages.consultas_page import ConsultasPage
+    return ConsultasPage(driver)

@@ -8,7 +8,13 @@ def volver_inicio(driver, page_object):
     Estrategia resiliente: si el tab inferior 'Inicio' es visible, se clickea.
     Si estamos dentro de una sub-pantalla (formulario/detalle) que oculta la barra
     de tabs, se sale con el back de Android (mas fiable que el 'Regresar' in-app)
-    hasta que reaparezca el tab, manejando dialogos de descarte que surjan."""
+    hasta que reaparezca el tab, manejando dialogos de descarte que surjan.
+
+    Como la suite corre con no_reset=True, un test anterior puede dejar la app
+    en un estado profundo o incluso atrapada en un picker nativo de Android
+    (fuera de Mediplanner). Si un back() de más nos saca de la app, se reactiva
+    en vez de seguir presionando back a ciegas (eso podía, antes, terminar de
+    sacarnos al launcher sin que nadie lo notara)."""
     print("\n[Navegando] Volviendo a Inicio...")
 
     tab_inicio = (AppiumBy.ACCESSIBILITY_ID, "Inicio\nPestaña 1 de 5")
@@ -19,6 +25,11 @@ def volver_inicio(driver, page_object):
             time.sleep(1)
             print("[Navegando] Ahora en Inicio")
             return page_object
+
+        if page_object.reactivar_si_salio():
+            time.sleep(1)
+            continue
+
         # Aun no se ve la barra: salir de la sub-pantalla con back de Android
         driver.back()
         time.sleep(0.8)
@@ -29,5 +40,7 @@ def volver_inicio(driver, page_object):
                 time.sleep(0.6)
                 break
 
-    print("[Navegando] No se pudo confirmar Inicio")
-    return page_object
+    raise AssertionError(
+        "volver_inicio: no se pudo confirmar la pantalla de Inicio tras 12 intentos "
+        "(la app puede haber quedado en un estado inesperado; revisar screenshot/logcat)"
+    )

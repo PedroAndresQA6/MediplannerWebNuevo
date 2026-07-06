@@ -1,7 +1,6 @@
 """
 Test para pestaña de Estudios - Ver lista de estudios y detalle
 """
-import time
 from appium.webdriver.common.appiumby import AppiumBy
 from utils.navegacion import volver_inicio
 
@@ -13,7 +12,6 @@ def test_estudios_ver_lista_detalles(driver, home_page):
 
     home_page = volver_inicio(driver, home_page)
     home_page.hacer_click((AppiumBy.ACCESSIBILITY_ID, "Estudios\nPestaña 5 de 5"))
-    time.sleep(2)
 
     assert home_page.esta_visible(
         (AppiumBy.XPATH, "//*[@content-desc='Estudios']"), timeout=5), \
@@ -27,21 +25,20 @@ def test_estudios_ver_lista_detalles(driver, home_page):
 
     # Abrir el detalle del primer estudio
     estudios[0].click()
-    time.sleep(2.5)
-    home_page.tomar_screenshot("estudios_detalle")
 
     # Debe verse la pantalla de detalle: se valida por su CONTENIDO (secciones del
     # detalle), no por un botón de retroceso (cuyo selector cambia con la resolución).
     detalle = home_page.esta_visible(
         (AppiumBy.XPATH, "//*[contains(@content-desc, 'Archivos') "
          "or contains(@content-desc, 'Indicaciones') "
-         "or contains(@content-desc, 'Interpretaci')]"), timeout=5)
+         "or contains(@content-desc, 'Interpretaci')]"), timeout=6)
     assert detalle, "No se abrió la pantalla de detalle del estudio"
     print("[2] Detalle del estudio abierto")
+    home_page.tomar_screenshot("estudios_detalle")
 
     # Regresar y confirmar que la lista vuelve a mostrarse
-    driver.back(); time.sleep(1.5)
-    estudios2 = driver.find_elements(AppiumBy.XPATH, "//*[contains(@content-desc, '/202')]")
+    driver.back()
+    estudios2 = home_page.buscar_elementos((AppiumBy.XPATH, "//*[contains(@content-desc, '/202')]"), timeout=6)
     assert estudios2, "No se regresó a la lista de estudios tras ver el detalle"
     print("[3] Regreso a la lista de estudios OK")
     print("Test de Estudios completado")

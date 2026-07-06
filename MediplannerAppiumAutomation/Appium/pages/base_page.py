@@ -8,7 +8,9 @@ from appium.webdriver.common.appiumby import AppiumBy
 
 
 class BasePage:
-    
+
+    APP_PACKAGE = "mx.mediplanner.app"
+
     def __init__(self, driver):
         self.driver = driver
         self.wait = WebDriverWait(driver, 15)
@@ -112,15 +114,18 @@ class BasePage:
         self.hacer_click(loc_click, timeout)
         return self.esperar_elemento_visible(loc_esperado, timeout)
 
-    def tap_esquina_sup_izquierda(self, clase="android.widget.ImageView", timeout=8):
-        """Toca el elemento clickable de `clase` más a la IZQUIERDA en la franja
-        superior (~20% de alto). En Home es el avatar del titular → abre el drawer
-        de perfil (con 'Agregar dependiente'). Resolución-independiente.
+    def abrir_drawer_perfil(self, timeout=8):
+        """Abre el drawer de perfiles (Mis Perfiles / dependientes / Agregar
+        dependiente) tocando el NOMBRE del titular arriba a la izquierda de Home.
 
-        Excluye el botón 'Escanear código QR' (también ImageView arriba a la
-        izquierda): clickearlo abre la cámara, que no se puede probar."""
-        elems = self.buscar_elementos((AppiumBy.XPATH, f"//{clase}[@clickable='true']"), timeout)
-        franja = self.driver.get_window_size()['height'] * 0.2
+        El nombre es un android.view.View clickable (NO el ícono de persona, que abre
+        Perfil; NI el ícono QR, que abre la cámara). Se elige el elemento clickable
+        más arriba-a-la-izquierda de la franja superior, excluyendo el QR.
+        Resolución-independiente. Devuelve True si clickeó algo."""
+        elems = []
+        for clase in ("android.view.View", "android.widget.ImageView"):
+            elems += self.driver.find_elements(AppiumBy.XPATH, f"//{clase}[@clickable='true']")
+        franja = self.driver.get_window_size()['height'] * 0.14  # ~parte superior
         candidatos = []
         for e in elems:
             b = self._parse_bounds(e.get_attribute('bounds'))
@@ -129,12 +134,16 @@ class BasePage:
             desc = e.get_attribute('content-desc') or ''
             if any(k in desc for k in ('QR', 'Escanear', 'código', 'codigo')):
                 continue  # no tocar el escáner QR (abre la cámara)
-            candidatos.append((b[0], e))
+            candidatos.append((b[0], b[1], e))
         if not candidatos:
             return False
-        candidatos.sort(key=lambda t: t[0])
-        candidatos[0][1].click()  # el más a la izquierda (sin QR) = avatar del titular
+        candidatos.sort(key=lambda t: (t[0], t[1]))  # más a la izquierda, luego más arriba
+        candidatos[0][2].click()  # el nombre del titular → abre el drawer
         return True
+
+    # Alias retrocompatible.
+    def tap_esquina_sup_izquierda(self, clase="android.widget.ImageView", timeout=8):
+        return self.abrir_drawer_perfil(timeout)
 
     def tap_esquina_sup_derecha(self, clase="android.widget.Button", timeout=8):
         """Toca el elemento clickable de `clase` más a la derecha en la franja
@@ -152,6 +161,27 @@ class BasePage:
             return False
         candidatos.sort(key=lambda t: t[0])
         candidatos[-1][1].click()
+        return True
+
+    def esta_en_foreground(self):
+        """True si la app sigue en foreground (app_state >= 4, mismo criterio
+        que el crash_monitor de conftest.py). Si no se puede consultar, no
+        bloquea el flujo (asume que sigue en foreground)."""
+        try:
+            return self.driver.query_app_state(self.APP_PACKAGE) >= 4
+        except Exception:
+            return True
+
+    def reactivar_si_salio(self):
+        """Si un `driver.back()` de más (p.ej. tras quedar atrapados en un
+        picker nativo de Android) sacó a la app del foreground, la reactiva en
+        vez de seguir presionando back a ciegas. Devuelve True si tuvo que
+        reactivarla (el llamador debe reintentar su chequeo, no seguir con el
+        siguiente back)."""
+        if self.esta_en_foreground():
+            return False
+        self.logger.warning("La app salió de foreground; reactivando...")
+        self.driver.activate_app(self.APP_PACKAGE)
         return True
 
     def assert_visible(self, localizador, mensaje, timeout=10):

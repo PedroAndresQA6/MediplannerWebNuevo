@@ -15,22 +15,26 @@ class HomePage(BasePage):
         self.tab_estudios = (AppiumBy.ACCESSIBILITY_ID, "Estudios\nPestaña 5 de 5")
         
         # Home content
-        # Boton de menu/perfil (icono de persona, esquina sup. derecha). No tiene
-        # content-desc, asi que se localiza por su posicion en la barra superior.
-        self.btn_menu = (AppiumBy.XPATH, "//android.widget.ImageView[@bounds='[1103,221][1220,338]']")
         self.titulo_perfil = (AppiumBy.XPATH, "//*[@content-desc='Perfil']")
 
     def abrir_perfil(self):
-        """Abre la pantalla de Perfil desde el icono de menu (esquina sup. der.).
-        Si el test viene de una sub-pantalla (incluso un formulario profundo), regresa
-        al Home antes de abrir el menu. Usa el back de Android como mecanismo principal
-        (mas confiable que el 'Regresar' in-app, que a veces no navega) y maneja
-        dialogos de descarte que puedan aparecer al salir de un formulario."""
+        """Abre la pantalla de Perfil desde el icono de menu (esquina sup. der., un
+        ImageView de persona sin content-desc; se localiza por posicion, no por
+        bounds absolutos, via tap_esquina_sup_derecha). Si el test viene de una
+        sub-pantalla (incluso un formulario profundo), regresa al Home antes de
+        abrir el menu. Usa el back de Android como mecanismo principal (mas
+        confiable que el 'Regresar' in-app, que a veces no navega) y maneja
+        dialogos de descarte que puedan aparecer al salir de un formulario.
+        Si un back() de mas nos saca de la app (p.ej. tras quedar atrapados en
+        un picker nativo de Android de un test anterior), la reactiva en vez
+        de seguir presionando back a ciegas."""
         import time as _t
         for _ in range(12):
-            if self.esta_visible(self.btn_menu, timeout=2):
-                self.hacer_click(self.btn_menu)
+            if self.tap_esquina_sup_derecha("android.widget.ImageView", timeout=2):
                 return self.esta_visible(self.titulo_perfil, timeout=5)
+            if self.reactivar_si_salio():
+                _t.sleep(1)
+                continue
             # Back de Android (dismiss de formularios/modales mas fiable que 'Regresar')
             self.driver.back()
             _t.sleep(0.8)
@@ -41,8 +45,6 @@ class HomePage(BasePage):
                     self.hacer_click(dlg)
                     _t.sleep(0.6)
                     break
-            if self.esta_visible(self.btn_menu, timeout=1):
-                continue
             # Como respaldo, intentar el 'Regresar' in-app
             regresar = (AppiumBy.XPATH, "//*[@content-desc='Regresar']")
             if self.esta_visible(regresar, timeout=1):
@@ -84,4 +86,4 @@ class HomePage(BasePage):
         return self.esta_visible(self.tab_inicio)
     
     def abrir_menu(self):
-        self.hacer_click(self.btn_menu)
+        self.tap_esquina_sup_derecha("android.widget.ImageView", timeout=8)

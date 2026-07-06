@@ -1,5 +1,3 @@
-import pytest
-import time
 from appium.webdriver.common.appiumby import AppiumBy
 
 
@@ -10,7 +8,6 @@ def test_login(driver, login_page, credenciales):
     login_page.tomar_screenshot("01_login_inicio")
 
     login_page.iniciar_sesion(credenciales["email"], credenciales["password"])
-    time.sleep(3)
 
     login_page.tomar_screenshot("02_login_fin")
 
@@ -26,7 +23,6 @@ def test_navegacion_tabs(driver, login_page, home_page, credenciales):
     # Solo hacer login si no está logueado
     if not login_page.esta_logueado():
         login_page.iniciar_sesion(credenciales["email"], credenciales["password"])
-        time.sleep(2)
 
     tabs = [
         ("Inicio", home_page.tab_inicio),
@@ -44,13 +40,11 @@ def test_navegacion_tabs(driver, login_page, home_page, credenciales):
     # que la barra de tabs sigue presente tras cada navegación
     for nombre, loc in tabs:
         home_page.hacer_click(loc)
-        time.sleep(1)
-        home_page.tomar_screenshot(f"tab_{nombre}")
         assert home_page.esta_visible(loc, timeout=3), f"La barra de tabs desapareció tras abrir {nombre}"
+        home_page.tomar_screenshot(f"tab_{nombre}")
 
     # Volver a Inicio
     home_page.ir_a_inicio()
-    time.sleep(1)
     assert home_page.esta_en_inicio(), "No se regresó a la pestaña Inicio"
     print("Navegacion completada")
 
@@ -62,21 +56,19 @@ def test_doctor_search(driver, login_page, doctors_page, credenciales):
     # Solo hacer login si no está logueado
     if not login_page.esta_logueado():
         login_page.iniciar_sesion(credenciales["email"], credenciales["password"])
-        time.sleep(2)
 
-    doctors_page.ir_a_tab("medicos")
-    time.sleep(2)
+    doctors_page.ir_a_medicos()
     assert doctors_page.esta_en_doctors(), "No se abrió Médicos (campo de búsqueda ausente)"
 
     # Buscar y verificar que hay resultados ('Dr.') o un indicador de 'sin resultados'
-    doctors_page.buscar("Fernando")
-    time.sleep(2)
+    doctors_page.buscar_texto("Fernando")
+    resultados = doctors_page.buscar_elementos(
+        (AppiumBy.XPATH,
+         "//*[contains(@content-desc, 'Dr.') or contains(@content-desc, 'No se encontr') "
+         "or contains(@content-desc, 'in resultados')]"),
+        timeout=6)
     doctors_page.tomar_screenshot("doctors_busqueda")
 
-    doctores = driver.find_elements(AppiumBy.XPATH, "//*[contains(@content-desc, 'Dr.')]")
-    sin_resultados = driver.find_elements(
-        AppiumBy.XPATH,
-        "//*[contains(@content-desc, 'No se encontr') or contains(@content-desc, 'in resultados')]")
-    assert doctores or sin_resultados, \
-        "La búsqueda no mostró ni resultados ('Dr.') ni indicador de 'sin resultados'"
+    assert resultados, "La búsqueda no mostró ni resultados ('Dr.') ni indicador de 'sin resultados'"
+    doctores = [r for r in resultados if "Dr." in (r.get_attribute("content-desc") or "")]
     print(f"Busqueda completada: {len(doctores)} resultado(s) con 'Dr.'")

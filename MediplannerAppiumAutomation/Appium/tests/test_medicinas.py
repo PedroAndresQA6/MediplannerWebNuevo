@@ -1,7 +1,6 @@
 """
 Test para pestaña de Medicinas - Ver lista de medicamentos y detalles
 """
-import time
 from appium.webdriver.common.appiumby import AppiumBy
 from utils.navegacion import volver_inicio
 
@@ -13,7 +12,6 @@ def test_medicinas_ver_lista_detalles(driver, home_page):
 
     home_page = volver_inicio(driver, home_page)
     home_page.hacer_click((AppiumBy.ACCESSIBILITY_ID, "Medicinas\nPestaña 4 de 5"))
-    time.sleep(2)
 
     # La pantalla de Medicamentos debe cargar con sus dos sub-pestañas
     assert home_page.esta_visible(
@@ -37,15 +35,12 @@ def test_medicinas_ver_lista_detalles(driver, home_page):
         timeout=6)
 
     if meds:
-        loc = (AppiumBy.XPATH, f"//android.widget.ImageView[@bounds='{meds[-1].get_attribute('bounds')}']")
-        home_page.hacer_click(loc)
-        time.sleep(2.5)
+        meds[-1].click()
         detalle = home_page.esta_visible(
-            (AppiumBy.XPATH, "//*[contains(@content-desc, 'Dosis') or contains(@content-desc, 'Frecuencia') "
-             "or contains(@content-desc, 'Duración') or contains(@content-desc, 'Instrucciones')]"), timeout=4)
+            (AppiumBy.XPATH, "//*[@content-desc='Medicamento' or contains(@content-desc, 'Indicaciones')]"), timeout=6)
         assert detalle, "Se abrió un medicamento pero no se cargó su detalle"
         print(f"[2] Detalle de medicamento abierto ({len(meds)} en lista)")
-        driver.back(); time.sleep(1)
+        driver.back()
     else:
         vacio = home_page.esta_visible(
             (AppiumBy.XPATH, "//*[contains(@content-desc, 'No hay medicamentos')]"), timeout=6)
