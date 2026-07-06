@@ -12,3 +12,6 @@ node_modules/
 # Secretos y estado local (no versionar)
 .env
 **/storageState.json
+
+# Artefactos de corridas Appium (crash/ANR por test, se regeneran en cada run)
+MediplannerAppiumAutomation/Appium/reports/monitor/
