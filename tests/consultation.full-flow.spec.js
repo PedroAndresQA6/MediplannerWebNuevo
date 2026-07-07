@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals, setupConsoleMonitor, scanResidualIndicators } = require('../e2e/utils.js');
+const { fillTabFields, createAppointment, handleModals, setupConsoleMonitor, scanResidualIndicators, asegurarCalendarioDashboard, irADiaEnCalendarioDashboard } = require('../e2e/utils.js');
 
 // Funciones auxiliares
 async function fillSpecificField(page, fieldName) {
@@ -875,10 +875,17 @@ async function fillNotasMedicoSection(page) {
 
 async function fillServiciosSection(page) {
   console.log('🏥 Llenando sección de Servicios...');
-  
+
+  // Hallazgo confirmado (2026-07-06): el dropdown "Agregar servicios" a veces
+  // muestra "No se encontraron elementos" con optionCount=0 pese a que el
+  // catálogo de servicios del doctor SÍ tiene datos (se ve reflejado en
+  // Reportes → "Servicios"). Es un falso registro: addServices igual responde
+  // 200 más adelante (vía "guardar y continuar") sin haber agregado nada.
+  let sinOpcionesDisponibles = false;
+
   try {
     await page.waitForTimeout(1000);
-    
+
     // 1. SELECCIONAR 1 SOLO SERVICIO
     console.log('🔍 Buscando dropdown de servicio...');
     let servicioSeleccionado = false;
@@ -907,6 +914,16 @@ async function fillServiciosSection(page) {
         optionCount = await options.count();
       }
       console.log(`📋 ${optionCount} opciones disponibles`);
+
+      if (optionCount === 0) {
+        const sinElementos = page.locator('text=/No se encontraron elementos/i');
+        if (await sinElementos.isVisible({ timeout: 1000 }).catch(() => false)) {
+          sinOpcionesDisponibles = true;
+          const shot = 'test-results/servicios-sin-opciones.png';
+          await page.screenshot({ path: shot, fullPage: true }).catch(() => {});
+          console.log(`🐛 BUG: dropdown "Agregar servicios" sin opciones ("No se encontraron elementos") → ${shot}`);
+        }
+      }
 
       for (let j = 0; j < optionCount; j++) {
         const option = options.nth(j);
@@ -989,10 +1006,12 @@ async function fillServiciosSection(page) {
 
     console.log('✅ Servicios completados');
     await page.waitForTimeout(500);
-    
+
   } catch (error) {
     console.log(`⚠️ Error en Servicios: ${error.message}`);
   }
+
+  return { sinOpcionesDisponibles };
 }
 
 
@@ -1355,10 +1374,20 @@ async function iniciarConsultaDelPaciente(page) {
 
   let iniciarBtn = await buscarIniciarDelPaciente();
   if (!iniciarBtn) {
-    console.log('🔁 No apareció en Dashboard; revisando próximos días/citas...');
-    await checkNextDaysForIniciarButton(page);
-    await page.waitForTimeout(2000);
-    iniciarBtn = await buscarIniciarDelPaciente();
+    // OJO: no usar checkNextDaysForIniciarButton() acá — esa función clickea
+    // el PRIMER botón "Iniciar" que encuentre en cualquier día, sin filtrar
+    // por paciente, y arrancaría la consulta de OTRO paciente si hay más de
+    // una cita agendada. En su lugar, reusamos su misma navegación de
+    // calendario (react-day-picker) pero re-buscando SU fila en cada día.
+    console.log('🔁 No apareció en Dashboard; revisando próximos días en el calendario...');
+    await asegurarCalendarioDashboard(page);
+    for (let dayOffset = 1; dayOffset <= 5 && !iniciarBtn; dayOffset++) {
+      const targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() + dayOffset);
+      const dateStr = targetDate.toISOString().split('T')[0];
+      if (!(await irADiaEnCalendarioDashboard(page, dateStr))) continue;
+      iniciarBtn = await buscarIniciarDelPaciente();
+    }
   }
   if (!iniciarBtn) {
     throw new Error(`No se encontró botón "Iniciar" para "${PACIENTE_NOMBRE}" tras crear su cita`);
@@ -1499,6 +1528,10 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
   // Acumulador de hallazgos del indicador "sin guardar" (triángulo) detectados
   // tras el guardado real de cada pestaña con guardado inline.
   const indicatorFindings = [];
+  // Hallazgo del dropdown "Agregar servicios" sin opciones (bug confirmado
+  // 2026-07-06): se arma acá y se suma a "problemas" en la verificación final
+  // anti falso-registro, para que el test falle mientras el bug siga vivo.
+  let serviciosSinOpciones = false;
   // Pestañas cuyos apartados guardan inline (botón propio). General y Diagnóstico
   // guardan al hacer clic en "Continuar", por lo que se excluyen del escaneo.
   const INLINE_SAVE_TABS = ['Exploración', 'Tratamiento', 'Notas del Médico', 'Servicios'];
@@ -1602,7 +1635,8 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
       } else if (tabName === 'Notas del Médico') {
         await fillNotasMedicoSection(page);
       } else if (tabName === 'Servicios') {
-        await fillServiciosSection(page);
+        const { sinOpcionesDisponibles } = await fillServiciosSection(page);
+        if (sinOpcionesDisponibles) serviciosSinOpciones = true;
       } else {
         await fillTabFields(page, tabName);
       }
@@ -1727,6 +1761,9 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     };
     checkCampo('editConsultation', 'motivo');
     checkCampo('addDiagnosis', 'observaciones');
+    if (serviciosSinOpciones) {
+      problemas.push('Servicios: el dropdown "Agregar servicios" no mostró ninguna opción ("No se encontraron elementos") — no se pudo agregar ningún servicio a la consulta pese a que el catálogo del doctor sí tiene servicios (visible en Reportes)');
+    }
     expect(problemas, `Falso registro detectado → ${problemas.join(' | ')}`).toEqual([]);
   });
 });

@@ -196,82 +196,85 @@ async function handleModals(page) {
   }
 }
 
+// Asegura estar en /Dashboard con su calendario (react-day-picker, desde el
+// rediseño de dev de 2026-07) realmente renderizado. Ya no existe un
+// input[type="date"] ni el FullCalendar viejo (fc-next-button).
+async function asegurarCalendarioDashboard(page) {
+  if (!page.url().includes('/Dashboard')) {
+    await page.goto('/Dashboard');
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {});
+  }
+  // Esperar a que el calendario esté realmente renderizado antes de tocarlo;
+  // sin esto, en dev (flaky, a veces se cuelga en "Cargando...") un loop
+  // corre en unos pocos ms y no encuentra ninguna celda porque el widget aún
+  // no montó. Reintenta con reload si hace falta.
+  for (let intento = 0; intento < 3; intento++) {
+    if (await page.locator('td[data-day]').first().isVisible({ timeout: 8000 }).catch(() => false)) return true;
+    logger.warning(`Calendario del Dashboard no renderizó (intento ${intento + 1}/3), recargando...`);
+    await page.reload();
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+  }
+  logger.warning('El calendario del Dashboard no llegó a renderizar (td[data-day])');
+  return false;
+}
+
+// Clickea la celda del calendario del Dashboard para `dateStr` (YYYY-MM-DD),
+// avanzando de mes con el botón "›" (rdp-button_next) si hace falta. Espera
+// la respuesta de getFilteredAppointments para esa fecha (filtra "Agenda de
+// hoy" in-place, sin navegar). Devuelve true si logró clickear la celda.
+async function irADiaEnCalendarioDashboard(page, dateStr) {
+  let celda = page.locator(`td[data-day="${dateStr}"] button.rdp-day_button`);
+  for (let avance = 0; avance < 2 && !(await celda.isVisible({ timeout: 1000 }).catch(() => false)); avance++) {
+    const nextBtn = page.locator('button.rdp-button_next').first();
+    if (!(await nextBtn.isVisible({ timeout: 1000 }).catch(() => false))) break;
+    await nextBtn.click();
+    await page.waitForTimeout(500);
+    celda = page.locator(`td[data-day="${dateStr}"] button.rdp-day_button`);
+  }
+  if (!(await celda.isVisible({ timeout: 1000 }).catch(() => false))) {
+    logger.warning(`No se encontró la celda del calendario para ${dateStr}`);
+    return false;
+  }
+  const respPromise = page.waitForResponse(
+    r => /\/api\/appointments\/getFilteredAppointments/.test(r.url()),
+    { timeout: 8000 }
+  ).catch(() => null);
+  await celda.click();
+  await respPromise;
+  await page.waitForTimeout(1000);
+  return true;
+}
+
 async function checkNextDaysForIniciarButton(page) {
   logger.info('Buscando botón Iniciar en los próximos 5 días...');
-  
-  // Primero asegurarnos de estar en la página correcta de citas/agenda
-  const currentUrl = page.url();
-  if (!currentUrl.includes('/Citas') && !currentUrl.includes('/Dashboard')) {
-    await page.goto('/Citas');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
-  }
-  
-  // Intentar cambiar a vista de Agenda si existe
-  try {
-    const agendaLink = page.getByRole('link', { name: /agenda/i });
-    if (await agendaLink.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await agendaLink.click();
-      await page.waitForTimeout(2000);
-    }
-  } catch (e) {
-    // Continuar sin vista agenda
-  }
-  
+  await asegurarCalendarioDashboard(page);
+
   for (let dayOffset = 0; dayOffset <= 5; dayOffset++) {
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() + dayOffset);
     const dateStr = targetDate.toISOString().split('T')[0];
-    
+
     logger.info(`Revisando fecha: ${dateStr}`);
-    
-    // Buscar botones Iniciar en la página actual
-    let iniciarButtons = page.getByRole('button', { name: /iniciar/i });
-    let count = await iniciarButtons.count();
-    
-    if (count > 0) {
-      // Verificar que sean botones visibles (no ocultos en modales)
-      let visibleCount = 0;
-      for (let i = 0; i < count; i++) {
-        if (await iniciarButtons.nth(i).isVisible().catch(() => false)) {
-          visibleCount++;
-        }
-      }
-      if (visibleCount > 0) {
-        logger.success(`Encontrados ${visibleCount} botones Iniciar visibles en ${dateStr}`);
-        await iniciarButtons.first().click();
-        return true;
-      }
+
+    // dayOffset 0 (hoy) ya viene seleccionado al cargar el Dashboard; para el
+    // resto, clickear la celda del calendario correspondiente.
+    if (dayOffset > 0 && !(await irADiaEnCalendarioDashboard(page, dateStr))) continue;
+
+    // Buscar botones Iniciar visibles (no ocultos en modales) tras filtrar por esa fecha.
+    const iniciarButtons = page.getByRole('button', { name: /iniciar/i });
+    const count = await iniciarButtons.count();
+    let visibleCount = 0;
+    for (let i = 0; i < count; i++) {
+      if (await iniciarButtons.nth(i).isVisible().catch(() => false)) visibleCount++;
     }
-    
-    // Si no hay botones, intentar cambiar la fecha del datepicker
-    try {
-      const dateInput = page.locator('input[type="date"]').first();
-      if (await dateInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await dateInput.fill(dateStr);
-        await page.waitForTimeout(2000);
-        continue;
-      }
-    } catch (error) {
-      logger.warning(`No se pudo cambiar fecha: ${error.message}`);
-    }
-    
-    // Si no hay input de fecha, navegar a la fecha usando botones de siguiente día
-    try {
-      const nextDayBtn = page.locator('button.fc-next-button, button[title*="siguiente"], button:has-text("Siguiente")').first();
-      if (await nextDayBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await nextDayBtn.click();
-        await page.waitForTimeout(1500);
-      } else {
-        logger.warning(`No hay botón para avanzar fecha, recargando página...`);
-        await page.reload();
-        await page.waitForTimeout(2000);
-      }
-    } catch (error) {
-      logger.error(`Error al cambiar fecha: ${error.message}`);
+    if (visibleCount > 0) {
+      logger.success(`Encontrados ${visibleCount} botones Iniciar visibles en ${dateStr}`);
+      await iniciarButtons.first().click();
+      return true;
     }
   }
-  
+
   return false;
 }
 
@@ -1188,4 +1191,4 @@ async function scanResidualIndicators(page, tabName, opts = {}) {
   return firstPass.filter(name => secondPass.includes(name));
 }
 
-module.exports = { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals, setupConsoleMonitor, detectUnsavedSections, auditConsultationIndicators, scanResidualIndicators };
+module.exports = { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals, setupConsoleMonitor, detectUnsavedSections, auditConsultationIndicators, scanResidualIndicators, asegurarCalendarioDashboard, irADiaEnCalendarioDashboard };
