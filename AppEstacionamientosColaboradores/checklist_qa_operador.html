@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Checklist QA — Operador Estacionamientos</title>
+<style>
+  :root {
+    --bg: #f0f4f8;
+    --surface: #ffffff;
+    --blue-dark: #1a3a5c;
+    --blue: #1a56a0;
+    --blue-light: #2b7de9;
+    --green: #276749;
+    --green-bg: #c6f6d5;
+    --red: #c53030;
+    --red-bg: #fed7d7;
+    --amber: #b7791f;
+    --amber-bg: #fefcbf;
+    --gray: #4a5568;
+    --gray-light: #e2e8f0;
+    --text: #1a202c;
+    --text-muted: #718096;
+    --radius: 8px;
+    --shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  .header {
+    background: linear-gradient(135deg, var(--blue-dark) 0%, var(--blue-light) 100%);
+    color: #fff;
+    padding: 24px 32px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  .header-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .header h1 { font-size: 18px; font-weight: 700; }
+  .header p { font-size: 11px; opacity: 0.8; margin-top: 3px; }
+  .progress-bar-wrap { margin-top: 12px; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 11px; opacity: 0.85; margin-bottom: 5px; }
+  .progress-bar { height: 7px; background: rgba(255,255,255,0.25); border-radius: 4px; overflow: hidden; }
+  .progress-fill { height: 100%; background: #68d391; border-radius: 4px; transition: width 0.3s ease; }
+
+  /* STATS BAR */
+  .stats-bar {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    padding: 12px 32px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--gray-light);
+  }
+  .stat {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--bg);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .stat-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .stat.pass .stat-dot { background: #38a169; }
+  .stat.fail .stat-dot { background: #e53e3e; }
+  .stat.skip .stat-dot { background: #718096; }
+  .stat.pend .stat-dot { background: #a0aec0; }
+
+  /* MAIN */
+  .main { padding: 20px 32px 40px; max-width: 1100px; margin: 0 auto; }
+
+  /* MODULE */
+  .module {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+    overflow: hidden;
+    border: 1px solid var(--gray-light);
+  }
+  .module-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    cursor: pointer;
+    background: var(--surface);
+    border-bottom: 1px solid var(--gray-light);
+    user-select: none;
+    gap: 12px;
+  }
+  .module-header:hover { background: #f7faff; }
+  .module-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+  .module-num {
+    background: var(--blue-light);
+    color: #fff;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .module-title { font-weight: 700; font-size: 13px; color: var(--blue-dark); }
+  .module-subtitle { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+  .module-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .module-progress { font-size: 11px; color: var(--text-muted); }
+  .module-chevron { font-size: 12px; color: var(--text-muted); transition: transform 0.2s; }
+  .module.collapsed .module-chevron { transform: rotate(-90deg); }
+
+  /* PLATFORM TAGS */
+  .platform-tags { display: flex; gap: 4px; flex-shrink: 0; }
+  .ptag {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    letter-spacing: 0.3px;
+  }
+  .ptag.android { background: #def7ec; color: #276749; }
+  .ptag.web { background: #e0e7ff; color: #3730a3; }
+  .ptag.ambas { background: #ede9fe; color: #5b21b6; }
+  .ptag.api { background: #fff3cd; color: #92400e; border: 1px solid #fcd34d; }
+
+  /* CASES */
+  .module-body { display: block; }
+  .module.collapsed .module-body { display: none; }
+
+  .case-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 18px;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.15s;
+  }
+  .case-row:last-child { border-bottom: none; }
+  .case-row:hover { background: #fafbff; }
+
+  .case-left { display: flex; align-items: flex-start; gap: 8px; flex: 1; min-width: 0; }
+
+  .case-id {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--blue-light);
+    min-width: 34px;
+    padding-top: 1px;
+    flex-shrink: 0;
+  }
+
+  .case-info { flex: 1; min-width: 0; }
+  .case-title { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.4; }
+  .case-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
+  .case-note {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 10px;
+    color: var(--amber);
+    background: var(--amber-bg);
+    border-radius: 4px;
+    padding: 2px 6px;
+  }
+
+  /* STATUS BUTTONS */
+  .case-actions { display: flex; gap: 4px; flex-shrink: 0; align-items: flex-start; padding-top: 1px; }
+  .btn-status {
+    border: none;
+    border-radius: 5px;
+    padding: 4px 9px;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    opacity: 0.45;
+  }
+  .btn-status:hover { opacity: 0.75; transform: scale(1.05); }
+  .btn-status.active { opacity: 1; }
+  .btn-pass { background: var(--green-bg); color: var(--green); }
+  .btn-fail { background: var(--red-bg); color: var(--red); }
+  .btn-skip { background: #e2e8f0; color: #4a5568; }
+
+  /* STATUS INDICATOR */
+  .status-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: #cbd5e0;
+    flex-shrink: 0;
+    margin-top: 4px;
+    transition: background 0.2s;
+  }
+  .status-dot.pass { background: #38a169; }
+  .status-dot.fail { background: #e53e3e; }
+  .status-dot.skip { background: #718096; }
+
+  /* SMOKE TESTS */
+  .smoke-banner {
+    background: linear-gradient(90deg, #1a3a5c, #1a56a0);
+    color: #fff;
+    padding: 10px 18px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .smoke-badge {
+    background: #e53e3e;
+    color: #fff;
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 10px;
+  }
+
+  /* NOTES */
+  .note-box {
+    margin: 6px 18px 6px;
+    background: #fff8e1;
+    border-left: 3px solid #f59e0b;
+    border-radius: 0 4px 4px 0;
+    padding: 7px 10px;
+    font-size: 11px;
+    color: #78350f;
+    line-height: 1.5;
+  }
+
+  /* RESET / EXPORT */
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .btn-tool {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #fff;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-tool:hover { background: rgba(255,255,255,0.25); }
+
+  /* LEGEND */
+  .legend {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    padding: 8px 32px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--gray-light);
+    font-size: 11px;
+    color: var(--text-muted);
+    align-items: center;
+  }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+
+  @media (max-width: 600px) {
+    .main { padding: 12px 12px 40px; }
+    .header { padding: 16px 16px 14px; }
+    .stats-bar { padding: 10px 16px; }
+    .legend { padding: 8px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <h1>📋 Checklist QA — Operador Estacionamientos</h1>
+      <p>App Flutter (parquímetros) · Android Emulador + Web · Dev · Pedro A. Quijada · Junio 2026</p>
+    </div>
+    <div class="toolbar">
+      <button class="btn-tool" onclick="expandAll()">Expandir todo</button>
+      <button class="btn-tool" onclick="collapseAll()">Colapsar todo</button>
+      <button class="btn-tool" onclick="resetAll()">Reiniciar</button>
+    </div>
+  </div>
+  <div class="progress-bar-wrap">
+    <div class="progress-label">
+      <span id="prog-label">0 / 74 casos ejecutados</span>
+      <span id="prog-pct">0%</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+  </div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat pass">🟢 <span id="cnt-pass">0</span> Pasó</div>
+  <div class="stat fail">🔴 <span id="cnt-fail">0</span> Falló</div>
+  <div class="stat skip">⚪ <span id="cnt-skip">0</span> Omitido</div>
+  <div class="stat pend">⬜ <span id="cnt-pend">74</span> Pendiente</div>
+</div>
+
+<div class="legend">
+  <span>✅ <b>Pasó</b> — caso ejecutado sin errores</span>
+  <span>❌ <b>Falló</b> — bug encontrado, generar reporte</span>
+  <span>⏭ <b>Omitido</b> — no aplica / sin acceso</span>
+  <span class="ptag android">Android</span>
+  <span class="ptag web">Web</span>
+  <span class="ptag ambas">Ambas</span>
+  <span class="ptag api">API</span>
+</div>
+
+<div class="main" id="main"></div>
+
+<script>
+const modules = [
+  {
+    id: "S", num: "P0", title: "Smoke Tests", subtitle: "Ejecutar antes de cualquier prueba profunda — bloqueantes",
+    smoke: true,
+    cases: [
+      { id:"S1", title:"Arranque en frío", desc:"Instalar/abrir app con red activa → Splash → Login (o Home si hay sesión guardada)", plat:["Ambas"] },
+      { id:"S2", title:"Login válido", desc:"Credenciales correctas → Iniciar turno → Home con mapa/lista y datos de asignación", plat:["Ambas","API"] },
+      { id:"S3", title:"Home carga espacios", desc:"Tras login, esperar carga completa → Pins o filas visibles; topbar muestra zona y duración de turno", plat:["Ambas","API"] },
+      { id:"S4", title:"Check-in asistido", desc:"Espacio libre → placa → confirmar (≤ 50 m) → Toast éxito; espacio deja de estar libre", plat:["Android","API"] },
+      { id:"S5", title:"Reporte con foto", desc:"Espacio vencido → Levantar reporte → 1 foto + motivo → Enviar → Toast éxito; regresa a Home", plat:["Android","API"] },
+      { id:"S6", title:"Pull-to-refresh en lista", desc:"Vista Lista → arrastrar hacia abajo → Recarga espacios y conteos de filtros", plat:["Ambas"] },
+      { id:"S7", title:"Cierre de turno completo", desc:"Menú operador → Cerrar turno → Firma → Confirmar → Vuelve a Login; sesión cerrada", plat:["Ambas","API"] },
+      { id:"S8", title:"Sesión expirada", desc:"Forzar 401 (token inválido o revocado en backend) → Toast 'sesión expirada'; redirect a Login", plat:["Ambas","API"] },
+    ]
+  },
+  {
+    id: "3", num: "3", title: "Splash y sesión persistente", subtitle: "Cold start, sesión activa y expirada",
+    cases: [
+      { id:"3.1", title:"Primera instalación", desc:"Abrir app sin datos previos → Splash breve → Login", plat:["Ambas"] },
+      { id:"3.2", title:"Reapertura con sesión activa", desc:"Login → cerrar app → reabrir sin cerrar turno → Splash → Home directo", plat:["Android"], note:"En web puede variar según cookies/localStorage del navegador" },
+      { id:"3.3", title:"Error en inicialización", desc:"Red caída en cold start → Toast de error; cae en Login si no hay sesión válida", plat:["Ambas","API"] },
+      { id:"3.4", title:"Sesión expirada en background", desc:"Usar app → backend invalida sesión → volver a foreground → Redirect Login + toast", plat:["Android"], note:"En web puede variar según cookies/localStorage del navegador" },
+    ]
+  },
+  {
+    id: "4", num: "4", title: "Login e inicio de turno", subtitle: "Layout split, validaciones y credenciales",
+    note: "Layout split (marca izquierda, formulario 480 dp derecha), SafeArea, teclado no debe tapar campos de texto.",
+    cases: [
+      { id:"4.1", title:"Credencial vacía", desc:"Enviar formulario sin credencial → Validación: campo requerido", plat:["Ambas"] },
+      { id:"4.2", title:"Contraseña vacía", desc:"Enviar formulario sin contraseña → Validación: campo requerido", plat:["Ambas"] },
+      { id:"4.3", title:"Credenciales incorrectas", desc:"Email/contraseña inválidos → Toast error; permanece en Login", plat:["Ambas","API"] },
+      { id:"4.4", title:"Login exitoso", desc:"Credenciales válidas → Iniciar → Card 'Asignación de hoy' (zona, turno, compañero); entra a Home", plat:["Ambas","API"] },
+      { id:"4.5", title:"Recuperar contraseña — email inválido", desc:"'¿Olvidaste tu contraseña?' → email mal formado → Validación en diálogo", plat:["Ambas"] },
+      { id:"4.6", title:"Recuperar contraseña — email válido", desc:"Email válido → Enviar → Toast éxito (mensaje genérico)", plat:["Ambas","API"] },
+      { id:"4.7", title:"Login sin red", desc:"Modo avión / desconectar → intentar login → Toast error de conexión", plat:["Android"] },
+    ]
+  },
+  {
+    id: "5", num: "5", title: "Home — Topbar y estado del dispositivo", subtitle: "GPS, conectividad, menú operador y auto-refresco",
+    cases: [
+      { id:"5.1", title:"Chip GPS con permiso", desc:"Conceder ubicación → observar chip → Chip refleja GPS activo", plat:["Android"] },
+      { id:"5.2", title:"Chip GPS sin permiso", desc:"Denegar ubicación → observar chip → Chip refleja GPS inactivo/error", plat:["Android"] },
+      { id:"5.3", title:"Chip En línea — conectado", desc:"Red activa → Chip 'En línea'", plat:["Ambas"] },
+      { id:"5.4", title:"Chip En línea — desconectado", desc:"Desactivar red → Chip desconectado / offline", plat:["Android"] },
+      { id:"5.5", title:"Duración de turno", desc:"Permanecer en Home ~2 minutos → Contador avanza en tiempo real", plat:["Ambas"] },
+      { id:"5.6", title:"Menú operador", desc:"Tap avatar/menú → Opción 'Cerrar turno' visible", plat:["Ambas"] },
+      { id:"5.7", title:"Auto-refresco de espacios", desc:"Esperar ~45 s con espacio por vencer → Estado/color del espacio actualiza sin interacción", plat:["Ambas","API"] },
+    ]
+  },
+  {
+    id: "6", num: "6", title: "Home — Vista Mapa", subtitle: "Pins, leyenda, filtros, búsqueda y sidebar",
+    cases: [
+      { id:"6.1", title:"Pins por estatus", desc:"Verde=libre, Azul=vigente, Ámbar=por vencer, Rojo=vencido, Naranja=sin check-in", plat:["Ambas"] },
+      { id:"6.2", title:"Leyenda de colores", desc:"Revisar leyenda del mapa → Coincide con colores de pins en pantalla", plat:["Ambas"] },
+      { id:"6.3", title:"Seleccionar pin", desc:"Tap en cualquier espacio → Sidebar 420 dp con info contextual", plat:["Ambas"] },
+      { id:"6.4", title:"Búsqueda", desc:"Escribir código, placa o tipo en toolbar → Filtra pins visibles en el mapa", plat:["Ambas"] },
+      { id:"6.5", title:"Ocultar libres", desc:"Activar toggle 'Ocultar libres' → Pins de espacios libres desaparecen", plat:["Ambas"] },
+      { id:"6.6", title:"Filtros por estatus", desc:"Abrir Filtros → seleccionar estatus → Solo se muestran los espacios del estatus elegido", plat:["Ambas"] },
+      { id:"6.7", title:"Filtro por tipo de vehículo", desc:"Filtros → seleccionar tipo → Aplica correctamente; 'Limpiar' restaura todo", plat:["Ambas"] },
+      { id:"6.8", title:"Filtro oculta selección activa", desc:"Seleccionar espacio → filtrar fuera del criterio → Sidebar se cierra automáticamente", plat:["Ambas"] },
+      { id:"6.9", title:"Cambio Mapa ↔ Lista", desc:"Alternar segmento → Cierra sidebar; conserva contexto general", plat:["Ambas"] },
+      { id:"6.10", title:"Centrar en ubicación", desc:"Tap en botón centrar → Mapa centra en posición del operador", plat:["Android"] },
+      { id:"6.11", title:"Espacio sin coordenadas", desc:"Cajón sin lat/lng en backend → No aparece en mapa (puede aparecer en lista)", plat:["Ambas","API"] },
+      { id:"6.12", title:"Carga offline con caché", desc:"Cold start sin red con caché previo → Muestra últimos espacios conocidos", plat:["Android","API"] },
+    ]
+  },
+  {
+    id: "7", num: "7", title: "Home — Vista Lista", subtitle: "Filtros, conteos, pull-to-refresh y acciones",
+    note: "NO HAY campo de búsqueda en Vista Lista (solo en Mapa). No reportar como bug si no aparece.",
+    cases: [
+      { id:"7.1", title:"Filtro Urgencia", desc:"Tap chip Urgencia → Solo vencidos + sin check-in", plat:["Ambas"] },
+      { id:"7.2", title:"Filtro Por vencer", desc:"Tap chip Por vencer → Espacios próximos a vencer", plat:["Ambas"] },
+      { id:"7.3", title:"Filtro Vigentes", desc:"Tap chip Vigentes → Solo ocupados en tiempo", plat:["Ambas"] },
+      { id:"7.4", title:"Filtro Libres", desc:"Tap chip Libres → Solo cajones libres", plat:["Ambas"] },
+      { id:"7.5", title:"Conteos coherentes", desc:"Comparar números de chips con mapa → Números coinciden en ambas vistas", plat:["Ambas","API"] },
+      { id:"7.6", title:"Pull-to-refresh", desc:"Arrastrar lista hacia abajo → Recarga con indicador de progreso", plat:["Ambas"] },
+      { id:"7.7", title:"Tap en fila", desc:"Seleccionar cualquier espacio → Sidebar con acciones disponibles", plat:["Ambas"] },
+      { id:"7.8", title:"Cómo llegar — con coords", desc:"Tap en espacio con coordenadas → Abre Google Maps externo", plat:["Android"] },
+      { id:"7.9", title:"Cómo llegar — sin coords", desc:"Espacio sin ubicación registrada → Mensaje: ubicación no disponible", plat:["Ambas"] },
+    ]
+  },
+  {
+    id: "8", num: "8", title: "Check-in asistido", subtitle: "Espacio libre — requiere GPS ≤ 50 m del cajón",
+    note: "El operador debe estar a ≤ 50 m del cajón. En el emulador, simular coordenadas desde Extended Controls → Location.",
+    cases: [
+      { id:"8.1", title:"Fuera de proximidad", desc:"Posición > 50 m del espacio → Banner advertencia; acciones bloqueadas", plat:["Android"] },
+      { id:"8.2", title:"Placa vacía", desc:"Avanzar sin ingresar placa → Validación: placa requerida", plat:["Ambas"] },
+      { id:"8.3", title:"Flujo completo", desc:"Placa válida → confirmar datos → confirmar check-in (≤ 50 m) → Toast éxito; espacio pasa a vigente; sidebar cierra", plat:["Android","API"] },
+      { id:"8.4", title:"Check-in sin red", desc:"Modo avión al confirmar → Toast error de conexión", plat:["Android"] },
+    ]
+  },
+  {
+    id: "9", num: "9", title: "Espacio ocupado", subtitle: "Reporte, Historial y Liberar desde sidebar",
+    cases: [
+      { id:"9.1", title:"Sidebar espacio ocupado", desc:"Tap en espacio vigente, por vencer o vencido → Sidebar muestra opciones: Reporte, Historial, Liberar", plat:["Ambas"] },
+      { id:"9.2", title:"Ver historial", desc:"Tap 'Ver historial' → Sheet con movimientos; segunda apertura más rápida (caché)", plat:["Ambas","API"] },
+      { id:"9.3", title:"Liberar espacio — confirmación", desc:"Tap Liberar → Confirmar (≤ 50 m) → Espacio vuelve a libre; toast éxito", plat:["Android","API"] },
+      { id:"9.4", title:"Liberar espacio — cancelar", desc:"Tap Liberar → Cancelar → Sin cambios de estado", plat:["Ambas"] },
+      { id:"9.5", title:"Liberar fuera de proximidad", desc:"Intentar liberar a > 50 m → Bloqueado con mensaje de proximidad", plat:["Android"] },
+      { id:"9.6", title:"Reporte sin permiso cámara", desc:"Denegar permiso cámara → intentar reporte → Diálogo de permiso; no navega a pantalla de reporte", plat:["Android"] },
+      { id:"9.7", title:"Reporte con permiso y proximidad", desc:"Permiso OK + ≤ 50 m → Navega correctamente a pantalla de reporte", plat:["Android"] },
+    ]
+  },
+  {
+    id: "10", num: "10", title: "Reporte / Infracción", subtitle: "Panel cámara izquierda, formulario 580 dp derecha — solo landscape",
+    cases: [
+      { id:"10.1", title:"Catálogo de motivos", desc:"Abrir pantalla de reporte → Lista de motivos cargada desde backend", plat:["Ambas","API"] },
+      { id:"10.2", title:"Enviar sin fotos", desc:"No capturar foto → intentar enviar → Botón enviar deshabilitado", plat:["Android"] },
+      { id:"10.3", title:"Una foto mínima", desc:"1 foto + motivo seleccionado + GPS activo → Botón enviar habilitado", plat:["Android"] },
+      { id:"10.4", title:"Máximo 3 fotos", desc:"Intentar capturar 4 fotos → Solo conserva hasta 3 fotos", plat:["Android"] },
+      { id:"10.5", title:"Enviar sin GPS", desc:"GPS apagado al momento de enviar → Error: GPS requerido", plat:["Android"] },
+      { id:"10.6", title:"Envío exitoso", desc:"Datos completos → Enviar → Toast éxito; regresa a Home", plat:["Android","API"] },
+      { id:"10.7", title:"Segundo reporte misma ocupación", desc:"Reportar el mismo cajón/placa por segunda vez → Aviso de reporte previo en la ocupación", plat:["Ambas","API"] },
+      { id:"10.8", title:"Motivo default — vencido", desc:"Reportar desde espacio vencido → Motivo 'fuera de tiempo' preseleccionado", plat:["Ambas"] },
+      { id:"10.9", title:"Motivo default — sin check-in", desc:"Reportar desde espacio sin registro → Motivo correspondiente preseleccionado", plat:["Ambas"] },
+      { id:"10.10", title:"Envío sin red", desc:"Modo avión al presionar Enviar → Toast error de conexión", plat:["Android"] },
+      { id:"10.11", title:"Emulador sin cámara física", desc:"Flujo de reporte en emulador → Placeholder o mensaje claro; validar en dispositivo real", plat:["Android"], note:"Si la cámara física no está disponible, validar en dispositivo real" },
+    ]
+  },
+  {
+    id: "11", num: "11", title: "Cierre de turno", subtitle: "Resumen, exportar bitácora, firma y logout",
+    cases: [
+      { id:"11.1", title:"Carga resumen del turno", desc:"Menú → Cerrar turno → Métricas, gráfica por tipo de vehículo, bitácora completa", plat:["Ambas","API"] },
+      { id:"11.2", title:"Sin turno activo", desc:"Abrir cierre sin turno activo en backend → Mensaje informativo + botón Reintentar", plat:["Ambas","API"] },
+      { id:"11.3", title:"Error de carga", desc:"Simular fallo de red al cargar resumen → Mensaje de error + botón Reintentar", plat:["Ambas"] },
+      { id:"11.4", title:"Exportar bitácora vacía", desc:"Exportar sin registros en bitácora → Toast o mensaje: bitácora vacía", plat:["Android"] },
+      { id:"11.5", title:"Exportar CSV con datos", desc:"Exportar → Guardar → Archivo generado en Descargas/Estacionamientos", plat:["Android"] },
+      { id:"11.6", title:"Compartir bitácora", desc:"Exportar → Compartir → Sheet del SO con el archivo disponible", plat:["Android"] },
+      { id:"11.7", title:"Firma vacía", desc:"Confirmar turno sin trazar firma → Botón confirmar deshabilitado", plat:["Ambas"] },
+      { id:"11.8", title:"Cancelar firma", desc:"Cerrar pad de firma sin firmar → Permanece en resumen; turno sigue abierto", plat:["Ambas"] },
+      { id:"11.9", title:"Cierre de turno completo", desc:"Firma válida → Confirmar → Toast éxito; vuelve a Login; sesión cerrada", plat:["Ambas","API"] },
+      { id:"11.10", title:"Acceso desde Reporte", desc:"Topbar en pantalla Reporte → Cerrar turno → Abre la misma pantalla de cierre correctamente", plat:["Ambas"] },
+    ]
+  },
+  {
+    id: "12", num: "12", title: "Permisos del sistema", subtitle: "Ubicación y cámara — solo Android",
+    cases: [
+      { id:"12.1", title:"Ubicación — denegado", desc:"Denegar al solicitar por primera vez → Diálogo explicativo en pantalla", plat:["Android"] },
+      { id:"12.2", title:"Ubicación — denegado permanente", desc:"'No volver a preguntar' seleccionado → Diálogo con enlace directo a Ajustes del sistema", plat:["Android"] },
+      { id:"12.3", title:"Cámara — denegada", desc:"Bloquear antes de acceder a reporte → Diálogo; no navega a pantalla de reporte", plat:["Android"] },
+      { id:"12.4", title:"Restaurar permisos", desc:"Conceder en Ajustes del SO → regresar a app → Acciones previamente bloqueadas se desbloquean", plat:["Android"] },
+    ]
+  },
+  {
+    id: "13", num: "13", title: "Resiliencia y ciclo de vida", subtitle: "Offline, reconexión, background y tracking GPS",
+    cases: [
+      { id:"13.1", title:"Pérdida de red en Home", desc:"Activar modo avión con datos cargados → Conserva espacios visibles; chips reflejan estado offline", plat:["Android"] },
+      { id:"13.2", title:"Reconexión de red", desc:"Recuperar red tras modo avión → Chip 'En línea'; auto-refresco se reanuda", plat:["Android"] },
+      { id:"13.3", title:"App en background", desc:"Minimizar app ~1 minuto → Auto-refresco y tracking GPS se pausan", plat:["Android"] },
+      { id:"13.4", title:"Resume desde background", desc:"Volver a foreground → Refresco de espacios; timers reanudan", plat:["Android"] },
+      { id:"13.5", title:"Tracking GPS activo", desc:"Turno activo, mover emulador ~25 m → Backend recibe ubicaciones (~cada 30 s / 25 m)", plat:["Android","API"] },
+    ]
+  },
+];
+
+const state = {};
+const TOTAL = 74;
+
+function platTag(p) {
+  const map = { "Android":"android", "Web":"web", "Ambas":"ambas", "API":"api" };
+  return `<span class="ptag ${map[p]||''}">${p}</span>`;
+}
+
+function setStatus(id, status) {
+  const prev = state[id];
+  if (prev === status) {
+    delete state[id];
+  } else {
+    state[id] = status;
+  }
+  save();
+  renderRow(id);
+  updateStats();
+}
+
+function renderRow(id) {
+  const dot = document.querySelector(`.status-dot[data-id="${id}"]`);
+  const btns = document.querySelectorAll(`.btn-status[data-id="${id}"]`);
+  const s = state[id] || "pend";
+  if (dot) { dot.className = `status-dot ${s}`; }
+  btns.forEach(b => {
+    b.classList.toggle("active", b.dataset.status === s);
+  });
+}
+
+function updateStats() {
+  let pass=0, fail=0, skip=0, pend=0;
+  // count all cases
+  modules.forEach(m => m.cases.forEach(c => {
+    const s = state[c.id] || "pend";
+    if (s==="pass") pass++;
+    else if (s==="fail") fail++;
+    else if (s==="skip") skip++;
+    else pend++;
+  }));
+  document.getElementById("cnt-pass").textContent = pass;
+  document.getElementById("cnt-fail").textContent = fail;
+  document.getElementById("cnt-skip").textContent = skip;
+  document.getElementById("cnt-pend").textContent = pend;
+  const executed = pass + fail + skip;
+  const pct = Math.round(executed / TOTAL * 100);
+  document.getElementById("prog-fill").style.width = pct + "%";
+  document.getElementById("prog-label").textContent = `${executed} / ${TOTAL} casos ejecutados`;
+  document.getElementById("prog-pct").textContent = pct + "%";
+  // update module progress
+  modules.forEach(m => {
+    const total = m.cases.length;
+    const done = m.cases.filter(c => state[c.id] && state[c.id] !== "pend").length;
+    const el = document.querySelector(`.module-progress[data-mod="${m.id}"]`);
+    if (el) el.textContent = `${done}/${total}`;
+  });
+}
+
+function save() {
+  try { localStorage.setItem("qac_est_2026", JSON.stringify(state)); } catch(e){}
+}
+
+function load() {
+  try {
+    const d = localStorage.getItem("qac_est_2026");
+    if (d) Object.assign(state, JSON.parse(d));
+  } catch(e){}
+}
+
+function resetAll() {
+  if (!confirm("¿Reiniciar todos los estados?")) return;
+  Object.keys(state).forEach(k => delete state[k]);
+  save();
+  document.querySelectorAll(".status-dot").forEach(d => d.className = "status-dot");
+  document.querySelectorAll(".btn-status").forEach(b => b.classList.remove("active"));
+  updateStats();
+}
+
+function expandAll() {
+  document.querySelectorAll(".module").forEach(m => m.classList.remove("collapsed"));
+}
+
+function collapseAll() {
+  document.querySelectorAll(".module").forEach(m => m.classList.add("collapsed"));
+}
+
+function toggleModule(id) {
+  document.getElementById("mod-" + id).classList.toggle("collapsed");
+}
+
+function build() {
+  const container = document.getElementById("main");
+  modules.forEach(m => {
+    const div = document.createElement("div");
+    div.className = "module";
+    div.id = "mod-" + m.id;
+
+    let noteHtml = m.note ? `<div class="note-box">⚠️ ${m.note}</div>` : "";
+    let smokeBanner = m.smoke ? `<div class="smoke-banner">🚨 <span class="smoke-badge">P0</span> Smoke Tests — Bloqueantes: si alguno falla, detener pruebas</div>` : "";
+
+    let casesHtml = m.cases.map(c => {
+      const platHtml = c.plat.map(platTag).join(" ");
+      const noteHtml = c.note ? `<span class="case-note">⚠ ${c.note}</span>` : "";
+      return `
+        <div class="case-row">
+          <div class="case-left">
+            <div class="status-dot" data-id="${c.id}"></div>
+            <span class="case-id">${c.id}</span>
+            <div class="case-info">
+              <div class="case-title">${c.title} ${platHtml}</div>
+              <div class="case-desc">${c.desc}</div>
+              ${noteHtml}
+            </div>
+          </div>
+          <div class="case-actions">
+            <button class="btn-status btn-pass" data-id="${c.id}" data-status="pass" onclick="setStatus('${c.id}','pass')">✅ Pasó</button>
+            <button class="btn-status btn-fail" data-id="${c.id}" data-status="fail" onclick="setStatus('${c.id}','fail')">❌ Falló</button>
+            <button class="btn-status btn-skip" data-id="${c.id}" data-status="skip" onclick="setStatus('${c.id}','skip')">⏭ Omitir</button>
+          </div>
+        </div>`;
+    }).join("");
+
+    div.innerHTML = `
+      ${smokeBanner}
+      <div class="module-header" onclick="toggleModule('${m.id}')">
+        <div class="module-left">
+          <span class="module-num">${m.num}</span>
+          <div>
+            <div class="module-title">${m.title}</div>
+            <div class="module-subtitle">${m.subtitle}</div>
+          </div>
+        </div>
+        <div class="module-right">
+          <span class="module-progress" data-mod="${m.id}">0/${m.cases.length}</span>
+          <span class="module-chevron">▼</span>
+        </div>
+      </div>
+      ${noteHtml}
+      <div class="module-body">${casesHtml}</div>`;
+
+    container.appendChild(div);
+  });
+}
+
+load();
+build();
+modules.forEach(m => m.cases.forEach(c => renderRow(c.id)));
+updateStats();
+</script>
+</body>
+</html>

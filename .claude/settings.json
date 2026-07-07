@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "statusMessage": "Revisando si hubo un commit para actualizar CONTEXTO.md...",
+            "timeout": 10,
+            "command": "( grep -qi 'git commit' && printf '%s' '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"Se acaba de ejecutar un git commit en este repo (MediplannerWebNuevo). Primero verifica que el commit se haya creado exitosamente, por ejemplo con git log -1 --oneline. Si es así: revisá qué cambió con git show --stat HEAD (y git diff HEAD~1 HEAD si hace falta más detalle) y actualiza CONTEXTO.md en la raíz del repo para reflejar el estado actual del proyecto: qué se hizo, hallazgos o bugs nuevos/resueltos, y qué queda pendiente. Actualiza también, si corresponde, la sección sobre cómo trabajamos (Pedro es Test Automation Tester, no developer; los tests son su responsabilidad; trabajamos en español; recordar que .env y storageState.json son locales y no están versionados). Sigue el formato y tono que ya tiene el documento. Si el commit es trivial o no cambia nada relevante para el contexto del proyecto, usa tu criterio y no edites el archivo.\"}}' ) || true"
+          }
+        ]
+      }
+    ]
+  }
+}

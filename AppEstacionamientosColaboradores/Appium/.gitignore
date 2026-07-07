@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Entornos virtuales
+venv/
+.venv/
+
+# Reportes generados en cada corrida (se regeneran, no versionar)
+reports/*.png
+reports/*.json
+reports/*.xml
+reports/*.txt
+reports/monitor/*.json
+reports/monitor/*.txt
+
+# Variables de entorno / secretos locales
+.env
+.env.local
+
+# Logs
+*.log

@@ -2,7 +2,7 @@
 
 > **Qué es este archivo:** documento vivo de contexto del proyecto. Sirve para (a) comunicar en qué estamos trabajando y (b) poner al tanto a una sesión nueva de Claude Code (en esta u otra computadora). **Mantenerlo actualizado y commitearlo** cada vez que cambie el estado del trabajo.
 >
-> **Última actualización:** 2026-06-25
+> **Última actualización:** 2026-07-07 (verificación de pendientes vs. código + corridas reales — ver sección homónima)
 
 ---
 
@@ -37,8 +37,8 @@ storageState.json localmente (no están en git).
 
 ## Estado actual (git)
 
-- **Trabajo más reciente:** automatización consolidada de **Vacunación (UI nueva)** + mapper + proyectos en config + fix de Chromium portable (ver `git log` para el hash más reciente).
-- Commits clave previos: `1bb9cd7` (9 stress tests + monitor + facturacion opción B), más `feat(consultation)` y `test(vacunacion)` que llegaron del otro equipo.
+- **Trabajo más reciente (desde el 2026-06-25, no reflejado antes en este doc):** `git rm --cached` de `.env`/`storageState`/`test-results` (`38b6ce6`); reintento robusto de selección de paciente en citas + spec de percentil, portado a staging/producción (`f6a4c78`, `7dce115`); login directo sin Google OAuth + specs de vacunación en producción (`0911ac1`); trabajo en Appium (robustez, reactivación de app, separación de tests); calendario nuevo del Dashboard + validación de bug de Servicios (`ad9f921`); mapeo exploratorio de Dashboard/Reportes/Ajustes (`3b20037`).
+- Commits clave previos: `1bb9cd7` (9 stress tests + monitor + facturacion opción B), `b3efb22` (limpieza de tests muertos de vacunación, incluida en este trabajo), más `feat(consultation)` y `test(vacunacion)` que llegaron del otro equipo.
 - Se mantiene sincronizado en las **3 ramas** (`main`, `Trabajando`, `Normalization`) — apuntan al mismo commit.
 - *(excluidos de git a propósito:* `storageState.json` = refresco de sesión; cambio local de `PW_CHROMIUM_PATH` en `.env` = ruta de esta máquina; `MediplannerAppiumAutomation/` = repo aparte)*
 
@@ -105,9 +105,9 @@ Cada apartado de la consulta muestra un **triángulo de advertencia** (FontAweso
 - ✅ **Corrida OK:** borró 2, verificó vacío (0), registró 6, verificó 6 tras refrescar. El bug viejo de "pierde interactividad tras guardar" **ya NO aplica** (el auto-save lo resolvió).
 
 **Pendiente en vacunación:**
-- [ ] Subir `MAX_DOSES` (actual 6 → 999) para registrar **TODAS** las dosis (lo pidió Pedro; iba a hacerse cuando se pausó).
-- [ ] Completar borrado + verificación real de filas **"otra vacuna"** (al iniciar solo había plantillas vacías; mi corrida dejó una guardada, así que la próxima ya puede probar el borrado). Ajustar el selector del × rojo (`button[class*="hover:text-red"]`).
-- [ ] Borrar los 3 tests viejos de vacunación (UI muerta) y su(s) proyecto(s) en el config.
+- [x] ~~Subir `MAX_DOSES` (actual 6 → 999)~~ — **hecho.** Verificado en código: `MAX_DOSES = 999` en `tests/vacunacion.ciclo-completo.spec.ts` y en las copias de Staging/Producción.
+- [ ] Completar borrado + verificación real de filas **"otra vacuna"** (al iniciar solo había plantillas vacías; mi corrida dejó una guardada, así que la próxima ya puede probar el borrado). Ajustar el selector del × rojo (`button[class*="hover:text-red"]`). — **sigue pendiente**, sin cambios en el spec.
+- [x] ~~Borrar los 3 tests viejos de vacunación (UI muerta) y su(s) proyecto(s) en el config~~ — **hecho.** `vacunacion.registro.spec.ts`, `vacunacion.ciclo.spec.ts` y el stress de vacunación ya no existen (borrados en commit `b3efb22`, 2026-06-23); `stress-vacunacion` ya no aparece como proyecto en `playwright.config.js`.
 
 ---
 
@@ -169,7 +169,8 @@ npx dotenv -e .env -- playwright test --project=vacunacion-explorar
 **Patrón de porteo dev → staging** (lo aplicado con consulta y vacunación): copiar el spec **idéntico** de `tests/` a `Tests_Staging/`; `e2e/utils.js` y `e2e/config.js` ya están copiados idénticos en `Mediplanner Staging/e2e/`; agregar el proyecto al `Mediplanner Staging/playwright.config.js`; ajustar datos propios de staging (p.ej. el nombre del paciente). El `auth.setup.ts` de staging ya está adaptado.
 
 - **Consulta** (`doctor-consultation`): porteada y verificada. Arranca desde "Inicio" (no depende de paciente por nombre). Corrida 3× el 2026-06-25, todas PASAN.
-- **Vacunación** (`vacunacion-explorar`, `vacunacion-ciclo-completo`): porteada el 2026-06-25. Paciente fijado en ambos specs = **`Pedro Quijada Anaya`** (Agustin Tapia es de dev, NO existe en staging). `vacunacion-explorar` corrió OK (no destructivo). ⚠️ `vacunacion-ciclo-completo` **portado pero aún NO ejecutado** (es destructivo: borra todas las dosis del paciente).
+- **Vacunación** (`vacunacion-explorar`, `vacunacion-ciclo-completo`): porteada el 2026-06-25. Paciente fijado en ambos specs = **`Pedro Quijada Anaya`** (Agustin Tapia es de dev, NO existe en staging). `vacunacion-explorar` corrió OK (no destructivo). ✅ `vacunacion-ciclo-completo` **SÍ se ejecutó** — evidencia: `Mediplanner Staging/test-results/vac-ciclo-01-vacio.png` y `vac-ciclo-02-registrado.png`, generadas 2026-06-25 11:24-11:25 (poco después de escribirse esta sección, nunca se actualizó el estado aquí).
+  - ⚠️ **Hallazgo sin documentar hasta ahora:** el mismo test destructivo también dejó evidencia de haberse corrido en **Producción** (`Mediplanner produccion/test-results/vac-ciclo-01-vacio.png` y `vac-ciclo-02-registrado.png`, generadas 2026-06-29 11:52, sobre el paciente **Agustin Tapia**). No estaba planeado en este documento — confirmar con Pedro si fue intencional, dado que borra dosis reales.
 
 ### 🐛 Hallazgos de consulta en STAGING (3 corridas, 100% reproducible → bug de plataforma)
 1. **422 `POST /api/patients/getFilledForm` → "El campo relacion_id es requerido"**. Es el **mismo bug de dev**, confirmado que **también ocurre en staging**.
@@ -182,9 +183,18 @@ npx dotenv -e .env -- playwright test --project=vacunacion-explorar
 ## Decisiones abiertas / pendientes
 
 - [x] ~~Commit + push de stress tests + config + fix facturacion~~ — hecho (commit `1bb9cd7`, pusheado a main/Trabajando/Normalization el 2026-06-17).
-- [ ] Reportar a devs el bug `getFilledForm` 422 "relacion_id es requerido".
-- [ ] **Reportar a devs:** indicador "sin guardar" no se limpia en **Tratamiento › Laboratorios y Procedimientos** (guarda 200 OK pero el triángulo se queda). Ver sección de hallazgos.
+- [ ] Reportar a devs el bug `getFilledForm` 422 "relacion_id es requerido". — **sin evidencia de que se haya reportado** (no hay PDFs/reportes nuevos desde el 2026-06-25). El workaround en `facturacion.stress.test.ts` sigue intacto, así que el bug de la app probablemente sigue vivo, pero no pudo confirmarse hoy (ver hallazgo del selector roto, abajo).
+- [ ] **Reportar a devs:** indicador "sin guardar" no se limpia en **Tratamiento › Laboratorios y Procedimientos** (guarda 200 OK pero el triángulo se queda). Ver sección de hallazgos. — sin evidencia de reporte.
 - [x] ~~Arreglar fallback de `fillTabFields` en `e2e/utils.js`~~ — hecho: usa `load` en vez de networkidle, solo rellena campos obligatorios (`required`/`aria-required`), valores numéricos realistas por campo, log de resumen.
-- [~] Aplicar mejoras a Staging/Producción: **monitor DevTools ya agregado** (`setupConsoleMonitor`) a ambos `consultation.start.spec.js`. **Pendiente:** propagar el detector del indicador (`scanResidualIndicators`) y el fix de guardado de Exploración a Staging/Prod.
-- [ ] **Reportar a devs (staging):** 422 `getFilledForm` "relacion_id es requerido" (ya está en staging) y 404 `getFilledForm` "No se encontró el formulario asignado al paciente" al finalizar consulta (nuevo en staging). Ver sección STAGING + `Reporte_QA_Consulta_Staging_2026-06-25.pdf`.
-- [ ] **Ejecutar en staging** `vacunacion-ciclo-completo` (destructivo) sobre `Pedro Quijada Anaya` cuando se decida correrlo.
+- [x] ~~Aplicar mejoras a Staging/Producción: propagar `scanResidualIndicators` y el fix de guardado de Exploración~~ — **hecho.** Verificado en código: `scanResidualIndicators` está en `Mediplanner Staging/e2e/utils.js` y `Mediplanner produccion/e2e/utils.js`; el fix de Exploración (`fillExplorationSection`, guarda una vez al final) está en los 3 `consultation.full-flow.spec.js` (dev/staging/producción).
+- [ ] **Reportar a devs (staging):** 422 `getFilledForm` "relacion_id es requerido" (ya está en staging) y 404 `getFilledForm` "No se encontró el formulario asignado al paciente" al finalizar consulta (nuevo en staging). Ver sección STAGING + `Reporte_QA_Consulta_Staging_2026-06-25.pdf`. — sin evidencia de reporte.
+- [x] ~~Ejecutar en staging `vacunacion-ciclo-completo` (destructivo) sobre `Pedro Quijada Anaya`~~ — **hecho** el 2026-06-25 (ver sección STAGING). También se ejecutó, sin haber quedado planeado aquí, en **producción** sobre Agustin Tapia el 2026-06-29 — confirmar con Pedro si fue intencional.
+
+---
+
+## 🔍 Verificación de pendientes — 2026-07-07
+
+Sesión dedicada a comparar este documento contra el estado real del código y de la app (dev), analizando código + corriendo automatizaciones. Resumen arriba (items tachados); dos hallazgos nuevos:
+
+1. **🐛 Selector roto en la lista de Pacientes (bloquea validar el bug de facturación por automatización).** Corrí `stress-facturacion` 2 veces contra dev — ambas fallaron **en el mismo punto exacto**, antes de llegar siquiera al formulario de Facturación: `page.waitForSelector('a.font-semibold.text-sm.text-gray-900')` agota el timeout de 25s. El screenshot del fallo muestra la lista de Pacientes cargada correctamente (35 pacientes, paginado bien) — pero el snapshot de accesibilidad confirma que el nombre del paciente **ya no es un `<a>`**, es un `<div>` (`generic [cursor=pointer]`). La app cambió la estructura de esa celda. Esto rompe el selector en **7 specs**: `recetas.explorar.spec.ts`, `recetas.spec.ts`, `tests/stress tests/antecedentes.stress.test.ts`, `tests/stress tests/facturacion.stress.test.ts`, `vacunacion.ciclo-completo.spec.ts`, `vacunacion.explorar.spec.ts`, `tests/stress tests/pacientes.stress.test.ts`. **No pude confirmar hoy si el 422 de `relacion_id` sigue vivo** porque el test nunca llegó a esa pantalla. Pendiente: actualizar el selector de nombre de paciente en esos 7 archivos y volver a correr `stress-facturacion`.
+2. **Ejecución de `vacunacion-ciclo-completo` en producción no documentada** (ver checklist arriba) — screenshots del 2026-06-29 muestran que corrió sobre Agustin Tapia en `Mediplanner produccion/`. Vale confirmar con Pedro si fue una corrida intencional o quedó pendiente de revisar el resultado.
