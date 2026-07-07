@@ -2,7 +2,7 @@
 
 > **Qué es este archivo:** documento vivo de contexto del proyecto. Sirve para (a) comunicar en qué estamos trabajando y (b) poner al tanto a una sesión nueva de Claude Code (en esta u otra computadora). **Mantenerlo actualizado y commitearlo** cada vez que cambie el estado del trabajo.
 >
-> **Última actualización:** 2026-07-07 (verificación de pendientes vs. código + corridas reales — ver sección homónima)
+> **Última actualización:** 2026-07-07 (verificación de pendientes vs. código + corridas reales — ver sección homónima; + nueva suite Appium independiente en `AppEstacionamientosColaboradores/`, ver nota abajo)
 
 ---
 
@@ -41,6 +41,7 @@ storageState.json localmente (no están en git).
 - Commits clave previos: `1bb9cd7` (9 stress tests + monitor + facturacion opción B), `b3efb22` (limpieza de tests muertos de vacunación, incluida en este trabajo), más `feat(consultation)` y `test(vacunacion)` que llegaron del otro equipo.
 - Se mantiene sincronizado en las **3 ramas** (`main`, `Trabajando`, `Normalization`) — apuntan al mismo commit.
 - *(excluidos de git a propósito:* `storageState.json` = refresco de sesión; cambio local de `PW_CHROMIUM_PATH` en `.env` = ruta de esta máquina; `MediplannerAppiumAutomation/` = repo aparte)*
+- **Nueva carpeta `AppEstacionamientosColaboradores/`** (2026-07-07): suite Appium/pytest para una app Flutter **completamente independiente** ("Estacionamientos Colaboradores" — parquímetro virtual), corriendo sobre un AVD tablet. Vive en este mismo repo por conveniencia, pero no comparte page objects, credenciales ni fixtures con Mediplanner. Tiene su propio `CONTEXTO.md`/`CLAUDE.md`/`HALLAZGOS.md` — no duplicar ese detalle acá, solo esta referencia.
 
 > ✅ El estado está en GitHub: en otra computadora basta `git clone` + `git checkout main` (o cualquiera de las 3 ramas) + `npm install` + (navegador: `npx playwright install chromium` o `PW_CHROMIUM_PATH` en `.env`).
 
