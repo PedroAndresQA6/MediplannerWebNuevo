@@ -2,7 +2,7 @@
 
 > **Qué es este archivo:** documento vivo de contexto del proyecto. Sirve para (a) comunicar en qué estamos trabajando y (b) poner al tanto a una sesión nueva de Claude Code (en esta u otra computadora). **Mantenerlo actualizado y commitearlo** cada vez que cambie el estado del trabajo.
 >
-> **Última actualización:** 2026-07-09 (fix del wizard "Agendar cita" en `doctor-consultation` + paciente parametrizable por variable de entorno — ver sección homónima abajo). Anterior: 2026-07-07 (verificación de pendientes vs. código + corridas reales — ver sección homónima; + nueva suite Appium independiente en `AppEstacionamientosColaboradores/`, ver nota abajo)
+> **Última actualización:** 2026-07-09 (rediseño de la pantalla de Ingresos + adaptación de `ingresos.spec.ts` — ver sección homónima abajo). Mismo día, antes: fix del wizard "Agendar cita" en `doctor-consultation` + paciente parametrizable por variable de entorno. Anterior: 2026-07-07 (verificación de pendientes vs. código + corridas reales — ver sección homónima; + nueva suite Appium independiente en `AppEstacionamientosColaboradores/`, ver nota abajo)
 
 ---
 
@@ -214,3 +214,22 @@ Al correrlo, aparecieron **2 selectores rotos por un cambio de UI en el wizard d
 ✅ **Corrida completa verificada tras el fix:** `2 passed (3.2m)` para Carla Perez Rojas en dev — cita agendada, consulta completa (signos vitales, exploración, tratamiento, notas, servicios, finalización). Los 3 errores 422 del resumen del DevTools monitor (`getFilteredAppointments`, `getAppointmentCount`, `setProceduresConsultation`) son el bug de plataforma ya conocido (`relacion_id`/campos obligatorios, ver hallazgo de QA arriba), no relacionados con este fix.
 
 **Pendiente:** no se volvió a correr el full-flow para el paciente default (`Percentil Prueba Prueba`) tras este fix — sería bueno confirmar que también sigue pasando.
+
+---
+
+## 🐛 Rediseño de Ingresos + adaptación de `ingresos.spec.ts` — 2026-07-09
+
+La pantalla de **Ingresos** cambió por completo: pasó de una tabla simple con filtro de estatus a un **dashboard** con tarjetas resumen (Citas del período, Total del período, Total cobrado), un panel "Filtrar registros" (Paciente, Consultorio, Estatus, Periodo) y un "Historial de ingresos" ahora renderizado con **react-data-table-component** (clases `rdt_Table`/`rdt_TableRow`/`rdt_TableCell`, no una `<table>` nativa). El flujo de registrar un pago también cambió de raíz. Se adaptó `tests/ingresos.spec.ts` en consecuencia:
+
+1. **Selectores rotos por el rediseño:**
+   - `select#estatus` perdió su `id` → ahora solo `select[name="estatus"]`.
+   - El botón de filtro sin texto (identificado por clases CSS) ahora es un botón **"Buscar"** con nombre accesible propio.
+   - El locator de filas (`'tr, [class*="row"]'`) matcheaba de más — cualquier div con "row" en la clase, no solo filas reales — e inflaba los conteos. Se cambió a `.rdt_TableRow` (clase estable de la librería de tabla).
+   - El ícono de "Ver" (ojo) vive dentro de un `<button class="menu-link">` real; `.locator('..')` (un solo nivel) caía en un `<span>` intermedio, no el botón. Se sube por `xpath=ancestor::button[1]`.
+2. **Flujo de pago simplificado — pasos "Abonar" y "Seleccionar concepto" ya NO EXISTEN:** el detalle del ingreso muestra directo el único cargo pendiente y un botón **"Registrar pago"** que lleva al formulario (monto prellenado con el adeudo + botones de método de pago, ya no radios). El endpoint sigue siendo `POST /api/payments/registerPayment` (sin cambios) y ya **no hay modal "OK"** de confirmación — navega directo de vuelta a "Detalle de ingreso" mostrando el cargo como Pagado.
+3. **"Paypal" ya no es una opción** de método de pago (quedan: Efectivo, Transferencia, Tarjeta de crédito, Tarjeta de débito) — se quitó de `METODOS_PAGO`.
+4. **Timing:** el conteo de "Contar estados de ingresos" corría antes de que la tabla terminara de cargar (carrera con la petición `getFiltered` inicial), dando 0/0 aunque había datos reales. Se agregó un `waitForResponse('getFiltered')` dentro de `navegarAIngresos`.
+
+✅ **Verificado en vivo:** conteo real correcto (3 pendientes / 2 pagados en una corrida), y el flujo completo de registrar pago (abrir detalle → "Registrar pago" → elegir método → confirmar) se probó manualmente de punta a punta con éxito (`POST registerPayment → 200`, el cargo pasa a Pagado). En las corridas del spec oficial, la fila que le tocaba procesar en el ciclo resultó "ya pagada" al abrir el detalle un par de veces seguidas — se investigó y **no es un bug del test ni de la app**, es la flakiness ya conocida del entorno dev (ver hallazgo de QA arriba): la misma fila, reintentada momentos después, sí mostró "Registrar pago" con normalidad. El test ahora maneja ese caso sin romperse (loggea y salta al siguiente ciclo en vez de fallar a ciegas contra la pantalla equivocada).
+
+**Pendiente:** no quedó una corrida del spec oficial que registrara un pago real de punta a punta (las 2 corridas de "Registrar ingreso pendiente" cayeron en el caso "ya pagado" por la flakiness mencionada) — solo se confirmó ese camino feliz con un script manual. Vale la pena volver a correrlo cuando el entorno esté menos cargado para verlo pasar por el camino completo dentro del spec mismo.
