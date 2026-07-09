@@ -1299,8 +1299,8 @@ function pick(arr) {
 // de Percentil muestre crecimiento. Se elige el set con la variable de entorno
 // PERCENTIL_RUN (1, 2 o 3); por defecto 1.
 // ─────────────────────────────────────────────────────────────────────────────
-const PACIENTE_NOMBRE = 'Percentil Prueba Prueba';
-const PACIENTE_BUSQUEDA = 'Percentil';
+const PACIENTE_NOMBRE = process.env.PACIENTE_NOMBRE || 'Percentil Prueba Prueba';
+const PACIENTE_BUSQUEDA = process.env.PACIENTE_BUSQUEDA || 'Percentil';
 
 // Sets crecientes (peso kg, talla cm, perímetro cefálico cm) para un niño ~3 años.
 const PERCENTIL_SETS = {

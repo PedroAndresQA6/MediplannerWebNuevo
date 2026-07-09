@@ -316,8 +316,14 @@ async function createAppointment(page, patientSearch = '') {
     await agendarButton.click();
   }
   
-  const wizard = page.locator('div.bg-white.shadow-md.rounded.p-5');
-  await expect(wizard).toBeVisible();
+  // El contenedor del wizard perdió sus clases Tailwind (bg-white shadow-md
+  // rounded p-5 ya no existen en el DOM actual). En vez de fijar otro set de
+  // clases que puede volver a romperse con un rediseño, se ubica por el
+  // heading "Agendar cita" (estable) y se sube al ancestro más cercano que
+  // contenga un input, que es el mismo contenedor que antes.
+  const wizardHeading = page.getByRole('heading', { name: 'Agendar cita' });
+  await expect(wizardHeading).toBeVisible();
+  const wizard = wizardHeading.locator('xpath=ancestor::div[.//input][1]');
   
   async function selectReactOption(inputLoc, searchText = '') {
     await inputLoc.waitFor({ state: 'visible' });
@@ -584,11 +590,16 @@ async function createAppointment(page, patientSearch = '') {
         }
          
         await page.getByRole('button', { name: /continuar/i }).click();
-         
-        // Confirmar
-        await page.getByRole('button', { name: /agendar cita/i }).click();
-        await page.getByRole('button', { name: 'OK' }).click();
-         
+        await page.waitForTimeout(1000);
+
+        // Confirmar: el botón se renombró de "Agendar cita" a "Confirmar cita"
+        // y ya no hay modal "OK" después — la app navega directo a la pantalla
+        // de éxito "¡Cita agendada!". Verificado contra la app real 2026-07-09.
+        const confirmarBtn = page.getByRole('button', { name: /confirmar cita/i });
+        await confirmarBtn.scrollIntoViewIfNeeded();
+        await confirmarBtn.click();
+        await expect(page.getByRole('heading', { name: /cita agendada/i })).toBeVisible({ timeout: 10000 });
+
         logger.success(`Cita registrada exitosamente en ${dateStr}`);
         return;
       } else {

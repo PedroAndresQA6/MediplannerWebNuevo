@@ -2,7 +2,7 @@
 
 > **Qué es este archivo:** documento vivo de contexto del proyecto. Sirve para (a) comunicar en qué estamos trabajando y (b) poner al tanto a una sesión nueva de Claude Code (en esta u otra computadora). **Mantenerlo actualizado y commitearlo** cada vez que cambie el estado del trabajo.
 >
-> **Última actualización:** 2026-07-07 (verificación de pendientes vs. código + corridas reales — ver sección homónima; + nueva suite Appium independiente en `AppEstacionamientosColaboradores/`, ver nota abajo)
+> **Última actualización:** 2026-07-09 (fix del wizard "Agendar cita" en `doctor-consultation` + paciente parametrizable por variable de entorno — ver sección homónima abajo). Anterior: 2026-07-07 (verificación de pendientes vs. código + corridas reales — ver sección homónima; + nueva suite Appium independiente en `AppEstacionamientosColaboradores/`, ver nota abajo)
 
 ---
 
@@ -199,3 +199,18 @@ Sesión dedicada a comparar este documento contra el estado real del código y d
 
 1. **🐛 Selector roto en la lista de Pacientes (bloquea validar el bug de facturación por automatización).** Corrí `stress-facturacion` 2 veces contra dev — ambas fallaron **en el mismo punto exacto**, antes de llegar siquiera al formulario de Facturación: `page.waitForSelector('a.font-semibold.text-sm.text-gray-900')` agota el timeout de 25s. El screenshot del fallo muestra la lista de Pacientes cargada correctamente (35 pacientes, paginado bien) — pero el snapshot de accesibilidad confirma que el nombre del paciente **ya no es un `<a>`**, es un `<div>` (`generic [cursor=pointer]`). La app cambió la estructura de esa celda. Esto rompe el selector en **7 specs**: `recetas.explorar.spec.ts`, `recetas.spec.ts`, `tests/stress tests/antecedentes.stress.test.ts`, `tests/stress tests/facturacion.stress.test.ts`, `vacunacion.ciclo-completo.spec.ts`, `vacunacion.explorar.spec.ts`, `tests/stress tests/pacientes.stress.test.ts`. **No pude confirmar hoy si el 422 de `relacion_id` sigue vivo** porque el test nunca llegó a esa pantalla. Pendiente: actualizar el selector de nombre de paciente en esos 7 archivos y volver a correr `stress-facturacion`.
 2. **Ejecución de `vacunacion-ciclo-completo` en producción no documentada** (ver checklist arriba) — screenshots del 2026-06-29 muestran que corrió sobre Agustin Tapia en `Mediplanner produccion/`. Vale confirmar con Pedro si fue una corrida intencional o quedó pendiente de revisar el resultado.
+
+---
+
+## 🐛 Wizard de "Agendar cita" roto + fix, paciente parametrizable — 2026-07-09
+
+Se quiso correr `doctor-consultation` (full-flow) contra dev con la paciente **Carla Perez Rojas** (no la default). Para eso, `tests/consultation.full-flow.spec.js` ahora soporta `PACIENTE_NOMBRE`/`PACIENTE_BUSQUEDA` por variable de entorno (mismo patrón que `PERCENTIL_RUN`); sin esas variables sigue usando el default `Percentil Prueba Prueba`.
+
+Al correrlo, aparecieron **2 selectores rotos por un cambio de UI en el wizard de "Agendar cita"** — bloqueaban CUALQUIER corrida del full-flow (no es algo específico de Carla):
+
+1. **Contenedor del wizard** (`e2e/utils.js` línea ~319): perdió sus clases Tailwind `bg-white shadow-md rounded p-5` (ya no existen en el DOM). Fix: ubicarlo por el heading "Agendar cita" (estable) + el ancestro más cercano que contenga un input (`xpath=ancestor::div[.//input][1]`), en vez de fijar otro set de clases que puede volver a romperse con un rediseño.
+2. **Botón de confirmación final se renombró de "Agendar cita" a "Confirmar cita"**, y ya no aparece un modal "OK" después — la app navega directo a la pantalla de éxito "¡Cita agendada!". Este era el bug real que rompía el flujo: el código esperaba 15s un botón que ya no existe, fallaba, y el `catch` pasaba al siguiente día del loop de fechas — pero como el step 3 (fecha) queda colapsado tras avanzar al step 4 (confirmación), el input de fecha ya no es visible y todos los días siguientes fallan igual con "element is not visible", hasta agotar el loop y tirar "No se pudo registrar una cita en los próximos 5 días" (aun cuando a veces una cita SÍ llegaba a crearse a medias).
+
+✅ **Corrida completa verificada tras el fix:** `2 passed (3.2m)` para Carla Perez Rojas en dev — cita agendada, consulta completa (signos vitales, exploración, tratamiento, notas, servicios, finalización). Los 3 errores 422 del resumen del DevTools monitor (`getFilteredAppointments`, `getAppointmentCount`, `setProceduresConsultation`) son el bug de plataforma ya conocido (`relacion_id`/campos obligatorios, ver hallazgo de QA arriba), no relacionados con este fix.
+
+**Pendiente:** no se volvió a correr el full-flow para el paciente default (`Percentil Prueba Prueba`) tras este fix — sería bueno confirmar que también sigue pasando.
