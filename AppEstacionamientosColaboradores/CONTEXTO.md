@@ -249,12 +249,18 @@ En `pages/home_page.py`:
 ```
 FILTRO_URGENCIA / FILTRO_POR_VENCER / FILTRO_VIGENTES / FILTRO_LIBRES
 fila_espacio(codigo) / abrir_espacio(codigo) / codigos_de_espacios_visibles()
+conteo_de_filtro(localizador_filtro)  # lee el número del badge de un chip, p.ej. "Libres\n9" -> 9
 CAMPO_PLACA_CHECKIN / BOTON_CHECKIN_ASISTIDO / BOTON_CONFIRMAR_CHECKIN / BOTON_CORREGIR_CHECKIN
 hacer_checkin_asistido(placa)
 BOTON_COMO_LLEGAR / BOTON_LEVANTAR_REPORTE / BOTON_LIBERAR_ESPACIO / BOTON_VER_HISTORIAL
 DIALOGO_LIBERAR_CONFIRMAR / DIALOGO_LIBERAR_CANCELAR
 liberar_espacio_actual(confirmar=True/False)
 DURACION_TURNO  # content-desc real: " · Turno 00:00", matchear por contains("Turno")
+MARCADOR_MAPA / contar_marcadores_mapa()  # OJO: todos los pines comparten el mismo
+                                            # content-desc genérico, cargan async — ver hallazgo módulo 6
+FILTRO_ESTATUS_LIBRE / FILTRO_ESTATUS_VIGENTE / FILTRO_ESTATUS_POR_VENCER / FILTRO_ESTATUS_VENCIDO
+FILTRO_TIPO_CIVIL / FILTRO_TIPO_DISCAPACITADOS / FILTRO_TIPO_ZONA_CARGA
+CERRAR_DIALOGO_FILTROS  # backdrop "Sombreado" del diálogo de Filtros (mapa)
 ```
 
 En `pages/login_page.py`:
