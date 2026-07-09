@@ -2,7 +2,7 @@
 
 > **Qué es este archivo:** documento vivo de contexto del proyecto. Sirve para (a) comunicar en qué estamos trabajando y (b) poner al tanto a una sesión nueva de Claude Code (en esta u otra computadora). **Mantenerlo actualizado y commitearlo** cada vez que cambie el estado del trabajo.
 >
-> **Última actualización:** 2026-07-09 (rediseño de la pantalla de Ingresos + adaptación de `ingresos.spec.ts` — ver sección homónima abajo). Mismo día, antes: fix del wizard "Agendar cita" en `doctor-consultation` + paciente parametrizable por variable de entorno. Anterior: 2026-07-07 (verificación de pendientes vs. código + corridas reales — ver sección homónima; + nueva suite Appium independiente en `AppEstacionamientosColaboradores/`, ver nota abajo)
+> **Última actualización:** 2026-07-09 (re-verificación de los 2 bugs de plataforma pendientes: 422 relacion_id sigue vivo con otro endpoint, indicador "sin guardar" de Laboratorios ya no reproduce — ver sección homónima abajo). Mismo día, antes: rediseño de Ingresos + fix del wizard "Agendar cita" + paciente parametrizable. Anterior: 2026-07-07 (verificación de pendientes vs. código + corridas reales; + nueva suite Appium independiente en `AppEstacionamientosColaboradores/`)
 
 ---
 
@@ -184,8 +184,8 @@ npx dotenv -e .env -- playwright test --project=vacunacion-explorar
 ## Decisiones abiertas / pendientes
 
 - [x] ~~Commit + push de stress tests + config + fix facturacion~~ — hecho (commit `1bb9cd7`, pusheado a main/Trabajando/Normalization el 2026-06-17).
-- [ ] Reportar a devs el bug `getFilledForm` 422 "relacion_id es requerido". — **sin evidencia de que se haya reportado** (no hay PDFs/reportes nuevos desde el 2026-06-25). El workaround en `facturacion.stress.test.ts` sigue intacto, así que el bug de la app probablemente sigue vivo, pero no pudo confirmarse hoy (ver hallazgo del selector roto, abajo).
-- [ ] **Reportar a devs:** indicador "sin guardar" no se limpia en **Tratamiento › Laboratorios y Procedimientos** (guarda 200 OK pero el triángulo se queda). Ver sección de hallazgos. — sin evidencia de reporte.
+- [ ] Reportar a devs el bug 422 "relacion_id"/"campos obligatorios" — **sigue vivo, reconfirmado 2026-07-09** (ver sección de verificación abajo), aunque cambió de endpoint (`getFilteredAppointments`/`getAppointmentCount`, ya no `getFilledForm`). Sin evidencia de que se haya reportado.
+- [x] ~~Reportar a devs: indicador "sin guardar" no se limpia en Tratamiento › Laboratorios y Procedimientos~~ — **no se reprodujo en 3 corridas del full-flow el 2026-07-09** (2 pacientes distintos). Probablemente arreglado; dejar de tratarlo como bug confirmado, pero sin cerrarlo del todo (ver sección de verificación).
 - [x] ~~Arreglar fallback de `fillTabFields` en `e2e/utils.js`~~ — hecho: usa `load` en vez de networkidle, solo rellena campos obligatorios (`required`/`aria-required`), valores numéricos realistas por campo, log de resumen.
 - [x] ~~Aplicar mejoras a Staging/Producción: propagar `scanResidualIndicators` y el fix de guardado de Exploración~~ — **hecho.** Verificado en código: `scanResidualIndicators` está en `Mediplanner Staging/e2e/utils.js` y `Mediplanner produccion/e2e/utils.js`; el fix de Exploración (`fillExplorationSection`, guarda una vez al final) está en los 3 `consultation.full-flow.spec.js` (dev/staging/producción).
 - [ ] **Reportar a devs (staging):** 422 `getFilledForm` "relacion_id es requerido" (ya está en staging) y 404 `getFilledForm` "No se encontró el formulario asignado al paciente" al finalizar consulta (nuevo en staging). Ver sección STAGING + `Reporte_QA_Consulta_Staging_2026-06-25.pdf`. — sin evidencia de reporte.
@@ -233,3 +233,15 @@ La pantalla de **Ingresos** cambió por completo: pasó de una tabla simple con 
 ✅ **Verificado en vivo:** conteo real correcto (3 pendientes / 2 pagados en una corrida), y el flujo completo de registrar pago (abrir detalle → "Registrar pago" → elegir método → confirmar) se probó manualmente de punta a punta con éxito (`POST registerPayment → 200`, el cargo pasa a Pagado). En las corridas del spec oficial, la fila que le tocaba procesar en el ciclo resultó "ya pagada" al abrir el detalle un par de veces seguidas — se investigó y **no es un bug del test ni de la app**, es la flakiness ya conocida del entorno dev (ver hallazgo de QA arriba): la misma fila, reintentada momentos después, sí mostró "Registrar pago" con normalidad. El test ahora maneja ese caso sin romperse (loggea y salta al siguiente ciclo en vez de fallar a ciegas contra la pantalla equivocada).
 
 **Pendiente:** no quedó una corrida del spec oficial que registrara un pago real de punta a punta (las 2 corridas de "Registrar ingreso pendiente" cayeron en el caso "ya pagado" por la flakiness mencionada) — solo se confirmó ese camino feliz con un script manual. Vale la pena volver a correrlo cuando el entorno esté menos cargado para verlo pasar por el camino completo dentro del spec mismo.
+
+---
+
+## 🔍 Re-verificación de los 2 bugs de plataforma pendientes — 2026-07-09
+
+Se corrieron pruebas reales contra dev para confirmar si los 2 bugs de plataforma documentados hace semanas seguían vivos.
+
+**1. 422 "relacion_id"/"campos obligatorios" — SIGUE VIVO, pero cambió de endpoint.** Se reprodujo en las 3 corridas de hoy (`doctor-consultation` ×2, más las corridas de ayer): `POST /api/appointments/getFilteredAppointments` y `POST /api/appointments/getAppointmentCount` responden **422** `{"status":"ERROR","message":"Verifica que los campos obligatorios no estén vacíos"}`. Ya no se vio en `getFilledForm` (donde estaba documentado originalmente) — es el mismo bug de fondo, pero manifestándose en otros endpoints de listado. No se pudo confirmar puntualmente en la pantalla de **Facturación** porque el selector roto de Pacientes (ver hallazgo del 2026-07-07, sigue exactamente igual) bloquea `stress-facturacion` antes de llegar ahí.
+
+**2. Indicador "sin guardar" en Laboratorios y Procedimientos — NO SE REPRODUJO.** Se corrió el full-flow 3 veces (Carla Perez Rojas + paciente default `Percentil Prueba Prueba` ×2); las 3 veces Laboratorios guardó 200 OK (`setProceduresConsultation`) y el escaneo de indicadores residuales (`scanResidualIndicators`) reportó limpio: *"Ningún apartado conservó el triángulo tras guardar."* Con 3/3 corridas limpias, es razonable asumir que **ya lo arreglaron** — se baja de "confirmado pendiente" a "no reproduce". No cerrar del todo el hallazgo original (queda documentado arriba) por si vuelve a aparecer.
+
+**Pendiente:** arreglar el selector roto de Pacientes (`a.font-semibold.text-sm.text-gray-900` → ahora `<div>`) en los 7 specs afectados para poder validar el bug 1 directamente en Facturación.
