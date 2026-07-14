@@ -148,6 +148,36 @@ horas por un problema de limpieza de la suite (ver housekeeping en
 situación anómala y no representativo de un turno recién iniciado. Confirmar
 con un turno fresco antes de reportarlo formalmente.
 
+## 🐛 'Cancelar' en el diálogo de liberar espacio libera igual el espacio
+
+**Estado: confirmado, pendiente de reportar — prioridad ALTA (riesgo operativo real).**
+
+En el sidebar de un espacio ocupado, tocar "Liberar espacio" abre un diálogo
+de confirmación ("¿Confirmas que el cajón {código} quedó libre? Se cerrará
+la ocupación vigente.") con dos botones: "Liberar" y "Cancelar". Se esperaría
+que "Cancelar" cierre el diálogo sin cambiar nada (checklist 9.4). En cambio,
+el recon (2026-07-09, módulo 9) confirmó que tocar "Cancelar" **libera el
+espacio de todas formas**: inmediatamente después, el espacio vuelve a
+aparecer en el filtro "Libres" de la Vista Lista, igual que si se hubiera
+tocado "Liberar".
+
+Se descartó un falso positivo del test: los chips de filtro son acumulativos
+(mismo hallazgo del módulo 7/8), así que se verificó explícitamente
+desactivando cualquier filtro de ocupado que hubiera quedado activo antes de
+revisar "Libres" — el resultado se mantuvo igual. Reproducido en dos corridas
+limpias independientes (una vía script de recon manual, otra vía
+`tests/test_9_espacio_ocupado.py::test_9_4_liberar_espacio_cancelar`, que
+quedó marcado `xfail(strict=True)` documentando este comportamiento). Dato
+curioso: justo después de tocar "Cancelar", el propio sidebar (antes de
+navegar) sigue mostrando el espacio como "Vigente"/ocupado — el cambio real
+solo se refleja al volver a la Vista Lista, sugiriendo una desincronización
+entre el estado local del sidebar y lo que de verdad quedó en el backend.
+
+**Por qué importa (prioridad alta):** un operador que abre el diálogo de
+liberar por error y toca "Cancelar" pensando que no pasó nada en realidad
+está liberando un espacio ocupado — con el resto de la operación (turno,
+reportes, cobros asociados) reflejando una vacante que en la calle no existe.
+
 ## 🤔 Contador de "Duración" del turno con valor inconsistente (a confirmar si es dato de prueba)
 
 **Estado: observado una vez, sin investigar a fondo — bajo prioridad.**

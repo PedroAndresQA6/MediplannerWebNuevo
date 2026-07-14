@@ -62,6 +62,32 @@ class BasePage:
             self.tomar_screenshot(f"error_click_{self._nombre(localizador)}")
             raise
 
+    def hacer_click_estable(self, localizador, timeout=15, reintentos=3):
+        """Click tolerante a `StaleElementReferenceException`: re-localiza y
+        reintenta si el elemento se vuelve stale entre que se lo encuentra y
+        se lo clickea. Esta app Flutter re-renderiza sidebars/diálogos con
+        animación continua (ver CLAUDE.md §4), así que un elemento recién
+        hallado puede quedar desligado del DOM justo antes del `.click()`.
+        Usar en botones que aparecen dentro de un panel que se está montando
+        (p.ej. 'Liberar espacio' apenas se abre el sidebar de un ocupado)."""
+        from selenium.common.exceptions import StaleElementReferenceException
+        ultimo_error = None
+        for intento in range(1, reintentos + 1):
+            try:
+                elemento = self.esperar_elemento_clickable(localizador, timeout)
+                elemento.click()
+                self.logger.info(f"Click estable: {localizador}")
+                return
+            except StaleElementReferenceException as e:
+                ultimo_error = e
+                self.logger.warning(
+                    f"Elemento stale al clickear {localizador} "
+                    f"(intento {intento}/{reintentos}); re-localizando..."
+                )
+                time.sleep(0.6)
+        self.tomar_screenshot(f"stale_agotado_{self._nombre(localizador)}")
+        raise ultimo_error
+
     def ingresar_texto(self, localizador, texto, timeout=15):
         try:
             elemento = self.esperar_elemento_visible(localizador, timeout)
@@ -317,6 +343,32 @@ class BasePage:
             return True
         except Exception as e:
             self.logger.warning(f"Popup de permiso de ubicación detectado pero no se pudo tocar el botón: {e}")
+            return False
+
+    def denegar_popup_permiso_camara(self, timeout=5):
+        """Maneja el popup NATIVO de Android que pide acceso a cámara (p.ej.
+        al tocar LEVANTAR REPORTE, módulo 9) y elige 'No permitir', a
+        diferencia de `manejar_popup_permiso_ubicacion` que siempre acepta.
+        Recon (2026-07-09): el botón de rechazo aparece como
+        `permission_deny_button` la primera vez que Android pregunta, pero
+        como `permission_deny_and_dont_ask_again_button` en preguntas
+        posteriores dentro de la misma instalación — `contains` sobre
+        "permission_deny" cubre ambos casos sin depender de cuál sea. A
+        diferencia del popup de ubicación, este SÍ espera de forma bloqueante
+        (con `timeout`) porque el caso de uso (9.6) depende de que aparezca."""
+        try:
+            elems = WebDriverWait(self.driver, timeout).until(
+                lambda d: d.find_elements(AppiumBy.XPATH, '//*[contains(@resource-id, "permission_deny")]')
+            )
+        except TimeoutException:
+            return False
+        try:
+            elems[0].click()
+            self.logger.info("Popup de permiso de cámara detectado: elegido 'No permitir'")
+            time.sleep(0.5)
+            return True
+        except Exception as e:
+            self.logger.warning(f"Popup de permiso de cámara detectado pero no se pudo tocar el botón: {e}")
             return False
 
     def ocultar_keyboard(self):

@@ -1,3 +1,5 @@
+import time
+
 from appium.webdriver.common.appiumby import AppiumBy
 from pages.base_page import BasePage
 
@@ -51,6 +53,19 @@ class HomePage(BasePage):
     BOTON_CONFIRMAR_CHECKIN = (AppiumBy.ACCESSIBILITY_ID, "CONFIRMAR")
     BOTON_CORREGIR_CHECKIN = (AppiumBy.ACCESSIBILITY_ID, "CORREGIR")
 
+    # ── Check-in asistido: bloqueo por proximidad (recon módulo 8, 2026-07-09) ─
+    # Al alejarse >50m con el sidebar de check-in abierto, aparece un banner con
+    # el texto "Estás a X m del espacio" (X se actualiza en vivo mientras se
+    # mueve el GPS) seguido de "...debes estar a 50 m o menos...". Matchear por
+    # "m del espacio" (estable ante el número real de metros, a diferencia del
+    # texto completo). OJO clave: el botón "Check-In Asistido" NO desaparece ni
+    # cambia su atributo `enabled` (queda "true") — el atributo real que se
+    # apaga es `clickable` (pasa a "false"). `BasePage.esta_habilitado` usa
+    # `is_enabled()` (mapea a `enabled`), así que da un falso "sigue habilitado"
+    # acá — cualquier chequeo de este bloqueo debe leer `clickable` directo vía
+    # `get_attribute("clickable")`, no `esta_habilitado`.
+    BANNER_FUERA_PROXIMIDAD = (AppiumBy.XPATH, '//android.view.View[contains(@content-desc, "m del espacio")]')
+
     # ── Diálogo de Filtros del mapa (recon módulo 6, 2026-07-07) ──────────────
     # `pane-title="Cuadro de diálogo"`, con secciones "Estatus" (Libre/Vigente/
     # Por vencer/Vencido) y "Tipo de vehículo" (Civil/Discapacitados/Zona de
@@ -89,6 +104,24 @@ class HomePage(BasePage):
     BOTON_VER_HISTORIAL = (AppiumBy.ACCESSIBILITY_ID, "VER HISTORIAL DEL ESPACIO")
     DIALOGO_LIBERAR_CONFIRMAR = (AppiumBy.XPATH, '//android.widget.Button[@content-desc="Liberar"]')
     DIALOGO_LIBERAR_CANCELAR = (AppiumBy.XPATH, '//android.widget.Button[@content-desc="Cancelar"]')
+
+    # ── Historial del espacio (recon módulo 9, 2026-07-09) ────────────────
+    # Sheet con título "Historial · {código}", filas por reservación
+    # ("{PLACA}\noperador\nEstatus: {estado}\nInicio {fecha} · Límite {fecha}"),
+    # se cierra igual que el diálogo de Filtros: tocando el backdrop
+    # "Sombreado" (mismo patrón, no hay botón "Cerrar" propio).
+    HISTORIAL_TITULO = (AppiumBy.XPATH, '//android.view.View[contains(@content-desc, "Historial ·")]')
+    CERRAR_HISTORIAL = (AppiumBy.XPATH, '//android.view.View[@content-desc="Sombreado"]')
+
+    # ── Reporte (recon módulo 9, 2026-07-09) ──────────────────────────────
+    # Al tocar LEVANTAR REPORTE sin permiso de cámara otorgado, Android
+    # muestra su diálogo NATIVO de permiso (fuera del árbol de la app, mismo
+    # patrón que `manejar_popup_permiso_ubicacion`). Si se deniega, la propia
+    # app muestra un diálogo secundario (SÍ en su árbol de accesibilidad)
+    # "Permiso de cámara requerido" con botones "Cancelar"/"Abrir
+    # configuración" — y NO navega a la pantalla de reporte (checklist 9.6).
+    DIALOGO_PERMISO_CAMARA_TITULO = (AppiumBy.ACCESSIBILITY_ID, "Permiso de cámara requerido")
+    DIALOGO_PERMISO_CAMARA_CANCELAR = (AppiumBy.ACCESSIBILITY_ID, "Cancelar")
 
     def esta_cargado(self, timeout=15):
         # Chequeo defensivo: el mapa pide GPS al cargar y puede disparar el
@@ -184,19 +217,131 @@ class HomePage(BasePage):
         abierto (llamar después de `abrir_espacio`). Deja el registro
         REALMENTE creado en el backend — el llamador es responsable de
         liberar el espacio después si quiere dejar el ambiente limpio (ver
-        `liberar_espacio_actual`)."""
+        `liberar_espacio_actual`). Espera a que el panel de confirmación se
+        cierre tras tocar CONFIRMAR (hallazgo módulo 8, 2026-07-09: sin esta
+        espera, un llamador que navega de inmediato a la Vista Lista puede
+        adelantarse a que el backend termine de procesar el check-in y seguir
+        viendo el espacio como 'Libre')."""
         self.ingresar_texto(self.CAMPO_PLACA_CHECKIN, placa)
         self.hacer_click(self.BOTON_CHECKIN_ASISTIDO)
         self.hacer_click(self.BOTON_CONFIRMAR_CHECKIN)
+        self.esperar_invisible(self.BOTON_CONFIRMAR_CHECKIN, timeout=15)
+
+    def esperar_fuera_de_libres(self, codigo, intentos=5, espera=2.0):
+        """Reintenta hasta que un espacio recién chequeado desaparezca de
+        'Libres' en la Vista Lista (debe estar aplicado ese filtro al
+        llamar). Hallazgo módulo 8/9 (2026-07-09): pese a que
+        `hacer_checkin_asistido` ya espera a que el backend cierre el panel
+        de confirmación, la lista de 'Libres' no siempre refleja el cambio
+        de inmediato al volver a la Vista Lista — reintentar (reactivando el
+        filtro para forzar una re-lectura) evita declarar un falso bug por
+        puro timing. Devuelve True si en algún intento ya no aparece."""
+        codigos = self.codigos_de_espacios_visibles()
+        restantes = intentos
+        while codigo in codigos and restantes > 0:
+            time.sleep(espera)
+            self.hacer_click(self.FILTRO_LIBRES)  # desactivar
+            self.hacer_click(self.FILTRO_LIBRES)  # reactivar (fuerza re-lectura)
+            codigos = self.codigos_de_espacios_visibles()
+            restantes -= 1
+        return codigo not in codigos
 
     # ── Espacio ocupado (liberar / ver historial) ─────────────────────────
+
+    def ubicar_y_abrir_ocupado(self, codigo, intentos=6, espera_entre=3.0):
+        """Ubica un espacio ocupado por su código probando los filtros de
+        ocupado de a uno (sin asumir bajo cuál cayó) y, si lo encuentra, lo
+        deja con el sidebar YA ABIERTO. Factoriza la búsqueda que antes
+        vivía inline en `liberar_por_codigo` para que otros flujos (probar
+        Cancelar, probar el bloqueo por proximidad) no dupliquen la misma
+        lógica de reintento. Dos hallazgos del módulo 8 (2026-07-09) que
+        dictan cómo está escrito esto:
+
+        1. **Lag de categorización de ocupados:** un espacio recién chequeado
+           sale de 'Libres' al instante (UI optimista), pero tarda varios
+           segundos en aparecer del lado de ocupado — de ahí el reintento.
+        2. **Los filtros NO son unión confiable al encadenarse** (mismo hallazgo
+           del módulo 7): activar Vigentes+Por vencer+Urgencia juntos mostró
+           SOLO el set de Urgencia, no la unión. Por eso se prueba UN filtro a
+           la vez (activar → leer → desactivar), que sí da resultados limpios.
+
+        OJO para el llamador: el filtro que lo encontró queda ACTIVO (para
+        no perder de vista la fila mientras se abre el sidebar). Si más
+        adelante el llamador necesita chequear otro filtro (p.ej. volver a
+        'Libres' tras cancelar una liberación), primero debe llamar
+        `limpiar_filtro_ocupado_activo()` — de lo contrario, como los chips
+        son acumulativos, terminaría viendo la UNIÓN de ambos filtros en vez
+        del filtro nuevo solo (hallazgo real detectado al escribir 9.4: un
+        espacio seguía 'ocupado' de verdad pero aparecía igual en 'Libres'
+        porque 'Vigentes' había quedado prendido de este método).
+
+        Devuelve True si lo encontró (y lo dejó abierto), False si no
+        apareció en ningún intento."""
+        self.ir_a_lista()
+        filtros = (self.FILTRO_VIGENTES, self.FILTRO_POR_VENCER, self.FILTRO_URGENCIA)
+        for intento in range(1, intentos + 1):
+            for filtro in filtros:
+                try:
+                    self.hacer_click(filtro, timeout=5)
+                except Exception:
+                    continue
+                presente = codigo in self.codigos_de_espacios_visibles()
+                if presente:
+                    self.abrir_espacio(codigo)
+                    self._filtro_ocupado_activo = filtro
+                    return True
+                try:
+                    self.hacer_click(filtro, timeout=5)  # desactivar antes del siguiente
+                except Exception:
+                    pass
+            self.logger.info(
+                f"ubicar_y_abrir_ocupado: {codigo} aún no visible en ningún filtro de "
+                f"ocupado (intento {intento}/{intentos}), reintentando por el lag..."
+            )
+            time.sleep(espera_entre)
+        return False
+
+    def limpiar_filtro_ocupado_activo(self):
+        """Desactiva el filtro de ocupado que dejó activo la última llamada a
+        `ubicar_y_abrir_ocupado` (ver nota ahí sobre chips acumulativos).
+        Llamar ANTES de aplicar un filtro distinto (p.ej. volver a 'Libres')
+        para no terminar viendo la unión de ambos por error. No-op si no hay
+        ninguno pendiente."""
+        filtro = getattr(self, "_filtro_ocupado_activo", None)
+        if filtro is None:
+            return
+        try:
+            self.hacer_click(filtro, timeout=5)
+        except Exception as e:
+            self.logger.warning(f"limpiar_filtro_ocupado_activo: no se pudo desactivar el filtro: {e}")
+        self._filtro_ocupado_activo = None
+
+    def liberar_por_codigo(self, codigo, intentos=6, espera_entre=3.0):
+        """Ubica un espacio ocupado por su código (ver `ubicar_y_abrir_ocupado`)
+        y lo libera. Devuelve True si lo encontró y liberó, False si no
+        apareció en ningún intento (el llamador decide si eso es fatal o
+        log-and-continue)."""
+        if not self.ubicar_y_abrir_ocupado(codigo, intentos, espera_entre):
+            return False
+        self.liberar_espacio_actual(confirmar=True)
+        self.limpiar_filtro_ocupado_activo()
+        return True
 
     def liberar_espacio_actual(self, confirmar=True):
         """Libera el espacio cuyo sidebar de ocupado ya está abierto. Con
         `confirmar=False` prueba el flujo de cancelación (el espacio queda
-        sin cambios) — patrón "validar y no confirmar la acción destructiva"."""
-        self.hacer_click(self.BOTON_LIBERAR_ESPACIO)
+        sin cambios) — patrón "validar y no confirmar la acción destructiva".
+
+        Usa `hacer_click_estable` para el botón 'Liberar espacio' porque el
+        sidebar del ocupado se re-renderiza al abrirse y el botón puede quedar
+        stale justo antes del click (hallazgo módulo 8, ver CLAUDE.md §4).
+        También espera explícitamente a que el diálogo de confirmación esté
+        presente antes de tocar Liberar/Cancelar (el diálogo puede tardar en
+        montarse tras el click, y sin esta espera el click puede dispararse
+        contra un árbol todavía sin el diálogo)."""
+        self.hacer_click_estable(self.BOTON_LIBERAR_ESPACIO)
+        self.esperar_elemento_visible(self.DIALOGO_LIBERAR_CONFIRMAR, timeout=15)
         if confirmar:
-            self.hacer_click(self.DIALOGO_LIBERAR_CONFIRMAR)
+            self.hacer_click_estable(self.DIALOGO_LIBERAR_CONFIRMAR)
         else:
-            self.hacer_click(self.DIALOGO_LIBERAR_CANCELAR)
+            self.hacer_click_estable(self.DIALOGO_LIBERAR_CANCELAR)

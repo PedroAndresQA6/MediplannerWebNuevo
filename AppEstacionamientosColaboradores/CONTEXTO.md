@@ -5,7 +5,8 @@
 > desde cero. **Leer esto junto con `CLAUDE.md` (cómo está armada la suite) y
 > `HALLAZGOS.md` (bugs/pedidos a devs)** antes de tocar código.
 >
-> **Última actualización:** 2026-07-07 (tarde)
+> **Última actualización:** 2026-07-09 (Módulo 8 escrito, corrida completa
+> pendiente de confirmar — ver "Dónde quedamos")
 
 ---
 
@@ -15,11 +16,14 @@
 Lee AppEstacionamientosColaboradores/CONTEXTO.md, CLAUDE.md y HALLAZGOS.md y
 ponte al tanto. Estamos automatizando con Appium (Python/pytest) la app
 Flutter "Estacionamientos Colaboradores" sobre una tablet Android emulada,
-usando checklist_qa_operador.html (74 casos) como plan maestro. Continúa con
-el Módulo 8 (ver sección "Dónde quedamos"). Si el AVD lleva ya varias horas
-corriendo (no es la primera sesión del día), **recomendá reiniciarlo en frío
-antes de arrancar** — confirmado esta sesión que resuelve la inestabilidad
-acumulada (ver "Inestabilidad del ambiente").
+usando checklist_qa_operador.html (74 casos) como plan maestro. El Módulo 8
+(Check-in asistido) ya está ESCRITO en tests/test_8_checkin.py (4 tests,
+8.1-8.4) — falta CONFIRMAR una corrida completa de los 4 juntos en un
+emulador estable (ver "Dónde quedamos" para el motivo: el AVD colapsó dos
+veces en la sesión anterior). Antes de arrancar, reiniciar el AVD en frío
+SIEMPRE que no sea la primera corrida del día (ver "Inestabilidad del
+ambiente" — esta sesión escaló a colapsos duros del servidor UiAutomator2,
+no solo lentitud).
 ```
 
 ---
@@ -58,7 +62,7 @@ vivas, y si no, usa esta lista como referencia:**
 | 4 | 5 — Home: Topbar y estado del dispositivo | **completed** — `tests/test_5_topbar.py` |
 | 5 | 6 — Home: Vista Mapa | **completed** — `tests/test_6_mapa.py`, 5/12 casos automatizados, 7 bloqueados (ver detalle) |
 | 6 | 7 — Home: Vista Lista | **completed** — `tests/test_7_lista.py`, 8/9 casos, corrida 100% verde |
-| 7 | 8 — Check-in asistido | **pending — siguiente** |
+| 7 | 8 — Check-in asistido | **in_progress** — `tests/test_8_checkin.py` escrito (8.1-8.4), cada test pasó individualmente; falta confirmar los 4 juntos en una corrida estable (ver "Dónde quedamos") |
 | 8 | 9 — Espacio ocupado | pending |
 | 9 | 10 — Reporte / Infracción | pending |
 | 10 | 11 — Cierre de turno | pending |
@@ -99,6 +103,73 @@ que ya funcionó en el módulo 4, aplicado al campo de placa), 8.3 (flujo
 completo — ya está prácticamente cubierto por S4 en `test_smoke.py`, decidir
 si 8.3 lo referencia/reusa o lo duplica con su propio ID), 8.4 (check-in sin
 red, mismo patrón `svc wifi/data disable` ya usado en 3.3/4.7/5.4).
+
+### Módulo 8 — Check-in asistido (escrito 2026-07-09, ver `tests/test_8_checkin.py`)
+
+Los 4 casos (8.1-8.4) están escritos. Cada uno pasó **individualmente** en
+corridas sueltas; falta confirmar los 4 juntos en una sola corrida estable
+(el AVD colapsó dos veces al intentarlo — ver "Inestabilidad del ambiente"
+más abajo, ítem 6). Al retomar: `pytest tests/test_8_checkin.py -v` con el
+AVD recién reiniciado en frío.
+
+- **8.1 (fuera de proximidad)**: recon confirmó el banner real — content-desc
+  `"Estás a X m del espacio"` + `"...debes estar a 50 m o menos..."` (X se
+  actualiza en vivo). **Hallazgo clave**: el botón "Check-In Asistido" NO se
+  oculta ni cambia su atributo `enabled` (queda `"true"`) al bloquearse —
+  el atributo que realmente se apaga es `clickable` (pasa a `"false"`). Por
+  eso el chequeo lee `clickable` directo vía `get_attribute`, no
+  `BasePage.esta_habilitado` (que usa `is_enabled()` → mapea a `enabled`, dato
+  equivocado para esta señal). Selector nuevo: `HomePage.BANNER_FUERA_PROXIMIDAD`.
+- **8.2 (placa vacía)**: mismo patrón de chequeo blando que 4.3/4.6 — tocar
+  "Check-In Asistido" sin placa no deja rastro capturable en el árbol de
+  accesibilidad (dump antes/después idéntico, probablemente un Toast
+  transitorio). La señal estable es que el flujo NO avanza a la pantalla de
+  confirmación (el botón CONFIRMAR nunca aparece).
+- **8.3 (flujo completo)**: duplicado de S4 (`test_smoke.py`) con su propio ID
+  de checklist (se optó por duplicar, no solo referenciar). **Dos hallazgos de
+  timing importantes:**
+  - *Race condition real*: tras tocar CONFIRMAR, el backend tarda en procesar
+    el check-in — un llamador que navega de inmediato a la Lista puede
+    adelantarse y seguir viendo el espacio como "Libre". Fix aplicado en
+    `HomePage.hacer_checkin_asistido()`: espera a que el botón CONFIRMAR se
+    vuelva invisible antes de devolver el control.
+  - *Lag + inconsistencia de categorización de ocupados*: el espacio sale de
+    "Libres" al instante (UI optimista del lado de escritura), pero tarda
+    varios segundos en reflejarse del lado de ocupado, y activar varios
+    filtros juntos (Vigentes+Por vencer+Urgencia) **NO muestra la unión** —
+    solo mostró el set de uno de ellos (mismo hallazgo de chips no confiables
+    ya visto en el módulo 7, pero esta vez ni siquiera al encadenarlos se
+    obtiene la unión esperada). Por eso el assert fuerte de 8.3 es la
+    desaparición de "Libres" (no un filtro de ocupado específico), y la
+    limpieza usa el nuevo helper `HomePage.liberar_por_codigo()`: prueba los
+    tres filtros de ocupado **de uno a la vez** (activar → leer → desactivar)
+    con reintento por el lag — es best-effort, no assert duro.
+- **8.4 (check-in sin red)**: mismo mecanismo de 3.3/4.7/5.4
+  (`svc wifi/data disable`), aplicado en el paso de CONFIRMAR. Confirmado por
+  recon: sin red el panel de confirmación se queda exactamente igual (ni
+  cierra ni avanza) — chequeo blando, mismo criterio que 4.3/4.6/4.7. Al
+  reconectar la red, el test cancela con "CORREGIR" (no reintenta CONFIRMAR)
+  para no dejar un check-in a medias creado en el backend.
+
+**Helpers/selectores nuevos agregados a `home_page.py`/`base_page.py` esta
+sesión:**
+- `HomePage.BANNER_FUERA_PROXIMIDAD` (ver 8.1 arriba).
+- `HomePage.liberar_por_codigo(codigo)` (ver 8.3 arriba) — preferir sobre
+  armar el flujo de liberación a mano cuando no se sabe bajo qué filtro cayó
+  un espacio recién ocupado.
+- `BasePage.hacer_click_estable(localizador)`: click con reintento ante
+  `StaleElementReferenceException` — el sidebar de un espacio ocupado se
+  re-renderiza al abrirse y un botón recién hallado puede desligarse del DOM
+  justo antes del `.click()` (mismo tipo de gotcha ya documentado en
+  `CLAUDE.md` §4 para animaciones continuas, pero manifestado como stale en
+  vez de "no such element"). `HomePage.liberar_espacio_actual` ya lo usa para
+  "Liberar espacio" y el diálogo de confirmación.
+
+**Pendiente al retomar:** confirmar que el espacio de prueba `CJ-1-0D542E`
+(placa `TEST-008`, quedó ocupado por una corrida de 8.3 previa al fix de
+timing) esté liberado — si el AVD sigue con esa data al retomar,
+`home_page.liberar_por_codigo('CJ-1-0D542E')` debería resolverlo solo. No es
+data real, es descartable.
 
 ### Resumen de lo ya escrito (módulos S, 3, 4, 5, 6, 7)
 
@@ -234,6 +305,21 @@ flaky"), pero esta sesión sumó hallazgos concretos:
    emulador y aparecía con >6 horas de duración al reconectar. Solo
    `pm clear` o cerrar turno por UI limpia la sesión local de verdad — ver
    nota sobre S1 más abajo.
+6. **Colapso DURO del servidor UiAutomator2 — escaló más allá de lo visto
+   antes (sesión del módulo 8, 2026-07-09).** El ítem 3 ya documentaba
+   cascadas de `socket hang up`/`Can't find service: settings` que se
+   recuperaban solas. Esta sesión, en cambio, el AVD completo **dejó de
+   responder a `adb devices`** (device desaparecido, no solo el driver de
+   Appium) — tuvo que relanzarse el emulador entero, dos veces en la misma
+   sesión, con cold boot (`-no-snapshot-load`). Tras el primer relanzamiento
+   volvió a colapsar a los pocos minutos (todo comando devolvía
+   `socket hang up`, incluso `driver.quit()`). **No se identificó una causa
+   de la app** — coincidió con corridas de scripts de recon/limpieza sueltos
+   (fuera de pytest) en sucesión rápida contra la misma sesión de Appium, lo
+   que puede haber acumulado presión sobre el emulador más que las corridas
+   normales de pytest (que abren/cierran su propio `driver` por test). Si
+   esto se repite: relanzar el AVD en frío es la única mitigación confirmada
+   por ahora; no perder tiempo diagnosticando el `socket hang up` en sí.
 
 **Consecuencia práctica:** varios tests de esta sesión pasaron en corridas
 aisladas pero no siempre en una corrida completa del archivo/módulo. El
@@ -261,6 +347,10 @@ MARCADOR_MAPA / contar_marcadores_mapa()  # OJO: todos los pines comparten el mi
 FILTRO_ESTATUS_LIBRE / FILTRO_ESTATUS_VIGENTE / FILTRO_ESTATUS_POR_VENCER / FILTRO_ESTATUS_VENCIDO
 FILTRO_TIPO_CIVIL / FILTRO_TIPO_DISCAPACITADOS / FILTRO_TIPO_ZONA_CARGA
 CERRAR_DIALOGO_FILTROS  # backdrop "Sombreado" del diálogo de Filtros (mapa)
+BANNER_FUERA_PROXIMIDAD  # módulo 8: contains("m del espacio") — ver hallazgo clickable vs enabled
+liberar_por_codigo(codigo)  # módulo 8: ubica un espacio ocupado probando los filtros de uno
+                             # a la vez (con reintento por lag) y lo libera; preferir sobre
+                             # armar el flujo de liberación a mano
 ```
 
 En `pages/login_page.py`:
@@ -272,6 +362,8 @@ DIALOGO_RECUPERAR_TITULO / CAMPO_EMAIL_RECUPERAR / BOTON_CANCELAR_RECUPERAR / BO
 En `pages/base_page.py`:
 ```
 manejar_popup_permiso_ubicacion()  # ver directiva de Pedro arriba
+hacer_click_estable(localizador)  # módulo 8: click con reintento ante StaleElementReferenceException,
+                                    # para botones dentro de un panel que se está re-renderizando
 ```
 
 En `conftest.py`: fixture **`gps`** (fijar/alejar/restaurar posición,
