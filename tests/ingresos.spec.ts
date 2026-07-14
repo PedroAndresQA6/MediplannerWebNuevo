@@ -65,6 +65,76 @@ async function navegarAIngresos(page: any) {
   console.log('✅ Navegado a Ingresos');
 }
 
+// Paga, uno por uno, todos los conceptos con saldo pendiente del ingreso
+// actualmente abierto en /ingresos/registroPago. Un ingreso puede tener
+// varios cargos (ej. "Consulta General" + "Certificado Médico"); el
+// formulario muestra un radio "Concepto" por cargo + un campo "Monto"
+// (con el máximo pagable de ese concepto) + botones de "Método de pago"
+// (Efectivo/Transferencia/Tarjeta...) + un botón final "Registrar pago"
+// que paga SOLO el concepto seleccionado. Mapeado explorando la app real
+// 2026-07-14 (en staging): tras cada pago exitoso la app vuelve a mostrar
+// el formulario con el siguiente concepto pendiente (o ya no queda ninguno).
+async function pagarConceptosPendientes(page: any): Promise<number> {
+  let pagados = 0;
+
+  for (let vuelta = 0; vuelta < 5; vuelta++) {
+    const conceptoRadios = page.locator('input[type="radio"]:visible');
+    const nConceptos = await conceptoRadios.count();
+    if (nConceptos === 0) {
+      console.log('⚠️ No hay radios de "Concepto" visibles en el formulario de pago');
+      break;
+    }
+
+    // Elegir el primer concepto cuyo "Máximo" pagable sea > 0 (los ya
+    // pagados quedan con máximo $0 pero el radio sigue apareciendo en la
+    // lista).
+    let elegido = -1;
+    let monto = 0;
+    for (let i = 0; i < nConceptos; i++) {
+      await conceptoRadios.nth(i).click();
+      await page.waitForTimeout(300);
+      const maximoTexto = await page.locator('text=/Máximo/i').textContent().catch(() => '');
+      monto = parseFloat((maximoTexto.match(/[\d,.]+/) || ['0'])[0].replace(/,/g, ''));
+      if (monto > 0) { elegido = i; break; }
+    }
+
+    if (elegido === -1) {
+      console.log(`✅ Ningún concepto con saldo pendiente tras ${pagados} pago(s) — ingreso saldado`);
+      break;
+    }
+
+    const metodoRandom = METODOS_PAGO[Math.floor(Math.random() * METODOS_PAGO.length)];
+    console.log(`💳 Concepto[${elegido}] con $${monto} pendiente — método objetivo: "${metodoRandom}"`);
+    const metodoBtn = page.getByRole('button', { name: metodoRandom });
+    if (await metodoBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await metodoBtn.click();
+    } else {
+      console.log(`⚠️ No se encontró "${metodoRandom}", usando "${METODOS_PAGO[0]}"`);
+      await page.getByRole('button', { name: METODOS_PAGO[0] }).click();
+    }
+    await page.waitForTimeout(500);
+
+    const confirmarBtn = page.getByRole('button', { name: /^registrar pago$/i }).last();
+    if (!await confirmarBtn.isEnabled({ timeout: 5000 }).catch(() => false)) {
+      console.log('⚠️ Botón final "Registrar pago" no se habilitó — deteniendo el ciclo de pagos de este ingreso');
+      break;
+    }
+
+    await saveAndValidate(page, () => confirmarBtn.click(), 'registerPayment', { optional: true });
+    // El botón queda en "Registrando..." mientras el request está en vuelo;
+    // esperar a que se libere antes de releer los conceptos, o se lee el
+    // formulario a mitad de la animación y se concluye "ya no queda nada"
+    // en falso (confirmado explorando la app real).
+    await page.getByText('Registrando...').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => null);
+    await page.waitForTimeout(1000);
+
+    pagados++;
+    console.log(`✅ Concepto[${elegido}] pagado ($${monto}, ${metodoRandom})`);
+  }
+
+  return pagados;
+}
+
 async function aplicarFiltroPendiente(page: any) {
   await page.locator('select[name="estatus"]').selectOption({ value: '2' });
   // El botón de filtro ahora es un botón "Buscar" con nombre accesible
@@ -168,67 +238,30 @@ test.describe('Módulo de Ingresos', () => {
           await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
         });
 
-        // La UI nueva (2026-07-09) quitó los pasos intermedios "Abonar" y
-        // "Seleccionar concepto": el detalle del ingreso ya muestra el único
-        // cargo pendiente y un botón "Registrar pago" que lleva directo al
-        // formulario de pago (monto prellenado + botones de método de pago).
-        // `formularioAbierto` evita que los pasos siguientes se ejecuten a
-        // ciegas sobre la pantalla equivocada si este ingreso ya estaba
-        // pagado (la lista filtrada puede quedar desactualizada un ciclo).
-        let formularioAbierto = false;
-
-        await test.step('Abrir formulario de pago', async () => {
-          const registrarPagoBtn = page.getByRole('button', { name: /registrar pago/i });
-          if (!await registrarPagoBtn.isVisible({ timeout: 8000 }).catch(() => false)) {
-            console.log('⚠️ No se encontró botón "Registrar pago" en el detalle — ingreso ya pagado');
+        // El detalle puede tardar en asentarse (getConsultation + verifyPlan +
+        // getCatalogs + getFiscalData×2 en paralelo); un timeout corto acá
+        // hace ver "ya pagado" un ingreso que en realidad solo estaba
+        // cargando todavía — confirmado explorando la app real 2026-07-14
+        // (el ingreso SÍ tenía saldo real y el botón sí estaba, solo tardó
+        // más de 8s en un caso).
+        await test.step('Abrir formulario de pago (todos los conceptos)', async () => {
+          const registrarPagoBtn = page.getByRole('button', { name: /registrar pago/i }).first();
+          if (!await registrarPagoBtn.isVisible({ timeout: 12000 }).catch(() => false)) {
+            console.log('⚠️ No se encontró botón "Registrar pago" en el detalle — ingreso ya pagado (o el front crasheó, ver hallazgo de DetallePagos en CONTEXTO.md)');
             procesados++;
             return;
           }
           await registrarPagoBtn.click();
           await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
-          formularioAbierto = true;
           console.log('✅ Formulario de pago abierto');
-        });
 
-        await test.step('Seleccionar método de pago', async () => {
-          if (!formularioAbierto) return;
-
-          const metodoRandom = METODOS_PAGO[Math.floor(Math.random() * METODOS_PAGO.length)];
-          console.log(`💳 Método de pago objetivo: "${metodoRandom}"`);
-
-          const metodoBtn = page.getByRole('button', { name: metodoRandom });
-          if (await metodoBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-            await metodoBtn.click();
-            console.log(`✅ Método "${metodoRandom}" seleccionado`);
-          } else {
-            console.log(`⚠️ No se encontró "${metodoRandom}", seleccionando "${METODOS_PAGO[0]}"`);
-            await page.getByRole('button', { name: METODOS_PAGO[0] }).click();
-          }
-          await page.waitForTimeout(500);
-        });
-
-        await test.step('Registrar pago', async () => {
-          if (!formularioAbierto) return;
-
-          const confirmarPagoBtn = page.getByRole('button', { name: /^registrar pago$/i });
-          if (!await confirmarPagoBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-            console.log('⚠️ No se encontró botón final "Registrar pago"');
-            procesados++;
-            return;
-          }
-
-          await saveAndValidate(
-            page,
-            () => confirmarPagoBtn.click(),
-            'registerPayment',
-            { optional: true }
-          );
-          // Ya no hay modal de confirmación (swal2) — la app navega directo
-          // de vuelta a "Detalle de ingreso" mostrando el cargo como Pagado.
-          await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
-
-          procesados++;
-          console.log(`✅ Ingreso ${procesados} registrado exitosamente`);
+          // Un ingreso puede tener varios cargos (ej. "Consulta General" +
+          // "Certificado Médico"); cada envío del formulario paga solo el
+          // concepto seleccionado, así que hay que repetir hasta que no
+          // quede ninguno con saldo.
+          const pagadosAqui = await pagarConceptosPendientes(page);
+          procesados += pagadosAqui;
+          console.log(`✅ ${pagadosAqui} concepto(s) pagado(s) en este ingreso`);
         });
 
         // Volver a Ingresos para el siguiente ciclo
