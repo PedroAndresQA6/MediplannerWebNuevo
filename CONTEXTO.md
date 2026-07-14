@@ -2,7 +2,7 @@
 
 > **Qué es este archivo:** documento vivo de contexto del proyecto. Sirve para (a) comunicar en qué estamos trabajando y (b) poner al tanto a una sesión nueva de Claude Code (en esta u otra computadora). **Mantenerlo actualizado y commitearlo** cada vez que cambie el estado del trabajo.
 >
-> **Última actualización:** 2026-07-09 (re-verificación de los 2 bugs de plataforma pendientes: 422 relacion_id sigue vivo con otro endpoint, indicador "sin guardar" de Laboratorios ya no reproduce — ver sección homónima abajo). Mismo día, antes: rediseño de Ingresos + fix del wizard "Agendar cita" + paciente parametrizable. Anterior: 2026-07-07 (verificación de pendientes vs. código + corridas reales; + nueva suite Appium independiente en `AppEstacionamientosColaboradores/`)
+> **Última actualización:** 2026-07-14 (se corrieron en **staging** los mismos tests adaptados en dev el 2026-07-09/10 — `doctor-consultation` y `ingresos` — para confirmar que el porteo, que había quedado sin commitear, funciona; commiteado en `807fe43`/`62e285c`. Ver sección STAGING abajo). Anterior: 2026-07-09 (re-verificación de los 2 bugs de plataforma pendientes: 422 relacion_id sigue vivo con otro endpoint, indicador "sin guardar" de Laboratorios ya no reproduce — ver sección homónima abajo). Mismo día, antes: rediseño de Ingresos + fix del wizard "Agendar cita" + paciente parametrizable. Anterior: 2026-07-07 (verificación de pendientes vs. código + corridas reales; + nueva suite Appium independiente en `AppEstacionamientosColaboradores/`)
 
 ---
 
@@ -178,6 +178,17 @@ npx dotenv -e .env -- playwright test --project=vacunacion-explorar
 2. **404 `POST /api/patients/getFilledForm` (×2) → "No se encontró el formulario asignado al paciente"**, al **finalizar la consulta** (+ `Error fetching formularios paciente: undefined`). **Nuevo en staging** (en dev se ve el 422, no este 404).
 - ✅ El indicador "sin guardar" (triángulo) de Lab/Procedimientos **NO se reproduce en staging** (en dev sí). Resto del flujo sólido.
 - 📄 Reporte: `Reporte_QA_Consulta_Staging_2026-06-25.pdf` (raíz).
+
+### 🔁 Actualización 2026-07-14 — porteo del fix de wizard + rediseño de Ingresos verificado en staging
+
+Una sesión anterior (2026-07-09/10) ya había adaptado `Mediplanner Staging/e2e/utils.js` y los specs de `Tests_Staging/` al mismo rediseño de UI que se arregló en dev (wizard "Agendar cita" → "Confirmar cita" sin modal OK; calendario nuevo del Dashboard; dashboard de Ingresos con `rdt_TableRow`/"Registrar pago"), pero esos cambios habían quedado **sin commitear** y sin correr contra staging real. Hoy se corrieron ambas suites contra staging para confirmarlos:
+
+- **`doctor-consultation`: 2/2 pasan (3.1m).** Cita creada + consulta completa (signos vitales → exploración → diagnóstico → tratamiento → laboratorios → notas → servicios → finalización) de punta a punta. Confirma el 404 `getFilledForm` de arriba; el indicador "sin guardar" de Laboratorios sigue sin reproducirse.
+- **`ingresos`: 3/3 pasan (1.1m).** Conteo de pendientes/pagados correcto con los selectores nuevos. El paso "Registrar pago" **no llegó a ejecutarse de punta a punta**: los 2 ingresos pendientes del ciclo resultaron "ya pagados" al abrir el detalle (mismo síntoma de flakiness ya documentado en dev — no es bug del test).
+- Se corrigió además un detalle del propio código de **dev** descubierto al portar: `irADiaEnCalendarioDashboard()` usaba `.first()` del botón "siguiente mes" (hay 2 en el DOM, el primero es decorativo) y el loop de días arrancaba en `dayOffset=1` asumiendo que "hoy" ya estaba visible. Corregido en ambos entornos.
+- **Commiteado:** `807fe43` (fix de calendario en dev) y `62e285c` (porteo completo a staging).
+
+**Pendiente:** confirmar "Registrar pago" de punta a punta en staging necesita un ingreso pendiente real disponible. Plan: correr primero `doctor-consultation` completo (genera una consulta con servicios/tratamiento facturables → nuevo adeudo) y luego, en la misma sesión, `ingresos` para que tome ese adeudo recién creado en vez de uno ya pagado.
 
 ---
 
