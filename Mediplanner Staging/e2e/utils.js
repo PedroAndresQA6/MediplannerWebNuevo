@@ -196,6 +196,68 @@ async function handleModals(page) {
   }
 }
 
+// Asegura estar en /Dashboard con su calendario (react-day-picker, desde el
+// rediseño de dev de 2026-07) realmente renderizado. Ya no existe un
+// input[type="date"] ni el FullCalendar viejo (fc-next-button).
+// Porteado de dev 2026-07-09/10: el mismo rediseño llegó al Dashboard de
+// staging (confirmado corriendo doctor-consultation contra staging).
+async function asegurarCalendarioDashboard(page) {
+  if (!page.url().includes('/Dashboard')) {
+    await page.goto('/Dashboard');
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {});
+  }
+  // Esperar a que el calendario esté realmente renderizado antes de tocarlo;
+  // sin esto, en un entorno flaky un loop corre en unos pocos ms y no
+  // encuentra ninguna celda porque el widget aún no montó. Reintenta con
+  // reload si hace falta.
+  for (let intento = 0; intento < 3; intento++) {
+    if (await page.locator('td[data-day]').first().isVisible({ timeout: 8000 }).catch(() => false)) return true;
+    logger.warning(`Calendario del Dashboard no renderizó (intento ${intento + 1}/3), recargando...`);
+    await page.reload();
+    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+  }
+  logger.warning('El calendario del Dashboard no llegó a renderizar (td[data-day])');
+  return false;
+}
+
+// Clickea la celda del calendario del Dashboard para `dateStr` (YYYY-MM-DD),
+// avanzando de mes con el botón "›" (rdp-button_next) si hace falta. Espera
+// la respuesta de getFilteredAppointments para esa fecha (filtra "Agenda de
+// hoy" in-place, sin navegar). Devuelve true si logró clickear la celda.
+async function irADiaEnCalendarioDashboard(page, dateStr) {
+  // En staging el botón de día NO tiene la clase "rdp-day_button" (verificado
+  // contra la app real 2026-07-10) — el <td data-day> sí existe igual que en
+  // dev, pero adentro hay un <button> sin esa clase. Se usa un selector
+  // genérico (hay un solo botón por celda) en vez de depender de esa clase.
+  let celda = page.locator(`td[data-day="${dateStr}"] button`);
+  for (let avance = 0; avance < 2 && !(await celda.isVisible({ timeout: 1000 }).catch(() => false)); avance++) {
+    // Hay 2 botones "rdp-button_next" en el DOM de staging: uno dentro de un
+    // <nav class="rdp-nav"> decorativo/no funcional (siempre el primero) y el
+    // real dentro del header visible del calendario (el segundo). .first()
+    // no avanza de mes; .last() sí.
+    const nextBtn = page.locator('button.rdp-button_next').last();
+    if (!(await nextBtn.isVisible({ timeout: 1000 }).catch(() => false))) break;
+    // El header sticky a veces intercepta el click (el botón queda muy cerca
+    // del borde superior); force:true evita el reintento de 15s en vano.
+    await nextBtn.click({ force: true });
+    await page.waitForTimeout(500);
+    celda = page.locator(`td[data-day="${dateStr}"] button`);
+  }
+  if (!(await celda.isVisible({ timeout: 1000 }).catch(() => false))) {
+    logger.warning(`No se encontró la celda del calendario para ${dateStr}`);
+    return false;
+  }
+  const respPromise = page.waitForResponse(
+    r => /\/api\/appointments\/getFilteredAppointments/.test(r.url()),
+    { timeout: 8000 }
+  ).catch(() => null);
+  await celda.click();
+  await respPromise;
+  await page.waitForTimeout(1000);
+  return true;
+}
+
 async function checkNextDaysForIniciarButton(page) {
   logger.info('Buscando botón Iniciar en los próximos 5 días...');
   
@@ -313,8 +375,16 @@ async function createAppointment(page, patientSearch = '') {
     await agendarButton.click();
   }
   
-  const wizard = page.locator('div.bg-white.shadow-md.rounded.p-5');
-  await expect(wizard).toBeVisible();
+  // El contenedor del wizard perdió sus clases Tailwind (bg-white shadow-md
+  // rounded p-5 ya no existen en el DOM actual). En vez de fijar otro set de
+  // clases que puede volver a romperse con un rediseño, se ubica por el
+  // heading "Agendar cita" (estable) y se sube al ancestro más cercano que
+  // contenga un input, que es el mismo contenedor que antes.
+  // Porteado de dev 2026-07-09 — aplica solo si/cuando este rediseño llegue a
+  // staging; hasta entonces no correr esta suite en staging.
+  const wizardHeading = page.getByRole('heading', { name: 'Agendar cita' });
+  await expect(wizardHeading).toBeVisible();
+  const wizard = wizardHeading.locator('xpath=ancestor::div[.//input][1]');
   
   async function selectReactOption(inputLoc, searchText = '') {
     await inputLoc.waitFor({ state: 'visible' });
@@ -581,10 +651,16 @@ async function createAppointment(page, patientSearch = '') {
         }
          
         await page.getByRole('button', { name: /continuar/i }).click();
-         
-        // Confirmar
-        await page.getByRole('button', { name: /agendar cita/i }).click();
-        await page.getByRole('button', { name: 'OK' }).click();
+        await page.waitForTimeout(1000);
+
+        // Confirmar: el botón se renombró de "Agendar cita" a "Confirmar cita"
+        // y ya no hay modal "OK" después — la app navega directo a la pantalla
+        // de éxito "¡Cita agendada!". Porteado de dev 2026-07-09 — aplica solo
+        // si/cuando este rediseño llegue a staging.
+        const confirmarBtn = page.getByRole('button', { name: /confirmar cita/i });
+        await confirmarBtn.scrollIntoViewIfNeeded();
+        await confirmarBtn.click();
+        await expect(page.getByRole('heading', { name: /cita agendada/i })).toBeVisible({ timeout: 10000 });
          
         logger.success(`Cita registrada exitosamente en ${dateStr}`);
         return;
@@ -1188,4 +1264,4 @@ async function scanResidualIndicators(page, tabName, opts = {}) {
   return firstPass.filter(name => secondPass.includes(name));
 }
 
-module.exports = { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals, setupConsoleMonitor, detectUnsavedSections, auditConsultationIndicators, scanResidualIndicators };
+module.exports = { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals, setupConsoleMonitor, detectUnsavedSections, auditConsultationIndicators, scanResidualIndicators, asegurarCalendarioDashboard, irADiaEnCalendarioDashboard };

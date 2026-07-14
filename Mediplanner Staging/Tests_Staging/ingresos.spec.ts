@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 const { setupConsoleMonitor } = require('../e2e/utils.js');
 
-const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Tarjeta de crédito', 'Tarjeta de débito', 'Paypal'];
+// "Paypal" ya no es una opción en el formulario nuevo de "Registrar pago"
+// (verificado contra la app real 2026-07-09) — se quitó de la lista.
+const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Tarjeta de crédito', 'Tarjeta de débito'];
 
 async function saveAndValidate(
   page: any,
@@ -43,15 +45,31 @@ async function navegarAIngresos(page: any) {
   await page.waitForSelector('span.menu-title:text-is("Ingresos")', { timeout: 10000 });
 
   const ingresosLink = page.locator('span.menu-title:text-is("Ingresos")');
+  // El dashboard nuevo carga el "Historial de ingresos" con el filtro de
+  // período por defecto ya aplicado (misma llamada "getFiltered" que dispara
+  // el botón "Buscar"). Sin esperarla, se puede contar/leer la tabla antes de
+  // que la respuesta llegue (carrera observada: conteo en 0 con datos reales
+  // visibles un instante después). Se registra el listener antes del click
+  // para no perder una respuesta que llegue muy rápido.
+  const historialCargado = page.waitForResponse(
+    (res: any) => res.url().includes('getFiltered') && res.status() < 400,
+    { timeout: 15000 }
+  ).catch(() => null);
   await ingresosLink.click();
   await expect(page).toHaveURL(/Ingresos/);
-  await page.waitForSelector('select#estatus', { timeout: 15000 });
+  // La UI de Ingresos se rediseñó (2026-07-09): ahora es un dashboard con
+  // tarjetas de resumen + filtros; el select de Estatus perdió su id y pasó
+  // a identificarse solo por name="estatus".
+  await page.waitForSelector('select[name="estatus"]', { timeout: 15000 });
+  await historialCargado;
   console.log('✅ Navegado a Ingresos');
 }
 
 async function aplicarFiltroPendiente(page: any) {
-  await page.locator('select#estatus').selectOption({ value: '2' });
-  await page.locator('button.btn-icon.btn.bg-gray-300.ms-3[type="button"]').click();
+  await page.locator('select[name="estatus"]').selectOption({ value: '2' });
+  // El botón de filtro ahora es un botón "Buscar" con nombre accesible
+  // propio, en vez del botón sin texto identificado por clases CSS.
+  await page.getByRole('button', { name: /buscar/i }).click();
   await page.waitForResponse(
     (res: any) => res.url().includes('getFiltered') && res.status() < 400,
     { timeout: 15000 }
@@ -70,10 +88,15 @@ test.describe('Módulo de Ingresos', () => {
     });
 
     await test.step('Contar pendientes y pagados', async () => {
-      const pendientes = page.locator('tr, [class*="row"]').filter({
+      // El "Historial de ingresos" se renderiza con react-data-table-component
+      // (clases rdt_Table*), no como una <table> nativa. El selector genérico
+      // anterior ('tr, [class*="row"]') matcheaba de más (cualquier div con
+      // "row" en la clase, incluyendo utilidades de layout ajenas a la tabla)
+      // e inflaba el conteo real.
+      const pendientes = page.locator('.rdt_TableRow').filter({
         has: page.locator('text=/pendiente/i')
       });
-      const pagados = page.locator('tr, [class*="row"]').filter({
+      const pagados = page.locator('.rdt_TableRow').filter({
         has: page.locator('text=/pagado/i')
       });
 
@@ -116,7 +139,7 @@ test.describe('Módulo de Ingresos', () => {
           await aplicarFiltroPendiente(page);
         }
 
-        const pendientes = page.locator('tr, [class*="row"]').filter({
+        const pendientes = page.locator('.rdt_TableRow').filter({
           has: page.locator('text=/pendiente/i')
         });
 
@@ -129,7 +152,10 @@ test.describe('Módulo de Ingresos', () => {
         }
 
         const pendiente = pendientes.last();
-        const eyeButton = pendiente.locator('svg.fa-eye').locator('..').first();
+        // El ícono de ojo vive dentro de un <button class="menu-link"> real;
+        // se sube por xpath hasta ese ancestro en vez de un solo nivel
+        // (".locator('..')" antes caía en el <span> intermedio, no el botón).
+        const eyeButton = pendiente.locator('svg.fa-eye').locator('xpath=ancestor::button[1]').first();
 
         if (!await eyeButton.isVisible({ timeout: 5000 }).catch(() => false)) {
           console.log('✅ No se encontró botón "Ver" — no hay más pendientes por procesar');
@@ -142,87 +168,64 @@ test.describe('Módulo de Ingresos', () => {
           await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
         });
 
-        await test.step('Click en Abonar', async () => {
-          const abonarBtn = page.getByRole('button', { name: /abonar/i });
-          await expect(abonarBtn).toBeVisible({ timeout: 10000 });
-          await abonarBtn.click();
-          await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
-          console.log('✅ Click en Abonar');
-        });
+        // La UI nueva (2026-07-09) quitó los pasos intermedios "Abonar" y
+        // "Seleccionar concepto": el detalle del ingreso ya muestra el único
+        // cargo pendiente y un botón "Registrar pago" que lleva directo al
+        // formulario de pago (monto prellenado + botones de método de pago).
+        // `formularioAbierto` evita que los pasos siguientes se ejecuten a
+        // ciegas sobre la pantalla equivocada si este ingreso ya estaba
+        // pagado (la lista filtrada puede quedar desactualizada un ciclo).
+        let formularioAbierto = false;
 
-        await test.step('Seleccionar concepto', async () => {
-          console.log('🔍 Buscando concepto "Consulta Médica"...');
-          const consultaMedica = page.locator('text=/consulta\s*médica/i').first();
-          if (await consultaMedica.isVisible({ timeout: 3000 }).catch(() => false)) {
-            await consultaMedica.click();
-            console.log('✅ Concepto "Consulta Médica" seleccionado');
-          } else {
-            const consulta = page.locator('text=/consulta/i').first();
-            if (await consulta.isVisible({ timeout: 3000 }).catch(() => false)) {
-              await consulta.click();
-              console.log('✅ Concepto "Consulta" seleccionado');
-            } else {
-              const conceptoRadio = page.locator('input[type="radio"]:visible').first();
-              if (await conceptoRadio.isVisible({ timeout: 3000 }).catch(() => false)) {
-                const labelText = await conceptoRadio.locator('xpath=..').first().textContent().catch(() => '');
-                await conceptoRadio.click();
-                console.log(`✅ Concepto seleccionado (fallback): "${labelText.trim()}"`);
-              }
-            }
+        await test.step('Abrir formulario de pago', async () => {
+          const registrarPagoBtn = page.getByRole('button', { name: /registrar pago/i });
+          if (!await registrarPagoBtn.isVisible({ timeout: 8000 }).catch(() => false)) {
+            console.log('⚠️ No se encontró botón "Registrar pago" en el detalle — ingreso ya pagado');
+            procesados++;
+            return;
           }
+          await registrarPagoBtn.click();
           await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
+          formularioAbierto = true;
+          console.log('✅ Formulario de pago abierto');
         });
 
         await test.step('Seleccionar método de pago', async () => {
+          if (!formularioAbierto) return;
+
           const metodoRandom = METODOS_PAGO[Math.floor(Math.random() * METODOS_PAGO.length)];
           console.log(`💳 Método de pago objetivo: "${metodoRandom}"`);
 
-          const radioButtons = page.locator('input[type="radio"]:visible');
-          const radioCount = await radioButtons.count();
-
-          let seleccionado = false;
-          for (let i = 1; i < radioCount; i++) {
-            const radio = radioButtons.nth(i);
-            const labelText = await radio.locator('xpath=..').first().textContent().catch(() => '');
-            if (labelText.toLowerCase().includes(metodoRandom.toLowerCase())) {
-              await radio.click();
-              console.log(`✅ Método "${metodoRandom}" seleccionado`);
-              seleccionado = true;
-              break;
-            }
+          const metodoBtn = page.getByRole('button', { name: metodoRandom });
+          if (await metodoBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+            await metodoBtn.click();
+            console.log(`✅ Método "${metodoRandom}" seleccionado`);
+          } else {
+            console.log(`⚠️ No se encontró "${metodoRandom}", seleccionando "${METODOS_PAGO[0]}"`);
+            await page.getByRole('button', { name: METODOS_PAGO[0] }).click();
           }
-          if (!seleccionado) {
-            console.log(`⚠️ No se encontró "${metodoRandom}", seleccionando primer radio disponible`);
-            await radioButtons.nth(1).click();
-          }
-          await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
+          await page.waitForTimeout(500);
         });
 
         await test.step('Registrar pago', async () => {
-          const registrarPagoBtn = page.getByRole('button', { name: /registrar pago/i });
-          if (!await registrarPagoBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-            console.log('⚠️ No se encontró botón "Registrar pago" — ingreso ya pagado');
+          if (!formularioAbierto) return;
+
+          const confirmarPagoBtn = page.getByRole('button', { name: /^registrar pago$/i });
+          if (!await confirmarPagoBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+            console.log('⚠️ No se encontró botón final "Registrar pago"');
             procesados++;
             return;
           }
 
           await saveAndValidate(
             page,
-            () => registrarPagoBtn.click(),
+            () => confirmarPagoBtn.click(),
             'registerPayment',
             { optional: true }
           );
-
-          // Manejar modal de confirmación
-          const modal = page.locator('.swal2-popup:visible, [role="dialog"]:visible');
-          if (await modal.count() > 0) {
-            const confirmBtn = modal.locator('.swal2-confirm, button:has-text("OK"), button:has-text("Aceptar")');
-            if (await confirmBtn.count() > 0) {
-              await confirmBtn.first().click();
-              await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
-              console.log('✅ Modal confirmado');
-            }
-          }
+          // Ya no hay modal de confirmación (swal2) — la app navega directo
+          // de vuelta a "Detalle de ingreso" mostrando el cargo como Pagado.
+          await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
 
           procesados++;
           console.log(`✅ Ingreso ${procesados} registrado exitosamente`);

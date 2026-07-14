@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals, setupConsoleMonitor, scanResidualIndicators } = require('../e2e/utils.js');
+const { fillTabFields, createAppointment, handleModals, setupConsoleMonitor, scanResidualIndicators, asegurarCalendarioDashboard, irADiaEnCalendarioDashboard } = require('../e2e/utils.js');
 
 // Funciones auxiliares
 async function fillSpecificField(page, fieldName) {
@@ -1280,8 +1280,8 @@ function pick(arr) {
 // de Percentil muestre crecimiento. Se elige el set con la variable de entorno
 // PERCENTIL_RUN (1, 2 o 3); por defecto 1.
 // ─────────────────────────────────────────────────────────────────────────────
-const PACIENTE_NOMBRE = 'Percentil Prueba Prueba';
-const PACIENTE_BUSQUEDA = 'Percentil';
+const PACIENTE_NOMBRE = process.env.PACIENTE_NOMBRE || 'Percentil Prueba Prueba';
+const PACIENTE_BUSQUEDA = process.env.PACIENTE_BUSQUEDA || 'Percentil';
 
 // Sets crecientes (peso kg, talla cm, perímetro cefálico cm) para un niño ~3 años.
 const PERCENTIL_SETS = {
@@ -1355,10 +1355,28 @@ async function iniciarConsultaDelPaciente(page) {
 
   let iniciarBtn = await buscarIniciarDelPaciente();
   if (!iniciarBtn) {
-    console.log('🔁 No apareció en Dashboard; revisando próximos días/citas...');
-    await checkNextDaysForIniciarButton(page);
-    await page.waitForTimeout(2000);
-    iniciarBtn = await buscarIniciarDelPaciente();
+    // OJO: no usar checkNextDaysForIniciarButton() acá — esa función clickea
+    // el PRIMER botón "Iniciar" que encuentre en cualquier día, sin filtrar
+    // por paciente, y arrancaría la consulta de OTRO paciente si hay más de
+    // una cita agendada. En su lugar, reusamos su misma navegación de
+    // calendario (react-day-picker) pero re-buscando SU fila en cada día.
+    // Porteado de dev 2026-07-09/10: el Dashboard de staging ya tiene el
+    // mismo calendario nuevo (react-day-picker), la función vieja
+    // (checkNextDaysForIniciarButton, basada en input[type="date"]/FullCalendar)
+    // ya no encuentra cómo avanzar de día.
+    // dayOffset arranca en 0 (no en 1): la vista "hoy" por defecto del
+    // Dashboard puede no coincidir con el "hoy" que calcula new Date() acá
+    // (desfasaje de un día visto en staging 2026-07-10) — no asumir que el
+    // offset 0 ya está visible sin navegar el calendario explícitamente.
+    console.log('🔁 No apareció en Dashboard; revisando próximos días en el calendario...');
+    await asegurarCalendarioDashboard(page);
+    for (let dayOffset = 0; dayOffset <= 5 && !iniciarBtn; dayOffset++) {
+      const targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() + dayOffset);
+      const dateStr = targetDate.toISOString().split('T')[0];
+      if (!(await irADiaEnCalendarioDashboard(page, dateStr))) continue;
+      iniciarBtn = await buscarIniciarDelPaciente();
+    }
   }
   if (!iniciarBtn) {
     throw new Error(`No se encontró botón "Iniciar" para "${PACIENTE_NOMBRE}" tras crear su cita`);
