@@ -199,11 +199,17 @@ En **todas** las corridas de `ingresos` (dev y staging, incluidas las de hoy) el
     at Se (https://admin-staging.mediplanner.mx/assets/DetallePagos-dmoyFA51.js:1:2683)
 ```
 
-Hipótesis con buena evidencia: el componente de Detalle de pagos asume que `getFiscalData` siempre devuelve al menos un registro y lee `.cp` (código postal) de él sin chequear `undefined`; cuando el paciente no tiene datos fiscales capturados, el componente crashea y el botón "Registrar pago" nunca se renderiza — de ahí que el test (y probablemente cualquier usuario real) vea la pantalla como si ya estuviera pagada. Esto conecta con el bug de plataforma ya documentado (422 "relacion_id"/campos obligatorios, sección de arriba): **todo apunta a que al paciente de pruebas "Percentil Prueba Prueba" le falta información fiscal/de relación en el backend**, y eso rompe varias pantallas de cobro (Facturación y ahora Detalle de pagos), no solo una.
+Hipótesis: el componente de Detalle de pagos asume que `getFiscalData` siempre devuelve al menos un registro y lee `.cp` (código postal) de él sin chequear `undefined`; cuando el paciente no tiene datos fiscales capturados, el componente crashea y el botón "Registrar pago" nunca se renderiza. **Esto explica una parte de los falsos "ya pagado" (es intermitente, no reproduce siempre), pero no toda la historia** — ver corrección abajo.
 
-**Pendiente:**
-- Reportar a devs: `DetallePagos` no maneja `getFiscalData` vacío (TypeError `reading 'cp'`) → oculta el botón "Registrar pago" en cargos legítimamente pendientes.
-- Para de verdad completar "Registrar pago" de punta a punta en el spec, probar con un paciente que **sí tenga** datos fiscales capturados (Percentil Prueba Prueba aparentemente no los tiene) — o pedir a devs que carguen datos fiscales de prueba para él.
+**Pendiente:** reportar a devs `DetallePagos` no maneja `getFiscalData` vacío (TypeError `reading 'cp'`) → oculta el botón "Registrar pago" en cargos legítimamente pendientes, cuando reproduce.
+
+### 🔍 Corrección — el flujo real de "Registrar pago" tiene selección de CONCEPTO (no un formulario directo de 1 cargo)
+
+Pedro confirmó con una captura real de staging que el botón "Registrar pago" SÍ aparece con normalidad en ingresos con adeudo real, y que al hacer clic te lleva a un formulario con: radios de **Concepto** (uno por cada cargo del ingreso — ej. "Consulta General" + "Certificado Médico", cada uno con su propio monto pendiente), un campo **Monto** (prellenado al máximo del concepto elegido), tarjetas-botón de **Método de pago** (Efectivo/Transferencia/Tarjeta…) y un botón final **Registrar pago** que **paga solo el concepto seleccionado**. Para saldar un ingreso con varios cargos hay que repetir el envío una vez por concepto; solo cuando ya no queda ninguno con saldo desaparece el botón "Registrar pago".
+
+Explorando esto de punta a punta contra staging (pagando de verdad un ingreso real de $1,800 = Consulta General $1,500 + Certificado Médico $300, en dos pagos con métodos distintos) se confirmó: `POST /api/payments/registerPayment → 200 "Pago registrado correctamente"` por cada concepto; el ingreso terminó con `Pagado: $1,800.00 / Adeudo: $0.00` y status **"Pagado"** en el historial; el botón queda momentáneamente en estado "Registrando…" (deshabilitado) durante el request — leer el DOM en ese instante hace ver "no hay botón" en falso.
+
+**Causa real de casi todos los falsos "ya pagado" en `ingresos.spec.ts` (dev y staging):** el spec nunca seleccionaba un concepto explícitamente (dependía del radio default) y no manejaba ingresos con 2+ cargos ni el estado "Registrando…", más un timeout de 8s insuficiente para que el detalle terminara de cargar. **Corregido y verificado (commit `bb480b8`):** nueva función `pagarConceptosPendientes()` que paga cada concepto con saldo > 0 uno por uno hasta saldar el ingreso; timeout del botón "Registrar pago" en el detalle subido a 12s; espera explícita a que "Registrando…" desaparezca antes de releer el formulario. El crash de `DetallePagos` (TypeError `reading 'cp'`) sigue existiendo como bug de plataforma aparte (reproduce solo con algunos ingresos, ver arriba) y el test lo tolera sin romperse.
 
 ---
 
