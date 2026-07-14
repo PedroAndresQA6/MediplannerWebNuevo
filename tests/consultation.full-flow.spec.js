@@ -1379,9 +1379,13 @@ async function iniciarConsultaDelPaciente(page) {
     // por paciente, y arrancaría la consulta de OTRO paciente si hay más de
     // una cita agendada. En su lugar, reusamos su misma navegación de
     // calendario (react-day-picker) pero re-buscando SU fila en cada día.
+    // dayOffset arranca en 0 (no en 1): la vista "hoy" por defecto del
+    // Dashboard puede no coincidir con el "hoy" que calcula new Date() acá
+    // (desfasaje de un día visto en staging 2026-07-10) — no asumir que el
+    // offset 0 ya está visible sin navegar el calendario explícitamente.
     console.log('🔁 No apareció en Dashboard; revisando próximos días en el calendario...');
     await asegurarCalendarioDashboard(page);
-    for (let dayOffset = 1; dayOffset <= 5 && !iniciarBtn; dayOffset++) {
+    for (let dayOffset = 0; dayOffset <= 5 && !iniciarBtn; dayOffset++) {
       const targetDate = new Date();
       targetDate.setDate(targetDate.getDate() + dayOffset);
       const dateStr = targetDate.toISOString().split('T')[0];

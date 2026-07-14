@@ -224,13 +224,23 @@ async function asegurarCalendarioDashboard(page) {
 // la respuesta de getFilteredAppointments para esa fecha (filtra "Agenda de
 // hoy" in-place, sin navegar). Devuelve true si logró clickear la celda.
 async function irADiaEnCalendarioDashboard(page, dateStr) {
-  let celda = page.locator(`td[data-day="${dateStr}"] button.rdp-day_button`);
+  // El botón de día no tiene la clase "rdp-day_button" (verificado contra la
+  // app real 2026-07-10) — el <td data-day> existe, pero adentro hay un
+  // <button> sin esa clase. Se usa un selector genérico (hay un solo botón
+  // por celda) en vez de depender de esa clase.
+  let celda = page.locator(`td[data-day="${dateStr}"] button`);
   for (let avance = 0; avance < 2 && !(await celda.isVisible({ timeout: 1000 }).catch(() => false)); avance++) {
-    const nextBtn = page.locator('button.rdp-button_next').first();
+    // Hay 2 botones "rdp-button_next" en el DOM: uno dentro de un
+    // <nav class="rdp-nav"> decorativo/no funcional (siempre el primero) y el
+    // real dentro del header visible del calendario (el segundo). .first()
+    // no avanza de mes; .last() sí.
+    const nextBtn = page.locator('button.rdp-button_next').last();
     if (!(await nextBtn.isVisible({ timeout: 1000 }).catch(() => false))) break;
-    await nextBtn.click();
+    // El header sticky a veces intercepta el click (el botón queda muy cerca
+    // del borde superior); force:true evita el reintento de 15s en vano.
+    await nextBtn.click({ force: true });
     await page.waitForTimeout(500);
-    celda = page.locator(`td[data-day="${dateStr}"] button.rdp-day_button`);
+    celda = page.locator(`td[data-day="${dateStr}"] button`);
   }
   if (!(await celda.isVisible({ timeout: 1000 }).catch(() => false))) {
     logger.warning(`No se encontró la celda del calendario para ${dateStr}`);
