@@ -188,7 +188,22 @@ Una sesión anterior (2026-07-09/10) ya había adaptado `Mediplanner Staging/e2e
 - Se corrigió además un detalle del propio código de **dev** descubierto al portar: `irADiaEnCalendarioDashboard()` usaba `.first()` del botón "siguiente mes" (hay 2 en el DOM, el primero es decorativo) y el loop de días arrancaba en `dayOffset=1` asumiendo que "hoy" ya estaba visible. Corregido en ambos entornos.
 - **Commiteado:** `807fe43` (fix de calendario en dev) y `62e285c` (porteo completo a staging).
 
-**Pendiente:** confirmar "Registrar pago" de punta a punta en staging necesita un ingreso pendiente real disponible. Plan: correr primero `doctor-consultation` completo (genera una consulta con servicios/tratamiento facturables → nuevo adeudo) y luego, en la misma sesión, `ingresos` para que tome ese adeudo recién creado en vez de uno ya pagado.
+**Plan ejecutado para generar un adeudo real:** se corrió `doctor-consultation` una 2ª vez (paciente Percentil Prueba Prueba, misma corrida ✅ 2/2) específicamente para dejar un nuevo cargo pendiente, y se corrió `ingresos` a continuación para procesarlo. Confirmado manualmente por Pedro (captura de la pantalla real de Ingresos en staging): sí hay adeudos reales sin pagar (2× $1,800.00, estatus "Pendiente", método "-") y el ícono del ojo lleva a su detalle — coincide con lo que hace `eyeButton` en el spec.
+
+### 🐛 Hallazgo nuevo — `DetallePagos` crashea con TypeError cuando el paciente no tiene datos fiscales (probable causa real del falso "ya pagado")
+
+En **todas** las corridas de `ingresos` (dev y staging, incluidas las de hoy) el paso "Registrar pago" reporta "ingreso ya pagado" — pero el ingreso está confirmado **sin pagar** (ver arriba). Al repetir la corrida contra staging con 3 pendientes reales, el monitor de DevTools capturó, justo cuando `POST /api/invoices/getFiscalData` respondió `{"status":"OK","data":[]}` (vacío) para el paciente "Percentil Prueba Prueba":
+
+```
+🔴 [DEVTOOLS ERROR +49.88s] Error: TypeError: Cannot read properties of undefined (reading 'cp')
+    at Se (https://admin-staging.mediplanner.mx/assets/DetallePagos-dmoyFA51.js:1:2683)
+```
+
+Hipótesis con buena evidencia: el componente de Detalle de pagos asume que `getFiscalData` siempre devuelve al menos un registro y lee `.cp` (código postal) de él sin chequear `undefined`; cuando el paciente no tiene datos fiscales capturados, el componente crashea y el botón "Registrar pago" nunca se renderiza — de ahí que el test (y probablemente cualquier usuario real) vea la pantalla como si ya estuviera pagada. Esto conecta con el bug de plataforma ya documentado (422 "relacion_id"/campos obligatorios, sección de arriba): **todo apunta a que al paciente de pruebas "Percentil Prueba Prueba" le falta información fiscal/de relación en el backend**, y eso rompe varias pantallas de cobro (Facturación y ahora Detalle de pagos), no solo una.
+
+**Pendiente:**
+- Reportar a devs: `DetallePagos` no maneja `getFiscalData` vacío (TypeError `reading 'cp'`) → oculta el botón "Registrar pago" en cargos legítimamente pendientes.
+- Para de verdad completar "Registrar pago" de punta a punta en el spec, probar con un paciente que **sí tenga** datos fiscales capturados (Percentil Prueba Prueba aparentemente no los tiene) — o pedir a devs que carguen datos fiscales de prueba para él.
 
 ---
 
