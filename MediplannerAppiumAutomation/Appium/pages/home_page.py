@@ -1,5 +1,6 @@
 from .base_page import BasePage
 from appium.webdriver.common.appiumby import AppiumBy
+from utils.navegacion import volver_inicio
 
 
 class HomePage(BasePage):
@@ -18,41 +19,23 @@ class HomePage(BasePage):
         self.titulo_perfil = (AppiumBy.XPATH, "//*[@content-desc='Perfil']")
 
     def abrir_perfil(self):
-        """Abre la pantalla de Perfil desde el icono de menu (esquina sup. der., un
-        ImageView de persona sin content-desc; se localiza por posicion, no por
-        bounds absolutos, via tap_esquina_sup_derecha). Si el test viene de una
-        sub-pantalla (incluso un formulario profundo), regresa al Home antes de
-        abrir el menu. Usa el back de Android como mecanismo principal (mas
-        confiable que el 'Regresar' in-app, que a veces no navega) y maneja
-        dialogos de descarte que puedan aparecer al salir de un formulario.
-        Si un back() de mas nos saca de la app (p.ej. tras quedar atrapados en
-        un picker nativo de Android de un test anterior), la reactiva en vez
-        de seguir presionando back a ciegas."""
-        import time as _t
-        for _ in range(12):
-            if self.tap_esquina_sup_derecha("android.widget.ImageView", timeout=2):
-                return self.esta_visible(self.titulo_perfil, timeout=5)
-            if self.reactivar_si_salio():
-                _t.sleep(1)
-                continue
-            # Back de Android (dismiss de formularios/modales mas fiable que 'Regresar')
-            self.driver.back()
-            _t.sleep(0.8)
-            # Si aparece un dialogo de descartar/salir, confirmarlo
-            for txt in ('Descartar', 'Salir', 'Sí', 'Si', 'Aceptar', 'Continuar'):
-                dlg = (AppiumBy.XPATH, f"//android.widget.Button[@content-desc='{txt}']")
-                if self.esta_visible(dlg, timeout=1):
-                    self.hacer_click(dlg)
-                    _t.sleep(0.6)
-                    break
-            # Como respaldo, intentar el 'Regresar' in-app
-            regresar = (AppiumBy.XPATH, "//*[@content-desc='Regresar']")
-            if self.esta_visible(regresar, timeout=1):
-                try:
-                    self.hacer_click(regresar)
-                except Exception:
-                    pass
-                _t.sleep(0.6)
+        """Abre la pantalla de Perfil desde el icono de persona (esquina sup. der.,
+        un ImageView sin content-desc; se localiza por posicion, no por bounds
+        absolutos, via tap_esquina_sup_derecha). Sin importar en que pantalla
+        empiece el test (incluso un formulario profundo o un picker nativo
+        atrapado de un test anterior), usa el helper ya probado `volver_inicio`
+        para garantizar que estamos en Home antes de intentar el tap posicional
+        -- evita reinventar aqui el back-loop de recuperacion (fragil: en
+        Perfil, por ejemplo, la esquina sup. der. es un boton 'Compartir', no
+        un ImageView, asi que el tap posicional nunca matchea y machacar
+        back() a ciegas desde ahi no garantiza volver a Home).
+        No hay atajo por 'si ya estamos en Perfil': el content-desc='Perfil'
+        del titulo tambien aparece como etiqueta de seccion dentro de otras
+        pantallas (p.ej. el formulario 'Invitar a Mediplanner' tiene una fila
+        'Perfil'), asi que detectarlo sin mas contexto da falsos positivos."""
+        volver_inicio(self.driver, self)
+        if self.tap_esquina_sup_derecha("android.widget.ImageView", timeout=4):
+            return self.esta_visible(self.titulo_perfil, timeout=5)
         return False
 
     def abrir_seccion_perfil(self, nombre):

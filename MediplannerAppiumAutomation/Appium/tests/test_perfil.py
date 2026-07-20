@@ -371,8 +371,11 @@ def test_perfil_compartir(driver, home_page):
     print("[2] Formulario 'Anadir manualmente' abierto")
 
     # Validacion de telefono: la app exige 10 digitos para habilitar 'Invitar y compartir'
-    nombre = driver.find_elements(AppiumBy.XPATH, "//android.widget.EditText[@hint='Nombre completo']")
-    telefono = driver.find_elements(AppiumBy.XPATH, "//android.widget.EditText[@hint='10 dígitos']")
+    # (espera explicita: la transicion Contactos -> 'Invitar a Mediplanner' tarda en
+    # renderizar; un find_elements crudo aqui llegaba antes de que el formulario
+    # existiera y devolvia [] con selectores por otro lado correctos)
+    nombre = home_page.buscar_elementos((AppiumBy.XPATH, "//android.widget.EditText[@hint='Nombre completo']"))
+    telefono = home_page.buscar_elementos((AppiumBy.XPATH, "//android.widget.EditText[@hint='10 dígitos']"))
     assert nombre and telefono, "No se encontraron los campos Nombre/Telefono del formulario manual"
 
     nombre[0].click(); nombre[0].send_keys("Juan Perez QA")
@@ -390,5 +393,19 @@ def test_perfil_compartir(driver, home_page):
     print("[4] OK: telefono de 10 digitos habilita 'Invitar'")
 
     home_page.tomar_screenshot("perfil_compartir")
-    # No se envia la invitacion (no destructivo).
-    print("[5] Test completado (validacion de telefono; no se envio invitacion)")
+
+    # Enviar la invitacion de punta a punta: el contacto es ficticio (nombre y
+    # telefono inventados), asi que completar el envio es seguro/no destructivo
+    # (no afecta a una persona real) y valida el flujo completo, no solo la
+    # habilitacion del boton.
+    invitar = (AppiumBy.XPATH, "//android.widget.Button[contains(@content-desc, 'Invitar')]")
+    home_page.hacer_click(invitar)
+
+    confirmacion = (AppiumBy.XPATH, "//*[contains(@content-desc, 'Invitación enviada')]")
+    assert home_page.esta_visible(confirmacion, timeout=8), \
+        "No se confirmo el envio de la invitacion ('Invitacion enviada' no aparecio)"
+    print("[5] OK: invitacion enviada, pantalla de confirmacion visible")
+
+    listo = (AppiumBy.XPATH, "//android.widget.Button[@content-desc='Listo']")
+    home_page.hacer_click(listo)
+    print("[6] Test completado (invitacion enviada y confirmada de punta a punta)")

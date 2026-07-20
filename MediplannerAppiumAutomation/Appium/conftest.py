@@ -14,10 +14,13 @@ APP_PACKAGE = "mx.mediplanner.app"
 # Señales INEQUÍVOCAS de crash/ANR en logcat. Solo estas tumban el test; el resto
 # del ruido de logcat (líneas 'E/' sueltas de React Native) va al reporte pero NO
 # hace fallar (equivalente al 'log-and-continue' del monitor de consola en web).
+# 'has died'/'Force finishing activity' se acotan a mx.mediplanner.app: sin eso,
+# cualquier proceso ajeno que muera en background (p.ej. com.google.android.
+# documentsui) se marcaba como crash de la app bajo prueba (falso positivo
+# observado en test_perfil_datos_personales, que en realidad paso).
 CRASH_PATTERNS = re.compile(
     r"FATAL EXCEPTION|ANR in |E/AndroidRuntime|"
-    r"has died|Force finishing activity|"
-    r"mx\.mediplanner\.app.*(crash|SIGSEGV|SIGABRT)",
+    r"mx\.mediplanner\.app.*(has died|Force finishing activity|crash|SIGSEGV|SIGABRT)",
     re.IGNORECASE,
 )
 
@@ -197,3 +200,9 @@ def doctors_page(driver):
 def consultas_page(driver):
     from pages.consultas_page import ConsultasPage
     return ConsultasPage(driver)
+
+
+@pytest.fixture(scope="function")
+def bitacora_page(driver):
+    from pages.bitacora_page import BitacoraPage
+    return BitacoraPage(driver)
