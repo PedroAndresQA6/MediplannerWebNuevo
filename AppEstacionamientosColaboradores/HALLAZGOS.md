@@ -5,6 +5,86 @@
 
 ---
 
+## 🐛 Portal web — el formulario "Registrar infracción" no exige evidencia fotográfica (a diferencia de la app móvil)
+
+**Estado: confirmado por Playwright (2026-07-17) — prioridad media (inconsistencia entre plataformas).**
+
+En la app móvil, el módulo 10 (Reporte) exige mínimo 1 foto para habilitar
+"ENVIAR REPORTE AL BACKOFFICE" (10.2/10.3). En el portal web
+(`/index.php/infracciones/nueva`), el campo `input[name="evidencia"]`
+**no tiene el atributo `required`** — confirmado que el formulario se envía
+y registra la infracción con éxito ("Infracción registrada.") sin adjuntar
+ninguna foto. Un supervisor puede levantar una falta desde escritorio sin
+ninguna evidencia visual, mientras que el operador de campo sí está
+obligado a documentarla. Ver `Playwright/tests/infracciones.spec.ts::
+"10.6: envío exitoso sin evidencia fotográfica..."`.
+
+## 🐛 Portal web — un segundo reporte sobre el mismo cajón/placa no muestra ningún aviso (posible duplicidad silenciosa)
+
+**Estado: confirmado por Playwright (2026-07-17) — prioridad media.**
+
+El checklist original (10.7, ya validado también en la app móvil) espera un
+"aviso de reporte previo en la ocupación" al reportar dos veces el mismo
+cajón/placa. En el portal web, registrar la MISMA placa en el MISMO cajón
+dos veces seguidas no muestra ningún aviso — ambos envíos responden
+"Infracción registrada." y crean dos filas separadas en la tabla de
+Infracciones. Riesgo operativo: un supervisor puede duplicar
+involuntariamente una falta ya registrada por otro supervisor (o por sí
+mismo) sin ninguna señal de advertencia. Ver `infracciones.spec.ts::
+"10.7: ... NO muestra aviso de reporte previo"`.
+
+## 🤔 Portal web — "Levantar falta" prellena cajón/placa pero no preselecciona el motivo
+
+**Estado: confirmado por Playwright (2026-07-17) — prioridad baja (gap de UX, no bloquea nada).**
+
+Al tocar "Levantar falta" desde la lista de "Vehículos fuera de tiempo" en
+Infracciones, el formulario llega con `cajon_id` y `placa` prellenados vía
+query params, pero el `<select name="motivo">` se queda en "— Selecciona —"
+en vez de preseleccionar "Fuera de tiempo" (que sería lo esperable dado el
+contexto de origen — mismo criterio que 10.8/10.9 de la app móvil). No
+bloquea el flujo (el supervisor solo tiene que elegirlo a mano), pero es una
+oportunidad de UX perdida. Ver `infracciones.spec.ts::"10.8/10.9"`.
+
+## 🐛 Portal web — envío del formulario de infracción sin red pierde todos los datos (peor manejo que la app móvil)
+
+**Estado: confirmado por Playwright (2026-07-17) — prioridad media-alta (pérdida de trabajo del usuario).**
+
+El formulario "Registrar infracción" es un `<form method="post" ...>` HTML
+clásico (no AJAX/fetch). Al enviarlo sin conectividad, el navegador intenta
+la navegación completa y cae en su propia página de error
+(`chrome-error://chromewebdata/`), perdiendo TODOS los datos ya capturados
+(cajón, placa, motivo, evidencia). La app móvil, en el mismo escenario
+(10.10), maneja el error con un mensaje y conserva el formulario intacto.
+Un supervisor con conectividad inestable puede perder una infracción ya
+casi lista de tener que rellenarla de cero. **Sugerencia:** convertir el
+envío a `fetch`/AJAX con manejo de error explícito, o al menos guardar el
+estado del formulario en el navegador antes de enviarlo. Ver
+`infracciones.spec.ts::"10.10"`.
+
+## 🤔 Portal web — mensaje de validación "La contraseña es obligatorio." (inconsistencia de género gramatical)
+
+**Estado: confirmado por Playwright (2026-07-17) — prioridad muy baja (copy).**
+
+Al enviar el login sin contraseña, el mensaje real dice "La contraseña es
+**obligatorio**." en vez de "obligatoria" (concordancia de género). Cosmético,
+no bloquea nada. Ver `login-sesion.spec.ts::"4.2"`.
+
+## ✅ Confirmado: un check-in real desde la app móvil se refleja correctamente en el portal web
+
+**Estado: verificado por un test combinado Appium+Playwright (2026-07-17) —
+no es un bug, es una confirmación positiva de consistencia entre plataformas.**
+
+`Playwright/tests/combinado.checkin-web.spec.ts` dispara un check-in real
+desde la app móvil (vía subproceso `pytest` sobre
+`Appium/tests/test_combo_web_app.py`) y confirma que el KPI "Cajones libres
+(vía pública)" de `/index.php/disponibilidad` baja exactamente en 1 de
+inmediato — ambas plataformas comparten el mismo backend/zona ("Primer
+Cuadro") sin lag observable. Vale la pena repetir este patrón (acción real
+en una plataforma → verificación en la otra) para futuros escenarios
+cruzados.
+
+---
+
 ## 🔧 Pedido a devs: identificadores estables en los widgets de la app (Flutter)
 
 **Estado: pendiente de reportar.**
@@ -36,25 +116,60 @@ punto único de falla (ver `pages/login_page.py`).
 
 ---
 
-## 🐛 Crash real de la app durante login (no reproducido aún de forma determinística)
+## 🐛 Crash real de la app durante login — causa raíz confirmada (Google Maps SDK)
 
-**Estado: pendiente de reportar — falta reproducir con evidencia completa.**
+**Estado: confirmado con stack trace completo (2026-07-16) — pendiente de
+reportar. Prioridad media/alta: mata el proceso completo de la app.**
 
-Durante el recon inicial (2026-07-07, ~12:12), la app se cerró sola en medio
-de un flujo de login normal (mismas credenciales, mismos pasos que corridas
-que sí funcionaron antes y después). Logcat capturado por `crash_monitor`:
+Durante el recon inicial (2026-07-07, ~12:12) la app ya se había cerrado sola
+en medio de un flujo de login normal, pero el buffer de logcat rotó antes de
+capturar el stack trace completo. **Se reprodujo de nuevo el 2026-07-16**
+(sesión de confirmación del módulo 10, tercer intento de
+`test_10_3_una_foto_habilita_envio`, ~12:26) — esta vez `crash_monitor` sí
+capturó el trace completo antes de que rotara:
 
 ```
+E AndroidRuntime: FATAL EXCEPTION: androidmapsapi-TilePrep_1
+E AndroidRuntime: Process: com.example.estacionamientos_mobile, PID: 6713
+E AndroidRuntime: java.lang.NoSuchFieldError: No static field a of type Lm140/gfy; in class Lm140/gfy; or its superclasses (declaration of 'm140.gfy' appears in /data/user_de/0/com.google.android.gms/app_chimera/m/00000011/dl-MapsCoreDynamite.integ_260830202100800.apk!classes2.dex)
+	at m140.gge.d(:com.google.android.gms.policy_maps_core_dynamite@260830207@...)
+	at m140.eoa.I(...) / m140.emo.a(...) / m140.emw.o(...) / m140.emv.run(...)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+	...
 W ActivityTaskManager: Force finishing activity com.example.estacionamientos_mobile/.MainActivity
-I ActivityManager: Process com.example.estacionamientos_mobile (pid 6016) has died: fg TOP
+I ActivityManager: Process com.example.estacionamientos_mobile (pid 6713) has died: fg TOP
+I Process: Sending signal. PID: 6713 SIG: 9
 ```
 
-El buffer de logcat rotó antes de poder capturar el stack trace completo (fue
-la razón por la que se agregó el volcado completo a
-`reports/monitor/*_logcat_completo.txt` en cuanto se detecta un crash — ver
-`conftest.py`). **No se volvió a reproducir** en corridas posteriores. Próxima
-vez que ocurra, ese archivo va a tener el contexto completo para armar un
-reporte de bug real.
+**Causa raíz identificada:** el crash ocurre en un **thread interno del SDK
+de Google Maps** (`androidmapsapi-TilePrep_1`, preparación de tiles), dentro
+del módulo dinámico `com.google.android.gms.policy_maps_core_dynamite` de
+Google Play Services — **no es código Dart/Flutter de la app**. El
+`NoSuchFieldError` sobre un campo estático ofuscado (`m140.gfy`) es la firma
+típica de una **incompatibilidad de versión entre el Google Play Services
+instalado en el AVD y el Maps SDK con el que se compiló la app** (el código
+compilado espera una clase con un campo que la versión de Play Services
+instalada en este emulador ya no tiene/renombró). Pasa justo cuando el mapa
+de Home empieza a cargar tiles apenas termina el login — mata el proceso
+completo (`SIG 9`), Android vuelve al launcher, y la sesión de Appium queda
+con la app fuera de foreground.
+
+**Es intermitente**: en la misma sesión del 2026-07-16, otros 2-3 logins
+inmediatamente antes y después cargaron el mapa sin problema. Esto es
+compatible con una carrera de inicialización en el SDK de Maps (dynamite
+module loading) más que con un fallo determinístico — no se ha logrado
+identificar un disparador específico (ej. tipo de conexión, primer login del
+proceso vs. relogin).
+
+**Recomendación para devs:** validar la versión del Google Play Services
+services / Maps SDK contra la matriz de compatibilidad declarada en
+`build.gradle` de la app, y considerar fijar (`pin`) una versión de Play
+Services en la imagen del AVD de CI/QA si el problema persiste. Mientras
+tanto, en la suite: si un test falla con `app_state=1` y
+`categoria_fallo=Crash/ANR` justo después de un login, no tratarlo como
+selector roto — es este crash conocido; relanzar la app y reintentar el test
+suele bastar (el crash no dejó rastro de corrupción de datos en el backend
+en los intentos observados).
 
 ---
 
@@ -187,3 +302,175 @@ Al cerrar un turno abierto hace ~2 minutos (12:05 → 12:07), la pantalla
 cercano a 00:02:xx. Podría ser un contador que no se resetea entre turnos en
 el ambiente de dev, o un dato de prueba/seed no relacionado con el turno real.
 No se investigó más porque no bloqueaba el flujo — señalarlo si se repite.
+
+## 🤔 Módulo 10 (Reporte): tope real de fotos es 2, no 3
+
+**Estado: confirmado en recon (2026-07-16) — a confirmar con Pedro si el
+checklist está desactualizado o si es un bug.**
+
+El checklist original (10.4) dice "Intentar capturar 4 fotos → Solo conserva
+hasta 3 fotos". El recon confirmó que este build tiene un tope real de **2**:
+la guía visual muestra "Evidencia 1 de 2 · placa visible" / "Evidencia 2 de 2
+· placa visible", y el contador de fotos ("N fotos") dejó de subir después de
+la segunda captura pese a 2 intentos adicionales. `tests/test_10_reporte.py::
+test_10_4_tope_real_de_fotos` valida el comportamiento REAL (tope en 2), no
+el del checklist.
+
+## 🤔 Módulo 10 (Reporte): tras enviar, regresa al sidebar del espacio, no a Home
+
+**Estado: observado en recon (2026-07-16) — no bloquea nada, solo difiere del
+checklist.**
+
+El checklist (10.6) dice "Enviar → Toast éxito; regresa a Home". En este
+build, tras un envío exitoso la pantalla vuelve al sidebar del espacio
+ocupado (con LEVANTAR REPORTE, Liberar espacio, etc. visibles de nuevo), no a
+la pantalla Home/Operador. Comportamiento razonable, solo distinto al
+descrito.
+
+## 🔧 Reporte con cámara: la pantalla puede quedar rotando sola (gotcha de automatización, no bug de la app)
+
+**Estado: confirmado y con causa raíz identificada (2026-07-16) — mitigación
+aplicada, agregar a `conftest.py`/`CLAUDE.md` si se repite seguido.**
+
+Durante el recon del módulo 10, después de usar la cámara del reporte
+(capturar evidencia, cambiar de cámara), la pantalla del AVD empezó a
+rotarse sola a intervalos (~cada 25-50s) pese a que `_forzar_landscape` ya
+había fijado `accelerometer_rotation=0` / `user_rotation=0` al arrancar la
+sesión. Confirmado por logcat: la app dispara `CameraService: makeClient:
+Camera2 API, rotationOverride 1` al abrir la cámara del reporte — un modo de
+compatibilidad de Android que fuerza la orientación de la PANTALLA COMPLETA
+para que coincida con el sensor de la cámara del emulador, y ese estado queda
+"pegado" al proceso de la app, re-disparando la rotación periódicamente
+incluso después de salir de la pantalla de cámara y de resetear
+`user_rotation` a mano. **Mitigación confirmada:** `adb shell am force-stop
+com.example.estacionamientos_mobile` (matando el proceso, no solo cerrando
+turno por UI) libera el estado de compatibilidad de cámara — tras eso,
+`user_rotation=0` se mantuvo estable. Si un test automatizado usa
+`tomar_foto_reporte()`, considerar hacer force-stop + relanzar la app al
+terminar ese test específico, en vez de solo cerrar turno/sesión.
+
+## 🤔 Módulo 11 (Cierre de turno): bitácora vacía deshabilita el botón, no muestra un toast
+
+**Estado: confirmado en recon (2026-07-16) — no bloquea nada, solo difiere
+del checklist.**
+
+El checklist (11.4) dice "Exportar sin registros en bitácora → Toast o
+mensaje: bitácora vacía". El recon confirmó que, en cambio, con la
+'Actividad del turno' vacía, "EXPORTAR BITÁCORA" queda directamente
+`clickable="false"` (mismo patrón de bloqueo silencioso ya visto en el resto
+de la app — proximidad, fotos, etc.) — no hay ningún toast ni mensaje. Con
+actividad real, el botón se habilita y ofrece 'Guardar en dispositivo' /
+'Compartir' (este último abre el sheet nativo de Android, confirmado).
+`tests/test_11_cierre_turno.py::test_11_4_exportar_bitacora_vacia_deshabilitado`
+valida el comportamiento real.
+
+## 🤔 Módulo 11: no existe paso de firma antes de cerrar turno (re-confirmado)
+
+**Estado: re-confirmado 2026-07-16 (ya lo indicaba el docstring de
+`HomePage.cerrar_turno` desde el recon 2026-07-07) — checklist 11.7/11.8 no
+aplican a este build.**
+
+El checklist describe un paso de firma antes de confirmar el cierre de turno
+(11.7 "Firma vacía → botón deshabilitado", 11.8 "Cancelar firma → permanece
+en resumen"). En este build (v1.0.0 build 1) no existe ningún paso de firma:
+"CONFIRMAR Y CERRAR TURNO" es clickeable directo apenas carga el resumen. No
+automatizado por no aplicar; señalar si una versión futura de la app agrega
+el paso (ver nota similar sobre este mismo punto en `HomePage.cerrar_turno`).
+
+## 🤔 Módulo 12: denegar ubicación NO muestra ningún diálogo propio de la app (a diferencia de cámara)
+
+**Estado: confirmado en recon y por pytest (2026-07-16) — a confirmar con
+Pedro si es un gap de UX real a reportar o simplemente el diseño esperado.**
+
+El checklist (12.1/12.2) describe, para cuando se deniega el permiso de
+ubicación, un "diálogo explicativo en pantalla" (primera negación) y un
+"diálogo con enlace directo a Ajustes del sistema" (negación permanente) —
+en ambos casos, de la PROPIA app. El recon confirmó que NINGUNO de los dos
+existe en este build: tras denegar (una o varias veces), la app entra
+directo a Home sin ningún aviso propio, ni al momento de la negación ni al
+volver a abrir la app después.
+
+**Esto contrasta directamente con el permiso de cámara** (9.6, 12.3): ahí sí
+existe un diálogo propio real ("Permiso de cámara requerido", con botones
+"Cancelar"/"Abrir configuración") cuando se deniega. Ubicación no tiene un
+equivalente — el resultado es una degradación completamente silenciosa:
+
+- La Vista Lista pierde el segmento de distancia de cada fila (formato pasa
+  de `"...{Placa}\n{Tiempo}\n{Distancia}"` a `"...{Placa}"`, sin ningún
+  indicador de por qué falta).
+- El botón "Check-In Asistido" queda `clickable="false"` (mismo patrón
+  silencioso que "fuera de proximidad", módulo 8) sin ningún banner que lo
+  explique — a diferencia de "fuera de proximidad", que sí muestra el texto
+  "Estás a X m del espacio".
+- El chip "GPS" del topbar es visualmente indistinguible por accesibilidad
+  entre "permiso concedido" y "permiso denegado" (mismo `content-desc="GPS"`
+  en ambos casos) — esto también resuelve la duda pendiente del hallazgo de
+  5.2 sobre el estado del chip inactivo.
+
+**Por qué podría importar:** un operador que denegó ubicación por error (o
+que perdió el permiso por alguna razón del sistema) no tiene ninguna señal
+de la app para darse cuenta de que ese es el motivo por el que no puede
+hacer check-in — lo vería simplemente como un botón que no responde, sin
+poder auto-diagnosticar la causa. `tests/test_12_permisos.py::
+test_12_1_ubicacion_denegada_primera_vez` y `test_12_2_ubicacion_denegada_permanente`
+validan el comportamiento REAL (silencioso), no el del checklist.
+
+**Detalle técnico adicional:** en este ambiente, Android marca el permiso de
+ubicación con la flag `USER_FIXED` (no vuelve a preguntar) tras UNA sola
+negación — no hicieron falta dos, como en versiones más viejas de Android.
+Confirmado con `adb shell dumpsys package <pkg>`.
+
+## 🐛 Chip "En línea" del topbar no refleja la pérdida real de conectividad
+
+**Estado: confirmado por pytest y por recon dirigido (2026-07-17) — prioridad
+media (riesgo operativo: falsa sensación de que todo está sincronizando).**
+
+Al automatizar el módulo 13 (Resiliencia), se confirmó que el chip "En línea"
+del topbar se queda mostrando ese estado **indefinidamente**, incluso con el
+dispositivo genuinamente sin red. Se verificó primero a nivel de sistema que
+el corte de red es real (no un artefacto del test): con `svc wifi disable` +
+`svc data disable`, `adb shell dumpsys connectivity` reportó `Active default
+network: none`, `mobile_data=0` y un `ping 8.8.8.8` devolvió `Network is
+unreachable`. Pese a eso, el chip "En línea" (accessibility id exacto) se
+mantuvo visible:
+
+- Esperando hasta 60s en foreground sin ninguna interacción.
+- Tras un ciclo completo background→foreground (`driver.background_app()`,
+  el mismo mecanismo que sí refresca el estado de permisos en 12.4) — acá NO
+  tuvo efecto, a diferencia de permisos.
+
+**Por qué importa:** un operador que pierde conectividad real (wifi/datos
+caídos) no tiene NINGUNA señal en el topbar de que la app dejó de estar
+sincronizada con el backend — sigue viendo "En línea" de forma indefinida.
+Esto es más grave que el patrón de "degradación silenciosa" ya visto en
+otros módulos (proximidad, permisos): ahí al menos un botón se bloquea
+(`clickable=false`); acá el indicador explícitamente pensado para esto
+muestra información falsa en vez de ausente.
+
+**Nota:** `tests/test_5_topbar.py::test_5_4_chip_conexion_refleja_desconexion`
+(módulo 5, dado por confirmado en la sesión 2026-07-07) también falla hoy
+con este mismo síntoma — no se investigó si el comportamiento cambió entre
+sesiones o si 5.4 nunca llegó a correr limpio por pytest pese a estar
+marcado como tal; revisar con Pedro. `tests/test_13_resiliencia.py::
+test_13_1_perdida_de_red_en_home_conserva_espacios` valida el comportamiento
+REAL (el chip se queda en "En línea" pese a estar offline) en vez del
+esperado por el checklist ("chips reflejan estado offline").
+
+## 🔧 Módulo 12: restaurar un permiso concedido en caliente no alcanza sin un evento de ciclo de vida (background→foreground)
+
+**Estado: confirmado en recon y por pytest (2026-07-16) — no bloquea nada,
+es información útil para reportar a devs sobre cómo se refresca el permiso.**
+
+Tras conceder de nuevo un permiso previamente denegado (`pm grant`, que
+simula "conceder en Ajustes del sistema"), el estado de la UI de la app
+(botones bloqueados, distancia faltante en Lista) **no se actualiza solo**
+mientras la app sigue en foreground — el estado cacheado del lado de
+Flutter (`permission_handler`) no se refresca hasta un evento real de ciclo
+de vida. Confirmado: enviar la app a background y volver a traerla al
+frente (`driver.background_app()`) sí dispara el refresco y desbloquea de
+inmediato las acciones. Esto coincide exactamente con el flujo real que
+describe el checklist 12.4 ("Conceder en Ajustes del SO → regresar a la
+app"), así que no es un bug — pero vale la pena que devs lo tengan en
+cuenta si alguna vez cambian el mecanismo de refresco de permisos (p.ej. un
+listener de `AppLifecycleState.resumed` explícito en vez de depender de que
+el usuario vuelva a la app manualmente).

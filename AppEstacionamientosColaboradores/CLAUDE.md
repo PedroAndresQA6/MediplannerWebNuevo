@@ -15,12 +15,15 @@ convivan en el mismo repo `MediplannerWebNuevo`.
 
 ## 0. Referencia — portal / credenciales
 
-- **Portal web** (aún NO se automatiza, solo referencia futura):
-  `https://nestacionamientos-dev-62084190654.us-central1.run.app/index.php/usuarios`
+- **Portal web** (automatización con Playwright iniciada 2026-07-17, ver
+  sección 6 abajo): `https://nestacionamientos-dev-62084190654.us-central1.run.app/`
+  — el login vive en `/index.php/login` (`/index.php/usuarios` redirige ahí
+  si no hay sesión: es el guard de auth, NO la pantalla "Usuarios" del menú
+  ADMINISTRACIÓN). Tras loguear, redirige a `/index.php/dashboard`.
 - **Credenciales de prueba** (sirven para portal y para la app): confirmadas
   por Pedro, ya cargadas como default en `Appium/conftest.py` (fixture
-  `credenciales`), overridable por `ESTACIONAMIENTOS_EMAIL` /
-  `ESTACIONAMIENTOS_PASSWORD`.
+  `credenciales`) y en `Playwright/tests/auth.setup.ts`, overridable por
+  `ESTACIONAMIENTOS_EMAIL` / `ESTACIONAMIENTOS_PASSWORD`.
 
 ## 1. Setup obligatorio ANTES de correr cualquier test
 
@@ -252,6 +255,17 @@ Todo lo siguiente ya está resuelto en `conftest.py`/`config.py`/`base_page.py`
   vuelca el logcat COMPLETO a `reports/monitor/*_logcat_completo.txt` apenas
   detecta un crash, no solo las líneas que matchean el patrón. Si vuelve a
   pasar, ese archivo tiene el contexto completo para reportarlo a devs.
+- **`UnicodeEncodeError` al redirigir la salida de pytest a un archivo en
+  Windows (descubierto 2026-07-17).** El resumen de `crash_monitor`
+  (`_imprimir_resumen`) imprime emojis/box-drawing (`═`, `📊`, etc.). Con
+  stdout interactivo (terminal) Windows lo maneja bien, pero al redirigir
+  (`pytest ... > out.txt`, patrón usado para capturar corridas largas o para
+  que otro proceso lea el resultado — ver sección 6 abajo) Python cae al
+  encoding por default del sistema (`cp1252` en Windows), que no puede
+  codificar esos caracteres y tira `UnicodeEncodeError` en pleno teardown,
+  agregando un `ERROR` aparte del resultado real del test. Fix: `conftest.py`
+  fuerza `sys.stdout.reconfigure(encoding="utf-8", errors="replace")` al
+  importar (no-op si stdout ya es UTF-8, disponible desde Python 3.7).
 
 ## 5. Qué esperar a futuro
 
@@ -262,3 +276,146 @@ Todo lo siguiente ya está resuelto en `conftest.py`/`config.py`/`base_page.py`
   evidencia (`assert_visible` / `tomar_screenshot`) ante un fallo.
 - Preferir varios tests chicos con lógica en el page object antes que un test
   único gigante, cuando el flujo de negocio tenga pasos independientes entre sí.
+
+## 6. Portal web (Playwright) — `Playwright/` (iniciado 2026-07-17)
+
+Suite Playwright para el **portal admin** del mismo sistema de
+estacionamientos ("Querétaro con Futuro" / Sistema de Gestión de
+Estacionamiento), en `AppEstacionamientosColaboradores/Playwright/`. Es la
+contraparte WEB de la app móvil de este mismo proyecto — **mismas
+credenciales** (ver sección 0), pero un producto/superficie totalmente
+distinta (panel de administración, no la app del operador en campo). No
+comparte page objects ni specs con Mediplanner ni con la suite Appium.
+
+**Por qué carpeta propia sin `package.json`/`node_modules` propios:** mismo
+patrón que `Mediplanner Staging/` y `Mediplanner produccion/` en la raíz del
+repo — reutiliza el Playwright ya instalado en la raíz (`npx playwright test`
+resuelve `node_modules` subiendo el árbol de directorios), solo con su propio
+`playwright.config.js` (`testDir: './tests'`, `baseURL` propio) y su propio
+`storageState.json` local (no compartido con Mediplanner). Correr siempre con
+CWD = `AppEstacionamientosColaboradores/Playwright/`.
+
+### Recon inicial (2026-07-17)
+
+- **Login real vive en `/index.php/login`** (no en `/index.php/usuarios`
+  como sugería la referencia original de la sección 0 — esa URL redirige a
+  `/login` si no hay sesión: es el guard de auth). Campos: `input[type=email]`
+  ("Correo institucional"), `input[type=password]` ("Contraseña"), botón
+  `button[type=submit]` con texto "Iniciar sesión". Link "¿Olvidaste tu
+  contraseña?" → `/index.php/recuperar` (no mapeado aún).
+- **Tras login exitoso, redirige a `/index.php/dashboard`** ("Panel de
+  control"). Confirmado con `auth.setup.ts` (guarda `storageState.json`,
+  mismo patrón que `Mediplanner Staging/Tests_Staging/auth.setup.ts`).
+- **Dashboard**: 6 tarjetas KPI (Cajones activos, Ocupados ahora, Fuera de
+  tiempo, Usos activos, Estacionamientos públicos, Infracciones hoy) + un
+  sidebar de 19 links agrupados en 5 secciones: PRINCIPAL (Dashboard,
+  Monitoreo en tiempo real, Consultas de placas), VÍA PÚBLICA (Zonas, Tramos,
+  Cajones (pintar), Perfiles horarios, Días festivos), ESTACIONAMIENTOS
+  PÚBLICOS (Estacionamientos, Cámaras, Atributos (catálogo), Oferta pública
+  (mapa)), SUPERVISIÓN (Infracciones, Reportes), ADMINISTRACIÓN (Usuarios,
+  Roles y permisos, Configuración, Apps y llaves API, API (documentación)).
+- **Ojo:** el propio dashboard aclara en pantalla *"Este es el andamiaje base
+  del sistema. Los módulos operativos... están enrutados y listos para
+  implementarse uno por uno."* — es decir, no asumir que cada sección del
+  menú tiene funcionalidad completa solo porque el link existe y navega; hay
+  que reconar cada módulo antes de escribirle tests reales (mismo criterio
+  "recon antes de automatizar" que en la suite Appium).
+
+### Estructura y convenciones
+
+- `playwright.config.js`: un `project` por spec (mismo patrón que
+  `Mediplanner Staging/playwright.config.js`) —
+  - **`setup`**: corre `*.setup.ts` (`auth.setup.ts`), genera `storageState.json`.
+  - **`recon`**: matchea `recon.*.spec.ts`, SIN `storageState` ni dependencia
+    de `setup` (login manual dentro del propio test) — para exploración
+    inicial de una pantalla nueva antes de mapearla en serio. Se conservan
+    como referencia (mismo criterio que `vacunacion.explorar.spec.ts` en
+    Mediplanner): `recon.secciones.spec.ts` (recorrido de las 8 secciones
+    candidatas del sidebar), `recon.detalle.spec.ts` (toggle Mapa +
+    formulario de infracción), `recon.recuperar.spec.ts` (validaciones de
+    login + recuperar contraseña), `recon.login.spec.ts` (primer login).
+  - **`login-sesion`**: matchea `login-sesion.spec.ts`, SIN `storageState`
+    (cada test arranca de un contexto limpio — están probando el formulario
+    de login/sesión desde cero, no tendría sentido arrastrar sesión).
+  - **`explorar`**, **`disponibilidad`**, **`infracciones`**,
+    **`estacionamientos`**: cada uno matchea su spec homónimo, dependen de
+    `setup` y usan `storageState.json`.
+  - **`combinado`**: matchea `combinado.*.spec.ts`, depende de `setup`,
+    timeout largo (300s) porque orquesta subprocesos de Appium (~1 min c/u).
+  - Agregar un `project` nuevo por cada módulo nuevo que se automatice en
+    serio (no reusar uno existente para todo).
+- Credenciales: `ESTACIONAMIENTOS_EMAIL` / `ESTACIONAMIENTOS_PASSWORD` (mismo
+  nombre de variable que usa la suite Appium), default
+  `fernando@rym-solutions.com` / `RYM_solutions` si no están seteadas.
+- `e2e/utils.ts`: helper compartido `login(page, email?, password?)` /
+  `logout(page)` / `assertLoggedIn(page)` — usarlo en vez de repetir el flujo
+  de login inline en cada spec nuevo.
+- Correr: `cd AppEstacionamientosColaboradores/Playwright && npx playwright test --project=<nombre>`.
+- `storageState.json` y `test-results/` son locales, no commitear (ya
+  cubiertos por los patrones genéricos `**/storageState.json` y
+  `**/test-results/` del `.gitignore` raíz).
+
+### Módulos del checklist de operador adaptados al portal (2026-07-17)
+
+Mapeo del checklist de 74 casos (`checklist_qa_operador.html`, pensado para
+la app móvil del operador) a sus equivalentes reales en el portal admin —
+**solo se automatizaron los casos con una contraparte real confirmada por
+recon**, no se forzó ningún mapeo especulativo:
+
+| Spec | Casos del checklist cubiertos | Pantalla real |
+|---|---|---|
+| `login-sesion.spec.ts` | S1, S2, S8, 3.1, 3.2, 3.3, 4.1-4.6, 5.6 | `/index.php/login`, `/recuperar` |
+| `dashboard.explorar.spec.ts` | S3 (adaptado) | `/index.php/dashboard` |
+| `disponibilidad.spec.ts` | 6.2, 6.4, 6.10, 7.5, 7.8 | `/index.php/disponibilidad` (toggle "Mapa" de Estacionamientos) |
+| `estacionamientos.spec.ts` | 6.6, 6.11, 7.6, 7.7 | `/index.php/estacionamientos` |
+| `infracciones.spec.ts` | 10.1, 10.6, 10.7, 10.8, 10.9, 10.10 | `/index.php/infracciones/nueva` |
+| `combinado.checkin-web.spec.ts` | (no es un caso del checklist) | check-in real vía Appium → verificado en `/disponibilidad` |
+
+**Explícitamente NO aplican al portal** (acción física de operador de campo
+sin equivalente en un panel de escritorio, o UI que no existe en este
+portal): módulo 8 completo (check-in con GPS), módulo 9 (liberar/reportar
+con proximidad — su equivalente real ya está cubierto por Infracciones),
+módulo 11 (cierre de turno — no existe el concepto de "turno" para un
+admin), módulo 12 (permisos nativos Android), módulo 13 (ciclo de vida app
+móvil + tracking GPS), 5.1-5.5 (chips GPS/turno no existen en este topbar),
+6.1/6.3/6.9 (pines de Google Maps sin identificador de accesibilidad, misma
+limitación ya documentada para la app móvil), 6.5/6.7/6.8/6.12, 7.1-7.4/7.9,
+10.2-10.5/10.11 (cámara/GPS nativos).
+
+**Varios de estos tests documentan comportamiento REAL que difiere del
+checklist** (mismo criterio que la suite Appium: validar lo que pasa de
+verdad, no lo ideal) — ver `HALLAZGOS.md` para el detalle: el formulario de
+infracción no exige foto, un segundo reporte no avisa duplicidad, "Levantar
+falta" no preselecciona motivo, y el envío sin red pierde los datos (no hay
+manejo AJAX del error).
+
+### Test combinado app móvil + portal web
+
+`combinado.checkin-web.spec.ts` es el primer escenario de punta a punta que
+cruza ambas suites: dispara un check-in real desde la app móvil (subproceso
+`python -m pytest` sobre `Appium/tests/test_combo_web_app.py`, que expone
+`test_combo_ocupar_espacio` y `test_combo_liberar_espacio`) y confirma desde
+Playwright que `/disponibilidad` refleja el cambio de inmediato (mismo
+backend/zona "Primer Cuadro"). Requiere el emulador Android + servidor
+Appium (puerto 4723) corriendo ANTES de invocar este project — no los
+levanta por sí solo. Placa de prueba dedicada: `TESTCOMBO` (9 caracteres,
+dentro del límite de 10 visto en el campo `placa` del formulario web —
+usar una placa más larga hizo que CONFIRMAR se colgara en la app móvil sin
+avisar, no vale la pena reproducir ese problema con otra placa).
+
+**Patrón para escenarios cruzados futuros:** helper `correrPytest(testId,
+extraEnv)` en el propio spec (usa `child_process.execFileSync`, con
+`ANDROID_HOME`/`PATH` inyectados explícitamente porque el proceso Node de
+Playwright no hereda el entorno de shell donde se exportaron a mano) — el
+test de Appium debe imprimir un marcador parseable (`COMBO_CODIGO:.../
+COMBO_PLACA:...`) en stdout para pasarle datos de vuelta a Playwright.
+Reintentar la limpieza (liberar/revertir) un par de veces antes de darla por
+perdida: el diálogo "Liberar espacio" puede tardar en montarse (gotcha ya
+documentado en `HomePage.liberar_espacio_actual`), y un solo intento fallido
+de limpieza puede dejar datos de prueba ocupando un cajón real en dev.
+
+**Pendiente / próximos pasos:** decidir con Pedro si vale la pena profundizar
+en Zonas/Cajones/Usuarios (quedaron fuera de alcance por ahora, sin un
+mapeo claro a un caso específico del checklist de operador) o si el foco
+pasa a casos de administración propios del portal (fuera del checklist
+original, que fue escrito solo para el operador de campo).
