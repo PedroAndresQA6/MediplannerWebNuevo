@@ -39,6 +39,21 @@ class HomePage(BasePage):
     OPCION_CERRAR_TURNO = (AppiumBy.ACCESSIBILITY_ID, "Cerrar turno")
     BOTON_CONFIRMAR_CERRAR_TURNO = (AppiumBy.ACCESSIBILITY_ID, "CONFIRMAR Y CERRAR TURNO")
 
+    # ── Cierre de turno: pantalla de resumen (recon módulo 11, 2026-07-16) ────
+    # Confirmado: NO existe paso de firma antes de confirmar (a diferencia de
+    # lo que describe el checklist en 11.7/11.8) — CONFIRMAR Y CERRAR TURNO
+    # es clickeable directo apenas carga el resumen. Ver también el docstring
+    # de `cerrar_turno` más abajo.
+    TITULO_CIERRE_TURNO = (AppiumBy.ACCESSIBILITY_ID, "Cierre de turno")
+    BOTON_EXPORTAR_BITACORA = (AppiumBy.ACCESSIBILITY_ID, "EXPORTAR BITÁCORA")
+    OPCION_GUARDAR_EN_DISPOSITIVO = (AppiumBy.ACCESSIBILITY_ID, "Guardar en dispositivo")
+    OPCION_COMPARTIR_BITACORA = (AppiumBy.ACCESSIBILITY_ID, "Compartir")
+    ERROR_CARGA_RESUMEN = (
+        AppiumBy.XPATH,
+        '//android.view.View[contains(@content-desc, "No se pudo cargar el resumen")]',
+    )
+    BOTON_REINTENTAR_RESUMEN = (AppiumBy.ACCESSIBILITY_ID, "Reintentar")
+
     # ── Vista Lista: chips de filtro (el badge de conteo es parte del mismo
     # content-desc, p.ej. "Libres\n9" — SIEMPRE usar `contains`, nunca
     # comparación exacta, porque el número cambia con los datos reales) ───────
@@ -122,6 +137,58 @@ class HomePage(BasePage):
     # configuración" — y NO navega a la pantalla de reporte (checklist 9.6).
     DIALOGO_PERMISO_CAMARA_TITULO = (AppiumBy.ACCESSIBILITY_ID, "Permiso de cámara requerido")
     DIALOGO_PERMISO_CAMARA_CANCELAR = (AppiumBy.ACCESSIBILITY_ID, "Cancelar")
+
+    # ── Pantalla de Reporte (recon módulo 10, 2026-07-16) ─────────────────
+    # Se abre desde LEVANTAR REPORTE del sidebar de un ocupado. Catálogo real
+    # confirmado (7 motivos, todos `android.view.View` clickable sin
+    # `checked`/`selected` expuesto — Flutter no mapea el estado de selección
+    # visual a accesibilidad, mismo tipo de limitación que los colores del
+    # módulo 6): "Fuera de tiempo", "Placa no coincide", "Mal estacionado",
+    # "Zona prohibida", "Sin registro (no escaneó QR)", "Obstrucción", "Otro".
+    TITULO_TIPO_REPORTE = (AppiumBy.ACCESSIBILITY_ID, "TIPO DE REPORTE")
+    MOTIVO_FUERA_DE_TIEMPO = (AppiumBy.ACCESSIBILITY_ID, "Fuera de tiempo")
+    MOTIVO_PLACA_NO_COINCIDE = (AppiumBy.ACCESSIBILITY_ID, "Placa no coincide")
+    MOTIVO_MAL_ESTACIONADO = (AppiumBy.ACCESSIBILITY_ID, "Mal estacionado")
+    MOTIVO_ZONA_PROHIBIDA = (AppiumBy.ACCESSIBILITY_ID, "Zona prohibida")
+    MOTIVO_SIN_REGISTRO = (AppiumBy.ACCESSIBILITY_ID, "Sin registro (no escaneó QR)")
+    MOTIVO_OBSTRUCCION = (AppiumBy.ACCESSIBILITY_ID, "Obstrucción")
+    MOTIVO_OTRO = (AppiumBy.ACCESSIBILITY_ID, "Otro")
+    CAMPO_PLACA_OBSERVADA = (
+        AppiumBy.XPATH,
+        '//android.view.View[@content-desc="PLACA OBSERVADA"]/following-sibling::android.widget.EditText[1]',
+    )
+    CONTADOR_FOTOS_REPORTE = (AppiumBy.XPATH, '//android.view.View[contains(@content-desc, "fotos")]')
+    BOTON_CAMBIAR_CAMARA = (AppiumBy.ACCESSIBILITY_ID, "Cambiar cámara")
+    # El obturador no tiene content-desc propio (NAF en el dump) — se ubica
+    # por posición relativa a 'Cambiar cámara', su vecino con label real, en
+    # vez de bounds absolutos (resolución-independiente).
+    BOTON_CAPTURAR_FOTO = (
+        AppiumBy.XPATH,
+        '//android.view.View[@content-desc="Cambiar cámara"]/preceding-sibling::android.view.View[@clickable="true"][1]',
+    )
+    BOTON_ENVIAR_REPORTE = (AppiumBy.ACCESSIBILITY_ID, "ENVIAR REPORTE AL BACKOFFICE")
+    AVISO_REPORTE_PREVIO = (
+        AppiumBy.XPATH,
+        '//android.view.View[contains(@content-desc, "ya tiene un reporte")]',
+    )
+
+    def contador_fotos_reporte(self, timeout=5):
+        """Lee 'N fotos' -> N. Devuelve None si no encuentra el contador."""
+        import re
+        elems = self.buscar_elementos(self.CONTADOR_FOTOS_REPORTE, timeout)
+        if not elems:
+            return None
+        m = re.search(r"(\d+)\s*fotos", elems[0].get_attribute("content-desc") or "")
+        return int(m.group(1)) if m else None
+
+    def tomar_foto_reporte(self):
+        """Toca el obturador de la pantalla de Reporte (cámara del emulador,
+        produce una imagen real — el AVD sí simula una cámara virtual, ver
+        HALLAZGOS.md sobre 10.11). Espera un poco: la captura no es
+        instantánea y tocar de nuevo demasiado rápido no siempre suma una
+        foto nueva (recon 2026-07-16)."""
+        self.hacer_click(self.BOTON_CAPTURAR_FOTO)
+        time.sleep(2)
 
     def esta_cargado(self, timeout=15):
         # Chequeo defensivo: el mapa pide GPS al cargar y puede disparar el

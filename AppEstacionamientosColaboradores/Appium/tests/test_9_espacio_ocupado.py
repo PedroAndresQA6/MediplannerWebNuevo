@@ -322,7 +322,7 @@ def test_9_6_reporte_sin_permiso_camara(sesion_limpia, device_name, login_page, 
         _abrir_un_espacio_ocupado(home_page)
 
         home_page.hacer_click(home_page.BOTON_LEVANTAR_REPORTE)
-        assert home_page.denegar_popup_permiso_camara(timeout=8), (
+        assert home_page.denegar_popup_permiso_nativo(timeout=8), (
             "No apareció el popup nativo de permiso de cámara al tocar LEVANTAR REPORTE "
             "sin el permiso otorgado"
         )

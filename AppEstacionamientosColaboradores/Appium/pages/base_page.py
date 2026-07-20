@@ -345,17 +345,20 @@ class BasePage:
             self.logger.warning(f"Popup de permiso de ubicación detectado pero no se pudo tocar el botón: {e}")
             return False
 
-    def denegar_popup_permiso_camara(self, timeout=5):
-        """Maneja el popup NATIVO de Android que pide acceso a cámara (p.ej.
-        al tocar LEVANTAR REPORTE, módulo 9) y elige 'No permitir', a
-        diferencia de `manejar_popup_permiso_ubicacion` que siempre acepta.
-        Recon (2026-07-09): el botón de rechazo aparece como
-        `permission_deny_button` la primera vez que Android pregunta, pero
-        como `permission_deny_and_dont_ask_again_button` en preguntas
-        posteriores dentro de la misma instalación — `contains` sobre
-        "permission_deny" cubre ambos casos sin depender de cuál sea. A
-        diferencia del popup de ubicación, este SÍ espera de forma bloqueante
-        (con `timeout`) porque el caso de uso (9.6) depende de que aparezca."""
+    def denegar_popup_permiso_nativo(self, timeout=5):
+        """Maneja CUALQUIER popup NATIVO de Android que pida un permiso
+        runtime (cámara: módulo 9; ubicación: módulo 12) y elige 'No
+        permitir', a diferencia de `manejar_popup_permiso_ubicacion` que
+        siempre acepta. Recon (2026-07-09, cámara) y (2026-07-16, ubicación):
+        el botón de rechazo aparece como `permission_deny_button` la primera
+        vez que Android pregunta, pero como
+        `permission_deny_and_dont_ask_again_button` en preguntas posteriores
+        dentro de la misma instalación — `contains` sobre "permission_deny"
+        cubre ambos casos sin depender de cuál sea, y el resource-id es de
+        AOSP (`com.android.permissioncontroller`), no depende del tipo de
+        permiso. A diferencia del popup de ubicación que siempre acepta, este
+        SÍ espera de forma bloqueante (con `timeout`) porque los casos de uso
+        que lo llaman (9.6, 12.1, 12.3) dependen de que aparezca."""
         try:
             elems = WebDriverWait(self.driver, timeout).until(
                 lambda d: d.find_elements(AppiumBy.XPATH, '//*[contains(@resource-id, "permission_deny")]')
@@ -364,11 +367,11 @@ class BasePage:
             return False
         try:
             elems[0].click()
-            self.logger.info("Popup de permiso de cámara detectado: elegido 'No permitir'")
+            self.logger.info("Popup de permiso nativo detectado: elegido 'No permitir'")
             time.sleep(0.5)
             return True
         except Exception as e:
-            self.logger.warning(f"Popup de permiso de cámara detectado pero no se pudo tocar el botón: {e}")
+            self.logger.warning(f"Popup de permiso nativo detectado pero no se pudo tocar el botón: {e}")
             return False
 
     def ocultar_keyboard(self):

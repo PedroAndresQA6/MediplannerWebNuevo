@@ -7,6 +7,16 @@ import json
 import subprocess
 from appium import webdriver
 
+# El resumen de crash_monitor imprime emojis/box-drawing (═, 📊, etc.). Con
+# stdout interactivo (terminal) Windows ya lo maneja bien, pero al
+# redirigir la salida a un archivo (`pytest ... > out.txt`) Python cae al
+# encoding por default del sistema (cp1252 en Windows), que no puede
+# codificar esos caracteres y tira `UnicodeEncodeError` en pleno teardown
+# -- tumbando el test con un ERROR aparte del resultado real. `reconfigure`
+# está disponible desde Python 3.7; no hace nada si stdout ya es UTF-8.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from config import APP_PACKAGE, AVD_NAME, TIMEZONE, get_driver_options
