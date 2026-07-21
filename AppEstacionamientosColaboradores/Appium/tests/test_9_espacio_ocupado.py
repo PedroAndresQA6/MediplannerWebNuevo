@@ -146,13 +146,6 @@ def test_9_3_liberar_espacio_confirmar(sesion_limpia, login_page, home_page, cre
 
 
 @pytest.mark.smoke
-@pytest.mark.xfail(
-    reason="BUG confirmado 2026-07-09 (ver HALLAZGOS.md): 'Cancelar' en el diálogo "
-    "de liberar espacio libera igual el espacio en el backend — descartado el "
-    "falso positivo de filtros acumulativos (se limpia el chip de ocupado activo "
-    "antes de chequear 'Libres') y reproducido en dos corridas limpias distintas.",
-    strict=True,
-)
 def test_9_4_liberar_espacio_cancelar(sesion_limpia, login_page, home_page, credenciales):
     """9.4: Liberar → Cancelar debería dejar el espacio sin cambios (sigue
     ocupado) — ese es el comportamiento que este test intenta verificar.
@@ -161,11 +154,20 @@ def test_9_4_liberar_espacio_cancelar(sesion_limpia, login_page, home_page, cred
     ya soporta `confirmar=False` para esto). Limpieza: libera de verdad al
     final para no dejar el espacio de prueba huérfano en dev.
 
-    Marcado `xfail(strict=True)`: el comportamiento REAL confirmado en recon
-    es que 'Cancelar' libera el espacio de todas formas (mismo efecto que
-    'Liberar') — ver HALLAZGOS.md. Si algún día se corrige, este test pasa a
-    XPASS y `strict=True` lo hace fallar la corrida, señal para actualizar
-    este marcador."""
+    CORREGIDO (recon manual 2026-07-21, ver HALLAZGOS.md): este test estuvo
+    marcado `xfail(strict=True)` desde el 2026-07-09 asumiendo un bug real
+    ("Cancelar" libera el espacio igual). Una exploración manual con capturas
+    de pantalla en cada tap (coordenadas exactas del botón 'Cancelar' vía
+    dump, sin ambigüedad de click) confirmó que la app SÍ se comporta bien:
+    el espacio se queda ocupado. El falso positivo estaba en el propio
+    harness: `codigos_de_espacios_visibles()` matcheaba por
+    `contains(@content-desc, "CJ-")` sin exigir que fuera una fila real de la
+    tabla — y el sidebar del espacio, que se queda ABIERTO tras cancelar el
+    diálogo (Cancelar solo cierra el diálogo, no el sidebar), tiene un título
+    de una sola línea ("ESPACIO {código}") que también matcheaba ese xpath.
+    Se corrigió el helper para exigir contenido multilínea (patrón real de
+    una fila: 'Libre\\nCJ-1-...\\n16 de septiembre\\n— sin —\\n9 m') — con
+    eso, este test pasa de forma consistente."""
     login_page.login(credenciales["email"], credenciales["password"])
     try:
         assert home_page.esta_cargado(timeout=30), "Home no cargó tras el login"
@@ -191,13 +193,11 @@ def test_9_4_liberar_espacio_cancelar(sesion_limpia, login_page, home_page, cred
         )
         home_page.liberar_espacio_actual(confirmar=False)
 
-        # OJO (hallazgo real al escribir este test, 2026-07-09): el filtro de
-        # ocupado usado por `ubicar_y_abrir_ocupado` (p.ej. 'Vigentes') queda
-        # ACTIVO. Como los chips son acumulativos (módulo 7), activar 'Libres'
-        # sin desactivarlo antes muestra la UNIÓN de ambos — y el espacio, que
-        # sigue genuinamente ocupado, aparece igual por culpa de 'Vigentes',
-        # dando un falso positivo de "se liberó pese a cancelar". Limpiarlo
-        # primero evita ese falso positivo (ver `limpiar_filtro_ocupado_activo`).
+        # Buena higiene (chips acumulativos, módulo 7): desactivar el filtro
+        # de ocupado que dejó activo `ubicar_y_abrir_ocupado` antes de leer
+        # 'Libres' solo. Ya no es la causa del falso positivo que se creía
+        # (ver docstring): eso venía del título del sidebar, que sigue
+        # abierto y que `codigos_de_espacios_visibles()` ya filtra bien.
         home_page.limpiar_filtro_ocupado_activo()
         home_page.ir_a_lista()
         home_page.hacer_click(home_page.FILTRO_LIBRES)

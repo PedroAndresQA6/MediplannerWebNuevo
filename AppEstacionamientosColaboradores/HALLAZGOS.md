@@ -263,35 +263,37 @@ horas por un problema de limpieza de la suite (ver housekeeping en
 situación anómala y no representativo de un turno recién iniciado. Confirmar
 con un turno fresco antes de reportarlo formalmente.
 
-## 🐛 'Cancelar' en el diálogo de liberar espacio libera igual el espacio
+## ❌ RETRACTADO: 'Cancelar' en el diálogo de liberar espacio NO libera el espacio (era un falso positivo del test)
 
-**Estado: confirmado, pendiente de reportar — prioridad ALTA (riesgo operativo real).**
+**Estado: descartado tras recon manual exhaustivo (2026-07-21) — el hallazgo
+original de abajo (2026-07-09, marcado "confirmado, prioridad ALTA") era un
+bug del harness de pruebas, no de la app.**
 
-En el sidebar de un espacio ocupado, tocar "Liberar espacio" abre un diálogo
-de confirmación ("¿Confirmas que el cajón {código} quedó libre? Se cerrará
-la ocupación vigente.") con dos botones: "Liberar" y "Cancelar". Se esperaría
-que "Cancelar" cierre el diálogo sin cambiar nada (checklist 9.4). En cambio,
-el recon (2026-07-09, módulo 9) confirmó que tocar "Cancelar" **libera el
-espacio de todas formas**: inmediatamente después, el espacio vuelve a
-aparecer en el filtro "Libres" de la Vista Lista, igual que si se hubiera
-tocado "Liberar".
+Se exploró el flujo a mano, paso a paso, con screenshot antes/después de
+cada tap y las coordenadas del botón "Cancelar" obtenidas por
+`uiautomator dump` (para descartar cualquier duda de que el click cayera
+sobre "Liberar" por error — ambos botones están a solo 16px de distancia).
+Resultado: **tocar "Cancelar" deja el espacio genuinamente ocupado** — no
+vuelve a aparecer en el filtro "Libres" de la Vista Lista.
 
-Se descartó un falso positivo del test: los chips de filtro son acumulativos
-(mismo hallazgo del módulo 7/8), así que se verificó explícitamente
-desactivando cualquier filtro de ocupado que hubiera quedado activo antes de
-revisar "Libres" — el resultado se mantuvo igual. Reproducido en dos corridas
-limpias independientes (una vía script de recon manual, otra vía
-`tests/test_9_espacio_ocupado.py::test_9_4_liberar_espacio_cancelar`, que
-quedó marcado `xfail(strict=True)` documentando este comportamiento). Dato
-curioso: justo después de tocar "Cancelar", el propio sidebar (antes de
-navegar) sigue mostrando el espacio como "Vigente"/ocupado — el cambio real
-solo se refleja al volver a la Vista Lista, sugiriendo una desincronización
-entre el estado local del sidebar y lo que de verdad quedó en el backend.
+**Causa real del falso positivo:** el helper `codigos_de_espacios_visibles()`
+(`pages/home_page.py`) ubicaba filas por `contains(@content-desc, "CJ-")`
+sin exigir que fuera una fila real de la tabla. El sidebar del espacio queda
+**abierto** después de cancelar el diálogo (Cancelar solo cierra el diálogo,
+no el sidebar) y su título ("ESPACIO {código}") es un content-desc de una
+sola línea que también matcheaba ese xpath — el helper lo contaba como si
+fuera una fila de "Libres", aunque la tabla real nunca lo mostró. Se
+confirmó cerrando el sidebar a mano: el falso positivo desaparece de
+inmediato. El intento de blindaje que tenía el test original
+(`limpiar_filtro_ocupado_activo()`, para descartar la teoría de "filtros
+acumulativos") no alcanzaba a cubrir esta causa distinta, por eso el bug
+pasó desapercibido en 2026-07-09.
 
-**Por qué importa (prioridad alta):** un operador que abre el diálogo de
-liberar por error y toca "Cancelar" pensando que no pasó nada en realidad
-está liberando un espacio ocupado — con el resto de la operación (turno,
-reportes, cobros asociados) reflejando una vacante que en la calle no existe.
+**Corregido:** `codigos_de_espacios_visibles()` ahora exige contenido
+multilínea (patrón real de una fila: `"Libre\nCJ-1-...\n16 de
+septiembre\n— sin —\n9 m"`) para descartar títulos sueltos de un solo
+renglón. `test_9_4_liberar_espacio_cancelar` ya no está marcado `xfail` y
+pasa de forma consistente. Ver docstring del test para el detalle completo.
 
 ## 🤔 Contador de "Duración" del turno con valor inconsistente (a confirmar si es dato de prueba)
 
@@ -420,10 +422,41 @@ ubicación con la flag `USER_FIXED` (no vuelve a preguntar) tras UNA sola
 negación — no hicieron falta dos, como en versiones más viejas de Android.
 Confirmado con `adb shell dumpsys package <pkg>`.
 
-## 🐛 Chip "En línea" del topbar no refleja la pérdida real de conectividad
+## 🤔 CORREGIDO: el punto de color del chip "En línea" SÍ refleja la conectividad — solo el texto se queda fijo
 
-**Estado: confirmado por pytest y por recon dirigido (2026-07-17) — prioridad
-media (riesgo operativo: falsa sensación de que todo está sincronizando).**
+**Estado: corregido tras recon manual controlado (2026-07-21) — baja de
+"prioridad media, sin ninguna señal" a "cosmético, señal visual SÍ existe".**
+
+El hallazgo original (2026-07-17, ver historial más abajo) decía que el chip
+"En línea" no daba NINGUNA señal de la pérdida de conectividad. Un recon
+manual más controlado (arrancar con el punto ya estabilizado en VERDE
+confirmado, no recién booteado) mostró algo distinto:
+
+1. Con el chip en verde estable (red genuinamente activa) se cortó wifi+datos
+   (`svc wifi disable` + `svc data disable`), confirmado real con `dumpsys
+   connectivity` (`Active default network: none`) y `ping` inalcanzable.
+2. A los 15s, el **punto de color del chip pasó de verde a rojo** — sí
+   refleja el corte real.
+3. Al reactivar wifi+datos, el punto volvió a verde a los pocos segundos.
+
+Osea que el **color SÍ es una señal confiable** (ciclo verde→rojo→verde
+confirmado limpio). El problema real, más acotado: el **texto** del chip se
+queda fijo en "En línea" (content-desc exacto) incluso con el punto en rojo
+— no cambia a algo como "Sin conexión". Es una inconsistencia de copy/UI
+(rojo + "En línea" al mismo tiempo es confuso), no la ausencia total de
+señal que se había reportado.
+
+**Pendiente de reajustar:** `tests/test_13_resiliencia.py::
+test_13_1_perdida_de_red_en_home_conserva_espacios` y `tests/test_5_topbar.py
+::test_5_4_chip_conexion_refleja_desconexion` solo comprueban que el chip
+"En línea" (por accessibility id/texto) sigue *presente*, no el color del
+punto — por eso no habían detectado que el punto sí cambia. Si se quiere
+automatizar el chequeo de color, hace falta leer el color real del ícono
+(no visible por accesibilidad como texto), o aceptar que el texto fijo es el
+único hallazgo reportable a devs.
+
+<details>
+<summary>Redacción original del hallazgo (2026-07-17), reemplazada por lo de arriba</summary>
 
 Al automatizar el módulo 13 (Resiliencia), se confirmó que el chip "En línea"
 del topbar se queda mostrando ese estado **indefinidamente**, incluso con el
@@ -432,29 +465,11 @@ el corte de red es real (no un artefacto del test): con `svc wifi disable` +
 `svc data disable`, `adb shell dumpsys connectivity` reportó `Active default
 network: none`, `mobile_data=0` y un `ping 8.8.8.8` devolvió `Network is
 unreachable`. Pese a eso, el chip "En línea" (accessibility id exacto) se
-mantuvo visible:
+mantuvo visible, esperando hasta 60s en foreground y tras un ciclo completo
+background→foreground. **Corrección 2026-07-21:** esta redacción solo
+chequeaba presencia/texto, no el color del punto — el color sí cambiaba.
 
-- Esperando hasta 60s en foreground sin ninguna interacción.
-- Tras un ciclo completo background→foreground (`driver.background_app()`,
-  el mismo mecanismo que sí refresca el estado de permisos en 12.4) — acá NO
-  tuvo efecto, a diferencia de permisos.
-
-**Por qué importa:** un operador que pierde conectividad real (wifi/datos
-caídos) no tiene NINGUNA señal en el topbar de que la app dejó de estar
-sincronizada con el backend — sigue viendo "En línea" de forma indefinida.
-Esto es más grave que el patrón de "degradación silenciosa" ya visto en
-otros módulos (proximidad, permisos): ahí al menos un botón se bloquea
-(`clickable=false`); acá el indicador explícitamente pensado para esto
-muestra información falsa en vez de ausente.
-
-**Nota:** `tests/test_5_topbar.py::test_5_4_chip_conexion_refleja_desconexion`
-(módulo 5, dado por confirmado en la sesión 2026-07-07) también falla hoy
-con este mismo síntoma — no se investigó si el comportamiento cambió entre
-sesiones o si 5.4 nunca llegó a correr limpio por pytest pese a estar
-marcado como tal; revisar con Pedro. `tests/test_13_resiliencia.py::
-test_13_1_perdida_de_red_en_home_conserva_espacios` valida el comportamiento
-REAL (el chip se queda en "En línea" pese a estar offline) en vez del
-esperado por el checklist ("chips reflejan estado offline").
+</details>
 
 ## 🔧 Módulo 12: restaurar un permiso concedido en caliente no alcanza sin un evento de ciclo de vida (background→foreground)
 

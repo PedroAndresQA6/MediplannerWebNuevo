@@ -266,12 +266,25 @@ class HomePage(BasePage):
         filas visibles en la Vista Lista con el filtro actual aplicado.
         Útil para elegir un espacio de prueba sin hardcodear un código que
         puede no existir en la próxima corrida (los datos son de prueba y
-        rotan)."""
+        rotan).
+
+        OJO (falso positivo real encontrado en recon 2026-07-21, ver
+        HALLAZGOS.md): si el sidebar de un espacio sigue abierto (p.ej. justo
+        después de cancelar un diálogo, que no lo cierra), su título "ESPACIO
+        {código}" también matchea `contains(@content-desc, "CJ-")` aunque no
+        sea una fila de la lista — y quedaba mal reportado como si el espacio
+        apareciera en el filtro que se esté chequeando. Las filas reales
+        tienen un content-desc multilínea ('Libre\\nCJ-1-0362AE\\n16 de
+        septiembre\\n— sin —\\n9 m'); el título del sidebar es una sola
+        línea. Se descarta cualquier match sin salto de línea para evitar
+        ese falso positivo."""
         import re
         filas = self.buscar_elementos((AppiumBy.XPATH, '//android.view.View[contains(@content-desc, "CJ-")]'), timeout)
         codigos = []
         for fila in filas:
             desc = fila.get_attribute("content-desc") or ""
+            if "\n" not in desc:
+                continue
             m = re.search(r"CJ-[\w-]+", desc)
             if m:
                 codigos.append(m.group(0))
