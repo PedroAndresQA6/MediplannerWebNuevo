@@ -123,6 +123,9 @@ npx dotenv -e .env -- playwright test --project=doctor-consultation
 # Ingresos
 npx dotenv -e .env -- playwright test --project=ingresos
 
+# Dashboard (KPIs, calendario, corte de hoy, agenda, nuevos estudios)
+npx dotenv -e .env -- playwright test --project=dashboard
+
 # Un stress test puntual (ej. facturacion)
 npx dotenv -e .env -- playwright test --project=stress-facturacion
 
@@ -177,35 +180,23 @@ npx dotenv -e .env -- playwright test --project=vacunacion-explorar
 - **Vacunación** (`vacunacion-explorar`, `vacunacion-ciclo-completo`): porteada el 2026-06-25. Paciente fijado en ambos specs = **`Pedro Quijada Anaya`** (Agustin Tapia es de dev, NO existe en staging). `vacunacion-explorar` corrió OK (no destructivo). ✅ `vacunacion-ciclo-completo` **SÍ se ejecutó** — evidencia: `Mediplanner Staging/test-results/vac-ciclo-01-vacio.png` y `vac-ciclo-02-registrado.png`, generadas 2026-06-25 11:24-11:25 (poco después de escribirse esta sección, nunca se actualizó el estado aquí).
   - ⚠️ **Hallazgo sin documentar hasta ahora:** el mismo test destructivo también dejó evidencia de haberse corrido en **Producción** (`Mediplanner produccion/test-results/vac-ciclo-01-vacio.png` y `vac-ciclo-02-registrado.png`, generadas 2026-06-29 11:52, sobre el paciente **Agustin Tapia**). No estaba planeado en este documento — confirmar con Pedro si fue intencional, dado que borra dosis reales.
 
-### 🐛 Hallazgos de consulta en STAGING (3 corridas, 100% reproducible → bug de plataforma)
-1. **422 `POST /api/patients/getFilledForm` → "El campo relacion_id es requerido"**. Es el **mismo bug de dev**, confirmado que **también ocurre en staging**.
-2. **404 `POST /api/patients/getFilledForm` (×2) → "No se encontró el formulario asignado al paciente"**, al **finalizar la consulta** (+ `Error fetching formularios paciente: undefined`). **Nuevo en staging** (en dev se ve el 422, no este 404).
-- ✅ El indicador "sin guardar" (triángulo) de Lab/Procedimientos **NO se reproduce en staging** (en dev sí). Resto del flujo sólido.
-- 📄 Reporte: `Reporte_QA_Consulta_Staging_2026-06-25.pdf` (raíz).
+### ~~🐛 Hallazgos de consulta en STAGING~~ — solucionados por devs (confirmado por Pedro, 2026-07-21)
+~~422 `getFilledForm` "relacion_id es requerido"~~ y ~~404 `getFilledForm` "No se encontró el formulario asignado al paciente" al finalizar consulta~~ — ambos resueltos. El indicador "sin guardar" (triángulo) de Lab/Procedimientos **NO se reproduce en staging** (en dev sí). Resto del flujo sólido.
+- 📄 Reporte original: `Reporte_QA_Consulta_Staging_2026-06-25.pdf` (raíz).
 
 ### 🔁 Actualización 2026-07-14 — porteo del fix de wizard + rediseño de Ingresos verificado en staging
 
 Una sesión anterior (2026-07-09/10) ya había adaptado `Mediplanner Staging/e2e/utils.js` y los specs de `Tests_Staging/` al mismo rediseño de UI que se arregló en dev (wizard "Agendar cita" → "Confirmar cita" sin modal OK; calendario nuevo del Dashboard; dashboard de Ingresos con `rdt_TableRow`/"Registrar pago"), pero esos cambios habían quedado **sin commitear** y sin correr contra staging real. Hoy se corrieron ambas suites contra staging para confirmarlos:
 
-- **`doctor-consultation`: 2/2 pasan (3.1m).** Cita creada + consulta completa (signos vitales → exploración → diagnóstico → tratamiento → laboratorios → notas → servicios → finalización) de punta a punta. Confirma el 404 `getFilledForm` de arriba; el indicador "sin guardar" de Laboratorios sigue sin reproducirse.
+- **`doctor-consultation`: 2/2 pasan (3.1m).** Cita creada + consulta completa (signos vitales → exploración → diagnóstico → tratamiento → laboratorios → notas → servicios → finalización) de punta a punta. En su momento confirmó el 404 `getFilledForm` (ver arriba, ya solucionado); el indicador "sin guardar" de Laboratorios sigue sin reproducirse.
 - **`ingresos`: 3/3 pasan (1.1m).** Conteo de pendientes/pagados correcto con los selectores nuevos. El paso "Registrar pago" **no llegó a ejecutarse de punta a punta**: los 2 ingresos pendientes del ciclo resultaron "ya pagados" al abrir el detalle (mismo síntoma de flakiness ya documentado en dev — no es bug del test).
 - Se corrigió además un detalle del propio código de **dev** descubierto al portar: `irADiaEnCalendarioDashboard()` usaba `.first()` del botón "siguiente mes" (hay 2 en el DOM, el primero es decorativo) y el loop de días arrancaba en `dayOffset=1` asumiendo que "hoy" ya estaba visible. Corregido en ambos entornos.
 - **Commiteado:** `807fe43` (fix de calendario en dev) y `62e285c` (porteo completo a staging).
 
 **Plan ejecutado para generar un adeudo real:** se corrió `doctor-consultation` una 2ª vez (paciente Percentil Prueba Prueba, misma corrida ✅ 2/2) específicamente para dejar un nuevo cargo pendiente, y se corrió `ingresos` a continuación para procesarlo. Confirmado manualmente por Pedro (captura de la pantalla real de Ingresos en staging): sí hay adeudos reales sin pagar (2× $1,800.00, estatus "Pendiente", método "-") y el ícono del ojo lleva a su detalle — coincide con lo que hace `eyeButton` en el spec.
 
-### 🐛 Hallazgo nuevo — `DetallePagos` crashea con TypeError cuando el paciente no tiene datos fiscales (probable causa real del falso "ya pagado")
-
-En **todas** las corridas de `ingresos` (dev y staging, incluidas las de hoy) el paso "Registrar pago" reporta "ingreso ya pagado" — pero el ingreso está confirmado **sin pagar** (ver arriba). Al repetir la corrida contra staging con 3 pendientes reales, el monitor de DevTools capturó, justo cuando `POST /api/invoices/getFiscalData` respondió `{"status":"OK","data":[]}` (vacío) para el paciente "Percentil Prueba Prueba":
-
-```
-🔴 [DEVTOOLS ERROR +49.88s] Error: TypeError: Cannot read properties of undefined (reading 'cp')
-    at Se (https://admin-staging.mediplanner.mx/assets/DetallePagos-dmoyFA51.js:1:2683)
-```
-
-Hipótesis: el componente de Detalle de pagos asume que `getFiscalData` siempre devuelve al menos un registro y lee `.cp` (código postal) de él sin chequear `undefined`; cuando el paciente no tiene datos fiscales capturados, el componente crashea y el botón "Registrar pago" nunca se renderiza. **Esto explica una parte de los falsos "ya pagado" (es intermitente, no reproduce siempre), pero no toda la historia** — ver corrección abajo.
-
-**Pendiente:** reportar a devs `DetallePagos` no maneja `getFiscalData` vacío (TypeError `reading 'cp'`) → oculta el botón "Registrar pago" en cargos legítimamente pendientes, cuando reproduce.
+### ~~🐛 `DetallePagos` crasheaba con TypeError cuando el paciente no tenía datos fiscales~~ — solucionado por devs (confirmado por Pedro, 2026-07-21)
+Crasheaba con `TypeError: Cannot read properties of undefined (reading 'cp')` cuando `getFiscalData` devolvía vacío, ocultando el botón "Registrar pago". Ya resuelto — no bloquea más el flujo de ingresos.
 
 ### 🔍 Corrección — el flujo real de "Registrar pago" tiene selección de CONCEPTO (no un formulario directo de 1 cargo)
 
@@ -213,7 +204,7 @@ Pedro confirmó con una captura real de staging que el botón "Registrar pago" S
 
 Explorando esto de punta a punta contra staging (pagando de verdad un ingreso real de $1,800 = Consulta General $1,500 + Certificado Médico $300, en dos pagos con métodos distintos) se confirmó: `POST /api/payments/registerPayment → 200 "Pago registrado correctamente"` por cada concepto; el ingreso terminó con `Pagado: $1,800.00 / Adeudo: $0.00` y status **"Pagado"** en el historial; el botón queda momentáneamente en estado "Registrando…" (deshabilitado) durante el request — leer el DOM en ese instante hace ver "no hay botón" en falso.
 
-**Causa real de casi todos los falsos "ya pagado" en `ingresos.spec.ts` (dev y staging):** el spec nunca seleccionaba un concepto explícitamente (dependía del radio default) y no manejaba ingresos con 2+ cargos ni el estado "Registrando…", más un timeout de 8s insuficiente para que el detalle terminara de cargar. **Corregido y verificado (commit `bb480b8`):** nueva función `pagarConceptosPendientes()` que paga cada concepto con saldo > 0 uno por uno hasta saldar el ingreso; timeout del botón "Registrar pago" en el detalle subido a 12s; espera explícita a que "Registrando…" desaparezca antes de releer el formulario. El crash de `DetallePagos` (TypeError `reading 'cp'`) sigue existiendo como bug de plataforma aparte (reproduce solo con algunos ingresos, ver arriba) y el test lo tolera sin romperse.
+**Causa real de casi todos los falsos "ya pagado" en `ingresos.spec.ts` (dev y staging):** el spec nunca seleccionaba un concepto explícitamente (dependía del radio default) y no manejaba ingresos con 2+ cargos ni el estado "Registrando…", más un timeout de 8s insuficiente para que el detalle terminara de cargar. **Corregido y verificado (commit `bb480b8`):** nueva función `pagarConceptosPendientes()` que paga cada concepto con saldo > 0 uno por uno hasta saldar el ingreso; timeout del botón "Registrar pago" en el detalle subido a 12s; espera explícita a que "Registrando…" desaparezca antes de releer el formulario. El crash de `DetallePagos` (TypeError `reading 'cp'`) ya fue solucionado por devs (ver nota arriba).
 
 ---
 
@@ -224,7 +215,8 @@ Explorando esto de punta a punta contra staging (pagando de verdad un ingreso re
 - [x] ~~Reportar a devs: indicador "sin guardar" no se limpia en Tratamiento › Laboratorios y Procedimientos~~ — **no se reprodujo en 3 corridas del full-flow el 2026-07-09** (2 pacientes distintos). Probablemente arreglado; dejar de tratarlo como bug confirmado, pero sin cerrarlo del todo (ver sección de verificación).
 - [x] ~~Arreglar fallback de `fillTabFields` en `e2e/utils.js`~~ — hecho: usa `load` en vez de networkidle, solo rellena campos obligatorios (`required`/`aria-required`), valores numéricos realistas por campo, log de resumen.
 - [x] ~~Aplicar mejoras a Staging/Producción: propagar `scanResidualIndicators` y el fix de guardado de Exploración~~ — **hecho.** Verificado en código: `scanResidualIndicators` está en `Mediplanner Staging/e2e/utils.js` y `Mediplanner produccion/e2e/utils.js`; el fix de Exploración (`fillExplorationSection`, guarda una vez al final) está en los 3 `consultation.full-flow.spec.js` (dev/staging/producción).
-- [ ] **Reportar a devs (staging):** 422 `getFilledForm` "relacion_id es requerido" (ya está en staging) y 404 `getFilledForm` "No se encontró el formulario asignado al paciente" al finalizar consulta (nuevo en staging). Ver sección STAGING + `Reporte_QA_Consulta_Staging_2026-06-25.pdf`. — sin evidencia de reporte.
+- [x] ~~Reportar a devs (staging): 422 `getFilledForm` "relacion_id es requerido" y 404 "No se encontró el formulario asignado al paciente" al finalizar consulta~~ — **solucionados por devs**, confirmado por Pedro el 2026-07-21.
+- [x] ~~Reportar a devs: `DetallePagos` no maneja `getFiscalData` vacío (TypeError `reading 'cp'`)~~ — **solucionado por devs**, confirmado por Pedro el 2026-07-21.
 - [x] ~~Ejecutar en staging `vacunacion-ciclo-completo` (destructivo) sobre `Pedro Quijada Anaya`~~ — **hecho** el 2026-06-25 (ver sección STAGING). También se ejecutó, sin haber quedado planeado aquí, en **producción** sobre Agustin Tapia el 2026-06-29 — confirmar con Pedro si fue intencional.
 
 ---
@@ -261,6 +253,20 @@ Explorando esto de punta a punta contra staging (pagando de verdad un ingreso re
 Se corrió `doctor-consultation` **3 veces seguidas** contra dev, específicamente para reverificar este bug en su ruta original (`getFilteredAppointments`/`getAppointmentCount`, documentado como "SIGUE VIVO" el 2026-07-09 — ver esa sección más abajo). Resultado: **las 3 corridas pasaron limpias (2 passed cada una) con 0 responses con error de API.** Se confirmó explícitamente en los logs que `getFilteredAppointments`, `getAppointmentCount` y `getFilledForm` respondieron **200 OK** en las tres corridas, sin ningún 422 ni otro 4xx.
 
 Con 3/3 corridas limpias (mismo criterio ya usado para bajar el hallazgo del indicador "sin guardar" el 2026-07-09), **se baja este bug de "confirmado/vigente" a "no reproduce"**. No se cierra del todo por si vuelve a aparecer — mantenerlo documentado como referencia histórica (ver detalle original en la sección de re-verificación 2026-07-09 y en "🐛 Hallazgo de QA" arriba) y volver a chequear si se ve algo raro en consultas/citas a futuro.
+
+### 🆕 Nueva automatización: `dashboard.spec.js` — el Dashboard pasó de 0 asserts a verificación real de datos
+
+Analizando dónde más generar valor en Mediplanner, se identificó que **el Dashboard** (primera pantalla que ve cualquier usuario al loguear) tenía **0 asserts duros** — `dashboard.explorar.spec.js` es puramente exploratorio/de mapeo, así que nada avisaba si se rompía. Se creó `tests/dashboard.spec.js` (proyecto **`dashboard`** en `playwright.config.js`), que captura en vivo las respuestas de `getDashboardData`/`getDashboardPayments`/`getFilteredAppointments`/`getLastProceduresFilesByDoctorId` y verifica que la UI las refleje correctamente:
+- Las 4 tarjetas KPI (Consultas/Recurrentes/Nuevas/Pacientes) muestran el número real de `getDashboardData` (`monthConsultations`, `recurring`, `patientsMonth`, `patientsTotal`).
+- El calendario (react-day-picker, `table[role="grid"]` con `aria-label="<mes> <año>"` en minúsculas, celdas `[data-day="YYYY-MM-DD"]`) muestra el mes/año real y la celda de hoy existe y no está deshabilitada.
+- "Corte de hoy" coincide con `encabezado_actual` de `getDashboardPayments` (total recaudado + consultas del día).
+- "Agenda de hoy" muestra el estado vacío/con-citas correcto según `getFilteredAppointments` de hoy.
+- "Nuevos estudios" lista contenido cuando `getLastProceduresFilesByDoctorId` trae datos.
+- 0 responses con error de API durante toda la carga.
+
+**Gotcha de selectores descubierto en el camino:** las etiquetas de las tarjetas KPI se ven en MAYÚSCULAS pero en el DOM real son texto normal ("Consultas", no "CONSULTAS") — es solo CSS `text-transform`. `page.locator('text="CONSULTAS"')` (case-sensitive, exact) no matcheaba nada. Se resolvió con `getByText(regex, 'i')`. Además, el label "Pacientes" de la tarjeta KPI colisiona con el link "Pacientes" del sidebar (mismo texto) — se acotó la búsqueda a `page.locator('main')` para evitar falsos positivos.
+
+✅ **Verificado con 2 corridas limpias contra dev:** 2/2 passed ambas veces, 0 errores de API, todos los valores coinciden con las respuestas reales de la API.
 
 ### ⏱️ Fix de performance — ~30s perdidos en el toggle "Agregar observaciones" de Diagnóstico
 

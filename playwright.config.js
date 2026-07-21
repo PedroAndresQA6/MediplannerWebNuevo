@@ -40,6 +40,13 @@ module.exports = defineConfig({
       timeout: 120000,
     },
     {
+      name: 'dashboard',
+      testMatch: /dashboard\.spec\.js/,
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: null, deviceScaleFactor: undefined },
+      dependencies: ['setup'],
+      timeout: 90000,
+    },
+    {
       name: 'reportes',
       testMatch: /reportes\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: null, deviceScaleFactor: undefined },
