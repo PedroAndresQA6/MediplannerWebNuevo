@@ -247,7 +247,14 @@ Explorando esto de punta a punta contra staging (pagando de verdad un ingreso re
 - `stress-facturacion`: **2 passed**, 0 responses con error de API — por primera vez en semanas la suite llega hasta el formulario de Facturación. **No se observó el 422 `relacion_id`/"campos obligatorios"** en esta corrida (ni `getFilledForm` ni ningún 4xx). Nota: no es la misma ruta donde se documentó originalmente el bug (ese se vio en `getFilteredAppointments`/`getAppointmentCount` durante `doctor-consultation`) — no se puede dar por cerrado con una sola corrida en esta pantalla, pero es la primera vez que se puede validar Facturación directamente.
 - `vacunacion-explorar`: **2 passed**, 0 responses con error de API — confirma que el fix generaliza a otro spec (no solo facturación).
 
-**Pendiente:** correr los 5 specs restantes afectados (`recetas.explorar`, `recetas`, `antecedentes` stress, `pacientes` stress, `vacunacion-ciclo-completo` — este último es destructivo) para terminar de confirmar el fix en toda la superficie. Re-verificar el bug 422 con 2-3 corridas más de `doctor-consultation` antes de considerarlo resuelto/no reproducido.
+**✅ Confirmado en los 5 specs restantes (misma sesión, 2026-07-21):**
+- `recetas-explorar`: 2 passed, limpio.
+- `recetas`: 2 passed — pero encontró un **bug de test nuevo** (no de la app): el contador de paginación real es `"1–10 de 82"` con **guión largo "–"** (no un guión ASCII `-`), y el regex `/\d+\s*-\s*\d+\s+de\s+\d+/` nunca lo matcheaba → el test comparaba `""` contra `""` y fallaba siempre en "Paginación avanza". Corregido a `/\d+\s*[-–]\s*\d+\s+de\s+\d+/`. Re-corrida: **"1–10 de 82" → "11–20 de 82"**, pasa limpio.
+- `stress-antecedentes`: 2 passed — otro **bug de test nuevo**: la sub-pestaña "Antecedentes" (scrollspy dentro de Información) también pasó de `<a>` a `<button>`, igual que ya se había parchado para "Información" en este mismo archivo, pero no se replicó para "Antecedentes". Corregido: `button:has-text("Antecedentes"), a:has-text("Antecedentes")`.
+- `stress-pacientes`: 2 passed, limpio.
+- `vacunacion-ciclo-completo` (destructivo, patient default de dev): 2 passed — borró y re-registró **41 dosis** correctamente (verificado tras refrescar). 2 hallazgos blandos sin severidad: no aparece "Guardar cambios" tras borrar dosis, y no hay fila de "otra vacuna" para llenar en este paciente (no bloquean el test).
+
+**Selector de Pacientes: fix confirmado end-to-end en los 7 specs afectados.** 0 responses con error de API en ninguna corrida (ninguna mostró el 422 de `relacion_id`, pero — como ya se anotó — no es la misma pantalla donde se documentó originalmente ese bug). Pendiente real: re-verificar el 422 con 2-3 corridas de `doctor-consultation`/`getFilteredAppointments` antes de considerarlo resuelto o no reproducido.
 
 ---
 

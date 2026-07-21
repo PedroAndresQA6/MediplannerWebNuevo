@@ -74,8 +74,8 @@ test('Recetas: abrir tab, cargar lista, paginar y ver detalle de un medicamento'
   // arranca en "Sin receta seleccionada".
   let totalRecetas = 0;
   await test.step('Verificar lista de recetas + contador "N de TOTAL"', async () => {
-    // El contador de paginación tiene forma "1-10 de 70".
-    const contador = page.locator('text=/\\d+\\s*-\\s*\\d+\\s+de\\s+\\d+/').first();
+    // El contador de paginación tiene forma "1–10 de 70" (OJO: guión largo "–", no "-" ASCII).
+    const contador = page.locator('text=/\\d+\\s*[-–]\\s*\\d+\\s+de\\s+\\d+/').first();
     if (await contador.isVisible({ timeout: 3000 }).catch(() => false)) {
       const txt = (await contador.textContent().catch(() => '') || '').trim();
       const m = txt.match(/de\s+(\d+)/i);
@@ -127,10 +127,10 @@ test('Recetas: abrir tab, cargar lista, paginar y ver detalle de un medicamento'
       console.log('   "Siguiente" deshabilitado (única página)');
       return;
     }
-    const antes = (await page.locator('text=/\\d+\\s*-\\s*\\d+\\s+de\\s+\\d+/').first().textContent().catch(() => '') || '').trim();
+    const antes = (await page.locator('text=/\\d+\\s*[-–]\\s*\\d+\\s+de\\s+\\d+/').first().textContent().catch(() => '') || '').trim();
     await siguiente.click().catch(() => {});
     await page.waitForTimeout(2000);
-    const despues = (await page.locator('text=/\\d+\\s*-\\s*\\d+\\s+de\\s+\\d+/').first().textContent().catch(() => '') || '').trim();
+    const despues = (await page.locator('text=/\\d+\\s*[-–]\\s*\\d+\\s+de\\s+\\d+/').first().textContent().catch(() => '') || '').trim();
     console.log(`📃 Paginación: "${antes}" → "${despues}"`);
     // HARD: el rango mostrado debe cambiar al avanzar de página.
     expect(despues, 'El contador de paginación debe cambiar al pulsar "Siguiente"').not.toBe(antes);

@@ -84,8 +84,8 @@ test.describe('Antecedentes - Stress Test', () => {
     await page.locator('button:has-text("Información"), a:has-text("Información")').first().click();
     await page.waitForTimeout(2000);
 
-    // Click Antecedentes in scrollspy
-    await page.locator('a:has-text("Antecedentes")').first().click();
+    // Click Antecedentes in scrollspy (la pestaña ahora es <button>, antes era <a>).
+    await page.locator('button:has-text("Antecedentes"), a:has-text("Antecedentes")').first().click();
     console.log('📋 Sub-pestaña Antecedentes clickeada');
     await page.waitForTimeout(3000);
     await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
