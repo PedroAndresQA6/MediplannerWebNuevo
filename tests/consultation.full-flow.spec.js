@@ -447,37 +447,53 @@ async function fillDiagnosticoSection(page) {
     await page.waitForTimeout(1000);
     console.log('📝 Llenando observaciones del diagnóstico...');
     try {
-      // "Agregar observaciones" es un toggle con <input type=checkbox class="sr-only peer">
-      // (oculto). Hay que activarlo con force; al activarlo se revela el textarea.
-      const obsCheckbox = page.locator('label:has-text("Agregar observaciones") input[type="checkbox"]').first();
-      if (await obsCheckbox.count() > 0) {
-        const ya = await obsCheckbox.isChecked().catch(() => false);
-        if (!ya) {
-          await obsCheckbox.check({ force: true }).catch(async () => {
-            await page.locator('label:has-text("Agregar observaciones")').first().click({ force: true }).catch(() => {});
-          });
-          await page.waitForTimeout(1000);
-          console.log('   ☑️ Toggle "Agregar observaciones" activado');
-        }
-        // Tras activarlo, llenar el textarea revelado: visible, vacío, que NO sea la
-        // impresión ni un combobox react-select.
+      // Busca un textarea visible que no sea Impresión diagnóstica ni el combobox
+      // CIE-10 (react-select). En la UI actual, "Observaciones"/"Notas adicionales"
+      // ya viene visible sin necesidad de togglear nada.
+      const buscarTextareaObservaciones = async () => {
         const tas = page.locator('textarea:visible:not([readonly]):not([disabled])');
         const n = await tas.count();
-        let filled = false;
         for (let i = 0; i < n; i++) {
           const ta = tas.nth(i);
           const ph = (await ta.getAttribute('placeholder').catch(() => '')) || '';
           const id = (await ta.getAttribute('id').catch(() => '')) || '';
           const val = await ta.inputValue().catch(() => '');
           if (ph === 'Impresión diagnóstica' || id.includes('react-select') || val.trim()) continue;
-          await ta.fill('Observaciones: paciente estable, se indica seguimiento ambulatorio y vigilancia de signos de alarma.');
-          console.log(`   ✅ Observaciones del diagnóstico llenadas (textarea #${i})`);
-          filled = true;
-          break;
+          return ta;
         }
-        if (!filled) console.log('   ⚠️ No se encontró textarea de observaciones tras activar el toggle');
+        return null;
+      };
+
+      let taObservaciones = await buscarTextareaObservaciones();
+
+      if (!taObservaciones) {
+        // Solo si no hay textarea visible, intentar el toggle "Agregar observaciones"
+        // (checkbox <input class="sr-only peer"> oculto, legacy de una UI vieja).
+        // OJO: en la UI actual este check({force:true}) puede tardar ~15-30s en fallar
+        // silenciosamente (el checkbox oculto nunca queda "checked" para Playwright) —
+        // por eso ahora se evita por completo si el textarea ya está visible, y aquí
+        // se acota a un timeout corto en vez del default (15s) para no repetir esa espera.
+        const obsCheckbox = page.locator('label:has-text("Agregar observaciones") input[type="checkbox"]').first();
+        if (await obsCheckbox.count() > 0) {
+          const ya = await obsCheckbox.isChecked().catch(() => false);
+          if (!ya) {
+            await obsCheckbox.check({ force: true, timeout: 3000 }).catch(async () => {
+              await page.locator('label:has-text("Agregar observaciones")').first().click({ force: true, timeout: 3000 }).catch(() => {});
+            });
+            await page.waitForTimeout(1000);
+            console.log('   ☑️ Toggle "Agregar observaciones" activado');
+          }
+          taObservaciones = await buscarTextareaObservaciones();
+        } else {
+          console.log('   ⚠️ No se encontró el toggle "Agregar observaciones"');
+        }
+      }
+
+      if (taObservaciones) {
+        await taObservaciones.fill('Observaciones: paciente estable, se indica seguimiento ambulatorio y vigilancia de signos de alarma.');
+        console.log('   ✅ Observaciones del diagnóstico llenadas');
       } else {
-        console.log('   ⚠️ No se encontró el toggle "Agregar observaciones"');
+        console.log('   ⚠️ No se encontró textarea de observaciones');
       }
     } catch (e) {
       console.log(`   ⚠️ Error llenando observaciones: ${e.message}`);
