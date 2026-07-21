@@ -217,8 +217,8 @@ test.describe('Facturación - Stress Test', () => {
     // Navigate
     await page.goto('/Pacientes');
     await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
-    // Esperar a que la lista de pacientes esté hidratada (los nombres son <a> con estas clases).
-    await page.waitForSelector('a.font-semibold.text-sm.text-gray-900', { timeout: 25000 });
+    // Esperar a que la lista de pacientes esté hidratada (los nombres son <span> con estas clases).
+    await page.waitForSelector('span.font-semibold.text-sm.text-gray-900', { timeout: 25000 });
     await page.waitForTimeout(1500);
     // Mostrar "Todos" para que el paciente buscado esté en la página (evita paginación).
     const pageSize = page.locator('select').first();
@@ -227,8 +227,8 @@ test.describe('Facturación - Stress Test', () => {
       await page.waitForTimeout(2500);
     }
 
-    // Select Daniela — el nombre del paciente es <a.font-semibold.text-sm.text-gray-900>.
-    await page.locator('a.font-semibold.text-sm.text-gray-900', { hasText: 'Daniela' }).first().click();
+    // Select Daniela — el nombre del paciente es <span.font-semibold.text-sm.text-gray-900>.
+    await page.locator('span.font-semibold.text-sm.text-gray-900', { hasText: 'Daniela' }).first().click();
     await page.waitForTimeout(3000);
 
     // Click Información

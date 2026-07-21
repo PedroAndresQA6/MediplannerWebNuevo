@@ -23,7 +23,7 @@ test.describe('Pacientes - Stress Tests', () => {
     
     console.log('📋 Lista de pacientes cargada');
     
-    const patientLinks = page.locator('a.font-semibold.text-sm.text-gray-900');
+    const patientLinks = page.locator('span.font-semibold.text-sm.text-gray-900');
     const patientCount = await patientLinks.count();
     console.log(`📋 Pacientes encontrados: ${patientCount}`);
     
