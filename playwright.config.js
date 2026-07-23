@@ -131,6 +131,13 @@ module.exports = defineConfig({
       timeout: 300000,
     },
     {
+      name: 'consultation-user-errors',
+      testMatch: /consultation\.user-errors\.spec\.js/,
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: null, deviceScaleFactor: undefined },
+      dependencies: ['setup'],
+      timeout: 300000,
+    },
+    {
       name: 'system-health',
       testMatch: /system-health\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: null, deviceScaleFactor: undefined },
