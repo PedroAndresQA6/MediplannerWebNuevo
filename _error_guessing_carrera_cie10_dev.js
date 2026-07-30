@@ -113,12 +113,77 @@ const PACIENTE_BUSQUEDA = process.env.PACIENTE_BUSQUEDA || 'Percentil';
   await cie10Input.click();
   await page.waitForTimeout(500);
 
-  console.log('\n########## CARRERA: escribir "R05" (tos) y cambiar a "A09" (diarrea) SIN esperar ##########');
-  await cie10Input.fill('R05'); // Tos
-  await page.waitForTimeout(150); // muy poco tiempo — no alcanza a resolver
-  await cie10Input.fill('');
-  await cie10Input.fill('A09'); // Diarrea y gastroenteritis — código totalmente distinto
-  await page.waitForTimeout(2000); // ahora sí esperar a que asiente
+  // Monitorear las búsquedas reales contra la API para mostrar el timing
+  // real de la carrera (no simulado) — cuándo se dispara cada búsqueda y
+  // cuándo responde, para poder juzgar si el escenario es realista.
+  const busquedas = [];
+  page.on('request', (r) => {
+    if (r.url().includes('/api/consultations/searchDiagnoses')) {
+      busquedas.push({ t: Date.now(), evento: 'request', body: r.postData() });
+    }
+  });
+  page.on('response', async (r) => {
+    if (r.url().includes('/api/consultations/searchDiagnoses')) {
+      const body = await r.json().catch(() => null);
+      busquedas.push({ t: Date.now(), evento: 'response', status: r.status(), nResultados: body?.data?.diagnosticos?.length ?? 'null' });
+    }
+  });
+
+  console.log('\n########## CARRERA con timing REALISTA (tecleo humano, no instantáneo) ##########');
+  console.log('Escenario: el médico empieza a escribir "R05" (Tos), a mitad de tecleo se da cuenta');
+  console.log('que el paciente en realidad tiene diarrea y corrige a "A09", sin esperar a que');
+  console.log('carguen las opciones de "R05" antes de corregir — un comportamiento humano normal,');
+  console.log('no una carrera artificial de milisegundos.');
+
+  const t0 = Date.now();
+  // Tecleo carácter por carácter a velocidad humana (~100ms/tecla, con
+  // variación aleatoria pequeña como una persona real, no un delay fijo).
+  for (const ch of 'R05') {
+    await page.keyboard.type(ch, { delay: 0 });
+    await page.waitForTimeout(80 + Math.floor(Math.random() * 60)); // 80-140ms entre teclas
+  }
+  console.log(`[t=${Date.now() - t0}ms] Terminó de escribir "R05"`);
+
+  // Pausa de "reconsideración" realista: la persona nota el error y decide
+  // corregir — no son 150ms de un script, es una pausa humana creíble.
+  await page.waitForTimeout(600);
+  console.log(`[t=${Date.now() - t0}ms] Pausa de reconsideración (600ms) — empieza a corregir`);
+
+  // Borrar con Backspace real (no un fill('') instantáneo) — 3 teclas, una
+  // por carácter, como haría una persona corrigiendo lo que escribió.
+  for (let i = 0; i < 3; i++) {
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(70 + Math.floor(Math.random() * 50));
+  }
+  console.log(`[t=${Date.now() - t0}ms] Terminó de borrar "R05"`);
+
+  for (const ch of 'A09') {
+    await page.keyboard.type(ch, { delay: 0 });
+    await page.waitForTimeout(80 + Math.floor(Math.random() * 60));
+  }
+  console.log(`[t=${Date.now() - t0}ms] Terminó de escribir "A09"`);
+
+  // Esperar de forma GENEROSA y realista a que la búsqueda final termine de
+  // resolver — no cortar la espera artificialmente. Se espera la respuesta
+  // real de searchDiagnoses posterior al momento en que se terminó de
+  // escribir "A09"; si no llega, se cae a una espera fija amplia (4s).
+  const respuestaFinal = await page.waitForResponse(
+    r => r.url().includes('/api/consultations/searchDiagnoses'),
+    { timeout: 6000 }
+  ).catch(() => null);
+  if (respuestaFinal) {
+    console.log(`[t=${Date.now() - t0}ms] Respuesta de searchDiagnoses recibida (status ${respuestaFinal.status()})`);
+  }
+  // Margen adicional realista para que el dropdown termine de renderizar.
+  await page.waitForTimeout(1500);
+  console.log(`[t=${Date.now() - t0}ms] Fin de la espera — evaluando qué quedó visible`);
+
+  console.log('\n=== Timeline real de las búsquedas contra la API (searchDiagnoses) ===');
+  busquedas.forEach(b => {
+    const rel = b.t - t0;
+    if (b.evento === 'request') console.log(`  [t=${rel}ms] → REQUEST body=${b.body}`);
+    else console.log(`  [t=${rel}ms] ← RESPONSE status=${b.status} nResultados=${b.nResultados}`);
+  });
 
   const options = page.locator('[role="option"]:visible, div[id*="option"]:visible');
   const optionCount = await options.count();
