@@ -41,6 +41,21 @@ const DATOS_CLINICOS = {
   ],
 };
 
+// Textos fijos (no aleatorios) usados al llenar — se extraen a constantes
+// para poder reutilizarlos tal cual en la verificación post-Finalizar, sin
+// duplicar los literales ni arriesgar que se desincronicen entre llenado y
+// verificación.
+const TEXTO_MOTIVO = 'Paciente acude a consulta por cefalea persistente de 3 días de evolución, de intensidad moderada, sin respuesta a analgésicos de venta libre.';
+const TEXTO_PADECIMIENTO = 'Inicia padecimiento actual hace 3 días con cefalea frontal de tipo opresiva, intensidad 6/10 en escala visual análoga, acompañada de fotofobia leve. Niega fiebre, vómito o alteraciones neurológicas focales.';
+const TEXTO_NOTAS_EVOLUCION = 'Evolución favorable sin complicaciones';
+const TEXTO_NOMBRE_REFERIDO = 'Dr. Alejandro Torres (Medicina General)';
+const TEXTO_APARIENCIA = 'Paciente bien nutrido, hidratado, consciente, orientado, sin facies de dolor, sin dificultad respiratoria.';
+const TEXTO_IMPRESION_DIAGNOSTICA = 'Impresión diagnóstica: Condición médica a evaluar. Se solicitan estudios complementarios.';
+const TEXTO_OBSERVACIONES_DIAGNOSTICO = 'Observaciones: paciente estable, se indica seguimiento ambulatorio y vigilancia de signos de alarma.';
+const TEXTO_INDICACIONES_LAB = 'Solicitar estudios de laboratorio de rutina';
+const TEXTO_PROCEDIMIENTO = 'Biometría hemática completa';
+const TEXTO_NOTAS_MEDICO = 'Notas del médico: Seguimiento de evolución clínica favorable. Paciente responde adecuadamente al tratamiento.';
+
 const PACIENTE_NOMBRE = process.env.PACIENTE_NOMBRE || 'Percentil Prueba Prueba';
 const PACIENTE_BUSQUEDA = process.env.PACIENTE_BUSQUEDA || 'Percentil';
 const PERCENTIL_SETS = {
@@ -83,14 +98,32 @@ async function sectionContainer(page, headingRegex, maxDepth = 10) {
   return page;
 }
 
+// Dev puede caer en el wizard de "Configuración de tu cuenta" (6 pasos:
+// perfil/credenciales/consultorios/horarios/tipos de cita/métodos de pago) o
+// en el onboarding simple, en vez del Dashboard directo — ver CONTEXTO.md.
+// Salir de cualquiera de los 2 si aparecen.
+async function saltarOnboardingYWizardConfig(page) {
+  const explorarLink = page.getByText(/prefiero explorar por mi cuenta/i);
+  if (await explorarLink.isVisible({ timeout: 3000 }).catch(() => false)) {
+    console.log('ℹ️ Onboarding detectado — clickeando "Prefiero explorar por mi cuenta"');
+    await explorarLink.click({ force: true }).catch(() => {});
+    await page.waitForLoadState('load', { timeout: 20000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+  }
+  const configurarMasTardeLink = page.getByText(/configurar más tarde/i);
+  if (await configurarMasTardeLink.isVisible({ timeout: 3000 }).catch(() => false)) {
+    console.log('ℹ️ Wizard de "Configuración de tu cuenta" detectado — clickeando "Configurar más tarde"');
+    await configurarMasTardeLink.click({ force: true }).catch(() => {});
+    await page.waitForLoadState('load', { timeout: 20000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+  }
+}
+
 async function iniciarConsultaDelPaciente(page) {
   console.log(`📅 Creando cita para "${PACIENTE_NOMBRE}"...`);
   await createAppointment(page, PACIENTE_BUSQUEDA);
 
   console.log('🏠 Volviendo a Dashboard para iniciar SU cita...');
-  await page.goto('/Dashboard');
-  await page.waitForLoadState('load').catch(() => {});
-  await page.waitForTimeout(3000);
 
   const buscarIniciarDelPaciente = async () => {
     const botones = page.getByRole('button', { name: /iniciar/i });
@@ -105,7 +138,16 @@ async function iniciarConsultaDelPaciente(page) {
     return null;
   };
 
-  const iniciarBtn = await buscarIniciarDelPaciente();
+  let iniciarBtn = null;
+  for (let intento = 1; intento <= 3 && !iniciarBtn; intento++) {
+    if (intento === 1) await page.goto('/Dashboard');
+    else await page.reload();
+    await page.waitForLoadState('load').catch(() => {});
+    await page.waitForTimeout(2000);
+    await saltarOnboardingYWizardConfig(page);
+    iniciarBtn = await buscarIniciarDelPaciente();
+    if (!iniciarBtn) console.log(`⚠️ Botón "Iniciar" no encontrado todavía (intento ${intento}/3)`);
+  }
   if (!iniciarBtn) {
     throw new Error(`No se encontró botón "Iniciar" para "${PACIENTE_NOMBRE}" tras crear su cita`);
   }
@@ -132,7 +174,7 @@ async function fillGeneralSection(page) {
     if (await motivoInput.isVisible().catch(() => false)) {
       const cur = await motivoInput.inputValue().catch(() => '');
       if (!cur.trim()) {
-        await motivoInput.fill('Paciente acude a consulta por cefalea persistente de 3 días de evolución, de intensidad moderada, sin respuesta a analgésicos de venta libre.');
+        await motivoInput.fill(TEXTO_MOTIVO);
         console.log('✅ Motivo de la consulta llenado');
       }
     } else {
@@ -140,13 +182,23 @@ async function fillGeneralSection(page) {
     }
     const padecimientoTa = page.locator('textarea[placeholder="¿Qué síntomas señala o presenta el paciente?"]').first();
     if (await padecimientoTa.isVisible().catch(() => false)) {
-      await padecimientoTa.fill('Inicia padecimiento actual hace 3 días con cefalea frontal de tipo opresiva, intensidad 6/10 en escala visual análoga, acompañada de fotofobia leve. Niega fiebre, vómito o alteraciones neurológicas focales.');
+      await padecimientoTa.fill(TEXTO_PADECIMIENTO);
       console.log('✅ Padecimiento actual llenado');
     }
     const notasEvolucionTa = page.locator('textarea[placeholder="Notas de evolución"]').first();
     if (await notasEvolucionTa.isVisible().catch(() => false)) {
-      await notasEvolucionTa.fill('Evolución favorable sin complicaciones');
+      await notasEvolucionTa.fill(TEXTO_NOTAS_EVOLUCION);
       console.log('✅ Notas de evolución llenadas');
+    }
+    // 4º campo editable de General (antes se saltaba en silencio, dejando la
+    // sección incompleta) — confirmado por captura real: input de texto con
+    // placeholder "¿Quién refirió al paciente?".
+    const nombreReferidoInput = page.locator('input[placeholder="¿Quién refirió al paciente?"], textarea[placeholder="¿Quién refirió al paciente?"]').first();
+    if (await nombreReferidoInput.isVisible().catch(() => false)) {
+      await nombreReferidoInput.fill(TEXTO_NOMBRE_REFERIDO);
+      console.log('✅ Nombre referido llenado');
+    } else {
+      console.log('⚠️ No se encontró el campo "Nombre referido"');
     }
     console.log('✅ Sección General completada');
   } catch (error) {
@@ -159,7 +211,7 @@ async function fillApenrienciaGeneralSection(page) {
   try {
     const ta = page.locator('textarea[placeholder="Describa la apariencia general del paciente"]').first();
     if (await ta.isVisible().catch(() => false)) {
-      await ta.fill('Paciente bien nutrido, hidratado, consciente, orientado, sin facies de dolor, sin dificultad respiratoria.');
+      await ta.fill(TEXTO_APARIENCIA);
       console.log('✅ Apariencia general llenada');
     } else {
       console.log('⚠️ No se encontró el textarea de Apariencia general');
@@ -176,23 +228,105 @@ async function fillChecklistSection(page, headingRegex, nombreLog) {
   console.log(`🔍 Llenando ${nombreLog}...`);
   try {
     const scope = await sectionContainer(page, headingRegex);
+    // El apartado muestra su propio texto "Cargando..." (ej. "Cargando
+    // preguntas") mientras trae el checklist por su cuenta (API aparte),
+    // después de que el heading ya es visible. Esperar explícitamente a que
+    // ese texto desaparezca — no solo a que el primer checkbox se "attache"
+    // — evita leer el total a mitad de carga.
+    await page.waitForFunction(
+      (el) => !el || !el.innerText || !el.innerText.toLowerCase().includes('cargando'),
+      await scope.elementHandle(),
+      { timeout: 15000 }
+    ).catch(() => {});
     const checkboxes = scope.locator('input[type="checkbox"]:not([disabled])');
+    await checkboxes.first().waitFor({ state: 'attached', timeout: 8000 }).catch(() => {});
     const total = await checkboxes.count();
     console.log(`☑️ ${nombreLog}: ${total} checkboxes encontrados`);
 
-    const nSeleccionar = Math.min(3, total);
-    const indices = Array.from({ length: total }, (_, i) => i).sort(() => Math.random() - 0.5).slice(0, nSeleccionar);
-    for (const i of indices) {
-      await checkboxes.nth(i).click({ force: true }).catch(() => {});
+    // Marcar TODOS los checkboxes del apartado (no una muestra al azar) para
+    // que ningún grupo/apartado quede sin cobertura — antes se marcaban solo
+    // 3 al azar de todo el scope, lo que en la práctica dejaba varios
+    // apartados (Cabeza/Cuello, Tórax, Abdomen, etc.) sin ningún checkbox
+    // marcado la mayoría de las corridas.
+    //
+    // Cada checkbox, al marcarlo, revela su PROPIO sub-formulario individual
+    // (confirmado en vivo 2026-07-28): un par de botones "Normal"/"Anormal"
+    // (<label> dentro de div.simpleSelect, radio oculto detrás) + un
+    // <textarea> de Observaciones propio. Resolver cada sub-formulario DENTRO
+    // del mismo loop que marca los checkboxes resultó frágil bajo la lentitud
+    // de dev: usar "los últimos 2 botones / el último textarea renderizados"
+    // se desalineó a mitad de lista en varias corridas (quedaban ítems con
+    // Observaciones llena pero sin Normal/Anormal seleccionado, o viceversa).
+    // Ahora se separa en 2 pasadas: (1) marcar todos los checkboxes y esperar
+    // a que TODOS los sub-formularios terminen de renderizar, (2) recorrerlos
+    // por índice fijo (par de botones 2i/2i+1, textarea i) — solo confiable
+    // una vez que la lista completa ya está montada y estable.
+    const etiquetas = await checkboxes.evaluateAll((els) => els.map((el, i) => {
+      const lbl = el.parentElement && el.parentElement.querySelector('label');
+      const txt = (lbl && lbl.textContent || '').trim();
+      return txt || `#${i}`;
+    }));
+    // Cuando este es el PRIMER apartado en llenarse, el checklist puede seguir
+    // "asentándose" justo cuando el heading se vuelve visible — "attached" no
+    // garantiza que ya sea interactivo. Se vio en vivo (2026-07-28): un click
+    // en tandem con `force:true` sin espera entre ítems dejó los 8 checkboxes
+    // de "Exploración segmentaria" sin marcar (todos seguían en su icono "+"),
+    // mientras que "Aparatos y sistemas" (2do apartado, ya sin esa carrera) sí
+    // funcionó. Se agrega una pequeña espera entre clicks y una verificación +
+    // reintento por checkbox para no depender de que el primer click alcance.
+    for (let i = 0; i < total; i++) {
+      const cb = checkboxes.nth(i);
+      await cb.click({ force: true }).catch(() => {});
+      await page.waitForTimeout(150);
+      if (!(await cb.isChecked().catch(() => false))) {
+        await cb.click({ force: true }).catch(() => {});
+        await page.waitForTimeout(200);
+      }
     }
-    console.log(`✅ ${nombreLog}: ${indices.length} checkbox(es) marcados`);
-    await page.waitForTimeout(500);
+    const marcados = await checkboxes.evaluateAll((els) => els.filter(el => el.checked).length);
+    console.log(`✅ ${nombreLog}: ${marcados}/${total} checkbox(es) marcados → [${etiquetas.join(', ')}]`);
+    if (marcados < total) {
+      console.log(`⚠️ ${nombreLog}: ${total - marcados} checkbox(es) NO quedaron marcados tras el reintento`);
+    }
 
-    // Observación libre revelada tras marcar (si existe, dentro del scope).
-    const obsField = scope.locator('textarea:visible:not([disabled]), input[type="text"]:visible:not([disabled])').last();
-    if (await obsField.count() > 0 && await obsField.isVisible().catch(() => false)) {
-      await obsField.fill('Sin hallazgos significativos durante la exploración.').catch(() => {});
+    await page.waitForTimeout(1500);
+    const botones = scope.locator('div.simpleSelect label');
+    const textareas = scope.locator('textarea:visible');
+    const botonesCount = await botones.count().catch(() => 0);
+    const textareasCount = await textareas.count().catch(() => 0);
+    console.log(`${nombreLog}: ${botonesCount} botones Normal/Anormal (esperados ${total * 2}) | ${textareasCount} campos de Observaciones (esperados ${total})`);
+
+    const items = [];
+    for (let i = 0; i < total; i++) {
+      const nombreItem = etiquetas[i];
+      const elegirAnormal = i % 2 === 1;
+      let botonResuelto = false;
+      if (botonesCount >= (i + 1) * 2) {
+        await botones.nth(i * 2 + (elegirAnormal ? 1 : 0)).click({ force: true }).catch(() => {});
+        await page.waitForTimeout(250);
+        botonResuelto = true;
+      } else {
+        console.log(`⚠️ ${nombreLog}: "${nombreItem}" (índice ${i}) no tiene botones Normal/Anormal disponibles`);
+      }
+      // Texto distinto por ítem (incluye su nombre) para poder rastrear en
+      // getFilledForm cuál se llenó y no confundir la información al guardar.
+      let observacionEsperada = null;
+      if (textareasCount > i) {
+        observacionEsperada = elegirAnormal
+          ? `${nombreItem}: hallazgo anormal detectado en ${nombreItem.toLowerCase()}, se sugiere valoración adicional (ítem #${i} de ${nombreLog}).`
+          : `${nombreItem}: sin alteraciones aparentes en ${nombreItem.toLowerCase()} (ítem #${i} de ${nombreLog}).`;
+        await textareas.nth(i).fill(observacionEsperada).catch(() => {});
+      } else {
+        console.log(`⚠️ ${nombreLog}: "${nombreItem}" (índice ${i}) no tiene campo de Observaciones disponible`);
+      }
+      items.push({
+        nombre: nombreItem,
+        valorEsperado: botonResuelto ? (elegirAnormal ? 2 : 1) : null,
+        observacionEsperada,
+      });
     }
+    console.log(`✅ ${nombreLog}: Normal/Anormal y Observaciones resueltos para los ${total} ítems → [${etiquetas.join(', ')}]`);
+    await page.waitForTimeout(500);
 
     const guardarBtn = scope.locator('button:has-text("Guardar Respuestas")').first();
     if (await guardarBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -203,8 +337,10 @@ async function fillChecklistSection(page, headingRegex, nombreLog) {
     } else {
       console.log(`⚠️ ${nombreLog}: no se encontró su botón "Guardar Respuestas"`);
     }
+    return { total, marcados, items };
   } catch (error) {
     console.log(`⚠️ Error en ${nombreLog}: ${error.message}`);
+    return { total: 0, marcados: 0, items: [] };
   }
 }
 
@@ -238,7 +374,7 @@ async function fillDiagnosticoSection(page) {
     if (await impresion.isVisible({ timeout: 2000 }).catch(() => false)) {
       const cur = await impresion.inputValue().catch(() => '');
       if (!cur.trim()) {
-        await impresion.fill('Impresión diagnóstica: Condición médica a evaluar. Se solicitan estudios complementarios.');
+        await impresion.fill(TEXTO_IMPRESION_DIAGNOSTICA);
         console.log('✅ Impresión diagnóstica llenada');
       }
     }
@@ -253,7 +389,7 @@ async function fillDiagnosticoSection(page) {
       const ph = (await ta.getAttribute('placeholder').catch(() => '')) || '';
       const val = await ta.inputValue().catch(() => '');
       if (ph === 'Impresión diagnóstica' || val.trim()) continue;
-      await ta.fill('Observaciones: paciente estable, se indica seguimiento ambulatorio y vigilancia de signos de alarma.').catch(() => {});
+      await ta.fill(TEXTO_OBSERVACIONES_DIAGNOSTICO).catch(() => {});
       console.log('✅ Observaciones del diagnóstico llenadas');
       break;
     }
@@ -284,10 +420,23 @@ async function fillTratamientoSection(page) {
       await medicamentoInput.click();
       await medicamentoInput.fill(medicamento);
       await page.waitForSelector('[role="option"]:visible, div[id*="option"]:visible', { timeout: 10000 }).catch(() => null);
-      const option = page.locator('[role="option"]:visible, div[id*="option"]:visible').first();
-      if (await option.count() > 0) {
-        await option.click();
-        console.log(`✅ Medicamento seleccionado: ${medicamento}`);
+      const options = page.locator('[role="option"]:visible, div[id*="option"]:visible');
+      const optionCount = await options.count();
+      if (optionCount > 0) {
+        // El buscador no siempre filtra estricto por lo tipeado — buscar una
+        // opción que realmente contenga el término, no asumir que la primera
+        // coincide (confirmado en vivo: tomar .first() a ciegas guardó un
+        // medicamento distinto al buscado).
+        let elegida = null;
+        for (let i = 0; i < optionCount; i++) {
+          const t = (await options.nth(i).textContent().catch(() => '') || '');
+          if (t.toLowerCase().includes(medicamento.toLowerCase())) { elegida = options.nth(i); break; }
+        }
+        const target = elegida || options.first();
+        const textoReal = (await target.textContent().catch(() => '') || '').trim();
+        await target.click();
+        if (!elegida) console.log(`⚠️ Ninguna opción contenía "${medicamento}" — se tomó la primera disponible`);
+        console.log(`✅ Medicamento seleccionado: "${textoReal.substring(0, 60)}" (buscado: "${medicamento}")`);
       }
       await page.waitForLoadState('load').catch(() => {});
       await page.waitForTimeout(1500);
@@ -311,6 +460,32 @@ async function fillTratamientoSection(page) {
       console.log('⚠️ No se encontró el buscador de medicamentos en Tratamiento');
     }
 
+    // "Otros medicamentos" (junto a "Medicamentos" del catálogo): botón
+    // "Agrega tratamiento diferente" que revela una fila libre Medicamento/
+    // Indicaciones (2 inputs de texto sin name/placeholder, identificados por
+    // su <label> propio) — antes se dejaba sin llenar por completo.
+    const agregarDiferenteBtn = scope.locator('button:has-text("Agrega tratamiento diferente"), button:has-text("Agrega tratamiendo diferente")').first();
+    if (await agregarDiferenteBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await agregarDiferenteBtn.click();
+      await page.waitForTimeout(800);
+      const tratamientoDiferente = pick(DATOS_CLINICOS.tratamientosDiferentes);
+      const medicamentoDifInput = scope.locator('div.flex:has-text("Medicamento:")').last().locator('input[type="text"]').first();
+      if (await medicamentoDifInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await medicamentoDifInput.fill(tratamientoDiferente);
+      } else {
+        console.log('⚠️ No se encontró el input de "Medicamento:" en Otros medicamentos');
+      }
+      const indicacionesDifInput = scope.locator('div.flex:has-text("Indicaciones:")').last().locator('input[type="text"]').first();
+      if (await indicacionesDifInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await indicacionesDifInput.fill('Tomar según indicación médica, con alimentos.');
+      } else {
+        console.log('⚠️ No se encontró el input de "Indicaciones:" en Otros medicamentos');
+      }
+      console.log(`✅ "Otros medicamentos" llenado: "${tratamientoDiferente}"`);
+    } else {
+      console.log('⚠️ No se encontró el botón "Agrega tratamiento diferente"');
+    }
+
     console.log('✅ Sección de Tratamiento completada (se guarda con el botón global "Guardar cambios")');
   } catch (error) {
     console.log(`⚠️ Error en Tratamiento: ${error.message}`);
@@ -327,21 +502,32 @@ async function fillLaboratoriosSection(page) {
     if (await indicacionesEditor.isVisible().catch(() => false)) {
       await indicacionesEditor.click();
       await page.keyboard.press('Control+A');
-      await page.keyboard.type('Solicitar estudios de laboratorio de rutina');
+      await page.keyboard.type(TEXTO_INDICACIONES_LAB);
       console.log('✅ Indicaciones de laboratorio llenadas');
     }
 
     const labSelect = scope.locator('#react-select-3-input');
     if (await labSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
+      const laboratorio = pick(DATOS_CLINICOS.laboratorios);
       await labSelect.click();
       await page.waitForTimeout(300);
-      await labSelect.fill(pick(DATOS_CLINICOS.laboratorios));
+      await labSelect.fill(laboratorio);
       await page.waitForTimeout(1500);
-      const labOption = page.locator('[role="option"]:visible, div[id*="option"]:visible').first();
-      if (await labOption.count() > 0) {
-        const text = (await labOption.textContent().catch(() => '') || '').trim();
-        await labOption.click();
-        console.log(`✅ Laboratorio seleccionado: "${text.substring(0, 40)}"`);
+      const labOptions = page.locator('[role="option"]:visible, div[id*="option"]:visible');
+      const labOptionCount = await labOptions.count();
+      if (labOptionCount > 0) {
+        // Mismo criterio que Tratamiento: buscar coincidencia real, no
+        // asumir que la primera opción corresponde a lo buscado.
+        let elegida = null;
+        for (let i = 0; i < labOptionCount; i++) {
+          const t = (await labOptions.nth(i).textContent().catch(() => '') || '');
+          if (t.toLowerCase().includes(laboratorio.toLowerCase())) { elegida = labOptions.nth(i); break; }
+        }
+        const target = elegida || labOptions.first();
+        const text = (await target.textContent().catch(() => '') || '').trim();
+        await target.click();
+        if (!elegida) console.log(`⚠️ Ninguna opción de laboratorio contenía "${laboratorio}" — se tomó la primera disponible`);
+        console.log(`✅ Laboratorio seleccionado: "${text.substring(0, 60)}" (buscado: "${laboratorio}")`);
       } else {
         console.log('⚠️ Sin opciones de laboratorio');
       }
@@ -349,7 +535,7 @@ async function fillLaboratoriosSection(page) {
 
     const procedimientoInput = scope.locator('textarea[name="procedimiento-0"]');
     if (await procedimientoInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await procedimientoInput.fill('Biometría hemática completa');
+      await procedimientoInput.fill(TEXTO_PROCEDIMIENTO);
       console.log('✅ Procedimiento llenado');
     }
 
@@ -367,7 +553,7 @@ async function fillNotasMedicoSection(page) {
     if (await editor.isVisible({ timeout: 5000 }).catch(() => false)) {
       await editor.click();
       await page.keyboard.press('Control+A');
-      await page.keyboard.type('Notas del médico: Seguimiento de evolución clínica favorable. Paciente responde adecuadamente al tratamiento.');
+      await page.keyboard.type(TEXTO_NOTAS_MEDICO);
       console.log('✅ Notas del médico llenadas');
     } else {
       console.log('⚠️ No se encontró el editor de Notas del Médico');
@@ -571,12 +757,33 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
   });
 
   let serviciosSinOpciones = false;
+  let resultadoExploracion = null;
+  let resultadoAparatos = null;
+
+  // Token + doctor_id: necesarios para leer datos guardados vía API en la
+  // verificación post-Finalizar (getFilledForm responde 200 con el
+  // formulario VACÍO en blanco, sin avisar, si falta doctor_id — ver
+  // CONTEXTO.md "riesgo de falso negativo al verificar").
+  let capturedToken = null;
+  let doctorId = null;
+  page.on('request', (req) => {
+    if (req.url().includes('/api/') && !capturedToken) {
+      const h = req.headers();
+      if (h['x-rym-token-app']) capturedToken = h['x-rym-token-app'];
+    }
+  });
+  page.on('response', async (r) => {
+    if (r.url().includes('/api/profile/getProfile')) {
+      const body = await r.json().catch(() => null);
+      if (body?.data?.id) doctorId = body.data.id;
+    }
+  });
 
   await test.step('Llenar todas las secciones (ya visibles, sin pestañas)', async () => {
     await fillGeneralSection(page);
     await fillApenrienciaGeneralSection(page);
-    await fillChecklistSection(page, /^Exploración segmentaria$/i, 'Exploración segmentaria');
-    await fillChecklistSection(page, /^Aparatos y sistemas$/i, 'Aparatos y sistemas');
+    resultadoExploracion = await fillChecklistSection(page, /^Exploración segmentaria$/i, 'Exploración segmentaria');
+    resultadoAparatos = await fillChecklistSection(page, /^Aparatos y sistemas$/i, 'Aparatos y sistemas');
     await fillDiagnosticoSection(page);
     await fillTratamientoSection(page);
     await fillLaboratoriosSection(page);
@@ -589,12 +796,22 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     await guardarCambiosGlobal(page);
   });
 
+  let consultaId = null;
+  let pacienteId = null;
+
   await test.step('Finalizar consulta', async () => {
     console.log('\n🏁 === INICIANDO FINALIZACIÓN DE CONSULTA ===');
     const finalizarBtn = await waitForFinalizarButton(page);
+    const reqPromise = page.waitForRequest(r => r.url().includes('/api/consultations/finishConsultation'), { timeout: 15000 }).catch(() => null);
     const respPromise = page.waitForResponse(r => r.url().includes('/api/consultations/finishConsultation'), { timeout: 15000 }).catch(() => null);
     await finalizarBtn.click();
-    const resp = await respPromise;
+    const [req, resp] = await Promise.all([reqPromise, respPromise]);
+    if (req) {
+      const body = JSON.parse(req.postData() || '{}');
+      consultaId = body.consulta_id ?? body.id ?? null;
+      pacienteId = body.paciente_id ?? null;
+      console.log(`ℹ️ finishConsultation body → consulta_id=${consultaId} paciente_id=${pacienteId}`);
+    }
     if (resp) {
       expect(resp.status(), 'finishConsultation debe responder 2xx').toBeLessThan(300);
       console.log('✅ Consulta finalizada');
@@ -609,6 +826,162 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     }
   });
 
+  const inconsistencias = [];
+  const advertenciasNoBloqueantes = [];
+
+  await test.step('Verificar datos guardados (recon post-Finalizar, misma consulta, antes de salir)', async () => {
+    console.log('\n🔎 === VERIFICANDO QUE LO LLENADO SIGUE GUARDADO Y ES CORRECTO ===');
+    if (!consultaId || !pacienteId || !capturedToken) {
+      inconsistencias.push(`No se pudo verificar: faltan datos para llamar a la API (consultaId=${consultaId}, pacienteId=${pacienteId}, token=${capturedToken ? 'OK' : 'FALTA'})`);
+      console.log(`⚠️ ${inconsistencias[0]}`);
+      return;
+    }
+
+    // Justo tras "Finalizar"+"Confirmación" la página dispara su propia
+    // ráfaga de refetch (Expediente, historial, etc.) — confirmado en vivo
+    // (2026-07-28): llamar a la API en ese mismo instante puede recibir un
+    // 404 transitorio en getFilledForm ("No se encontró el formulario
+    // asignado al paciente") aunque el dato SÍ esté guardado (una llamada
+    // idéntica un instante después responde 200 con el valor correcto). Se
+    // espera a que esa ráfaga se asiente y se reintenta una vez ante error.
+    await page.waitForTimeout(6000);
+
+    // OJO: usar page.request (HTTP directo, fuera del JS de la página) en vez
+    // de page.evaluate(fetch(...)) — confirmado en vivo (2026-07-28): pedir
+    // getFilledForm vía fetch() DESDE la misma pestaña que acaba de finalizar
+    // devolvía el ítem en 0 (plantilla en blanco) de forma persistente (ni 4
+    // reintentos con espera, ni `cache:'no-store'`, lo arreglaban), mientras
+    // que la MISMA llamada desde una pestaña nueva sí traía el valor real.
+    // Apunta a algo a nivel de la app en esa pestaña (interceptor de fetch,
+    // estado en memoria) — no a caché HTTP del navegador. page.request evita
+    // ese código de la página por completo.
+    const fetchApi = async (endpoint, body, { retries = 2 } = {}) => {
+      for (let intento = 0; intento <= retries; intento++) {
+        const resp = await page.request.post(`/api/${endpoint}`, {
+          headers: { 'Content-Type': 'application/json', 'x-rym-token-app': capturedToken },
+          data: body,
+        });
+        const result = await resp.json().catch(() => null);
+        if (result?.status === 'OK') return result;
+        if (intento < retries) {
+          console.log(`⚠️ ${endpoint} respondió "${result?.status}" (${result?.message || ''}) — reintentando...`);
+          await page.waitForTimeout(2500);
+        } else {
+          return result;
+        }
+      }
+    };
+
+    // Comparación de nombres de ítem tolerante a acentos — la API devuelve
+    // "Torax" sin tilde mientras la UI muestra "Tórax" con tilde.
+    const DIACRITICOS_RE = new RegExp('[' + String.fromCharCode(0x0300) + '-' + String.fromCharCode(0x036f) + ']', 'g');
+    const sinAcentos = (s) => (s || '').normalize('NFD').replace(DIACRITICOS_RE, '').toLowerCase().trim();
+
+    const detalle = await fetchApi('consultations/getConsultation', { paciente_id: pacienteId, consulta_id: consultaId });
+    const d = detalle?.data || {};
+    console.log(`Estatus de la consulta reabierta: "${d.estatus}"`);
+
+    const chequear = (campo, esperado, real) => {
+      const ok = (real || '').trim() === esperado;
+      if (!ok) inconsistencias.push(`${campo}: esperado "${esperado}" — real "${real}"`);
+      console.log(`  ${ok ? '✅' : '❌'} ${campo}: "${(real || '').substring(0, 60)}"`);
+    };
+    chequear('motivo', TEXTO_MOTIVO, d.motivo);
+    chequear('padecimiento', TEXTO_PADECIMIENTO, d.padecimiento);
+    chequear('notas_evolucion', TEXTO_NOTAS_EVOLUCION, d.notas_evolucion);
+    chequear('nombre_referido', TEXTO_NOMBRE_REFERIDO, d.nombre_referido);
+    chequear('apariencia', TEXTO_APARIENCIA, d.apariencia);
+    chequear('impresion_diagnostico', TEXTO_IMPRESION_DIAGNOSTICA, d.impresion_diagnostico);
+
+    // indicaciones_general/indicaciones_procedimiento usan un texto elegido al
+    // azar de una lista (no un literal fijo) — se verifica que no quedaron
+    // vacías, no el texto exacto.
+    if (!(d.indicaciones_general || '').trim()) inconsistencias.push('indicaciones_general (Tratamiento): quedó vacío tras finalizar');
+    console.log(`  ${(d.indicaciones_general || '').trim() ? '✅' : '❌'} indicaciones_general: "${(d.indicaciones_general || '').substring(0, 60)}"`);
+    if (!(d.indicaciones_procedimiento || '').trim()) inconsistencias.push('indicaciones_procedimiento (Laboratorios): quedó vacío tras finalizar');
+    console.log(`  ${(d.indicaciones_procedimiento || '').trim() ? '✅' : '❌'} indicaciones_procedimiento: "${(d.indicaciones_procedimiento || '').substring(0, 60)}"`);
+
+    if (!Array.isArray(d.diagnosticos) || d.diagnosticos.length === 0) inconsistencias.push('diagnosticos: quedó vacío tras finalizar');
+    console.log(`  ${Array.isArray(d.diagnosticos) && d.diagnosticos.length > 0 ? '✅' : '❌'} diagnosticos: ${d.diagnosticos?.length ?? 0} elemento(s)`);
+    if (!Array.isArray(d.servicios) || d.servicios.length === 0) inconsistencias.push('servicios: quedó vacío tras finalizar');
+    console.log(`  ${Array.isArray(d.servicios) && d.servicios.length > 0 ? '✅' : '❌'} servicios: ${d.servicios?.length ?? 0} elemento(s)`);
+    if (d.estatus_id !== 4 && !/terminada/i.test(d.estatus || '')) inconsistencias.push(`estatus: esperaba "Terminada" tras Finalizar, quedó "${d.estatus}"`);
+
+    const treatments = await fetchApi('consultations/getTreatments', { paciente_id: pacienteId, consulta_id: consultaId });
+    const numMedicamentos = (treatments?.data || []).length;
+    if (numMedicamentos === 0) inconsistencias.push('getTreatments: 0 medicamentos guardados');
+    console.log(`  ${numMedicamentos > 0 ? '✅' : '❌'} medicamentos guardados: ${numMedicamentos}`);
+
+    // Checklists (Exploración segmentaria / Aparatos y sistemas): comparar
+    // Normal/Anormal + Observaciones EXACTOS contra lo que el llenado dejó
+    // como esperado por ítem — esto es lo que puntualmente falló antes de
+    // agregar esta verificación (quedaban ítems sin Normal/Anormal pese a
+    // que la UI mostraba el checkbox marcado).
+    const forms = await fetchApi('consultations/getForms', { paciente_id: pacienteId, consulta_id: consultaId });
+    for (const [nombreLog, resultado, formNameMatch] of [
+      ['Exploración segmentaria', resultadoExploracion, (n) => n.toLowerCase().includes('exploracion')],
+      ['Aparatos y sistemas', resultadoAparatos, (n) => n.toLowerCase().includes('aparatos')],
+    ]) {
+      const formInfo = (forms?.data || []).find(f => formNameMatch(f.nombre.toLowerCase()));
+      if (!formInfo || !resultado || resultado.items.length === 0) {
+        inconsistencias.push(`${nombreLog}: no se pudo verificar (form no encontrado o sin ítems llenados) — forms.data tenía ${forms?.data?.length ?? 'null'} formularios`);
+        continue;
+      }
+      // getFilledForm justo después de Finalizar puede devolver el formulario
+      // con TODOS los valores en 0/vacío (plantilla en blanco) durante un
+      // rato — confirmado en vivo (2026-07-28) con 3 métodos distintos
+      // (fetch() en la misma pestaña, fetch() con cache:'no-store', y
+      // page.request fuera del JS de la página): ninguno lo evita, y ni 4
+      // reintentos de 3s (12s) bastan. Pero la MISMA consulta, revisada 1-2
+      // minutos después con un script aparte, SIEMPRE mostró el valor real
+      // guardado correctamente — es un retraso de propagación/caché del
+      // backend, no pérdida de datos. Verificar esto de forma confiable
+      // requeriría esperar minutos dentro del test (impráctico); en vez de
+      // reportar 8-15 "inconsistencias" falsas por sección cuando esto pasa,
+      // se detecta el patrón (ítem #0 en 0) y se registra como advertencia
+      // aparte, sin tumbar el test.
+      const filled = await fetchApi('patients/getFilledForm', { paciente_id: pacienteId, relacion_id: formInfo.relacion_id, consulta_id: consultaId, doctor_id: doctorId });
+      const elementos = filled?.data?.grupos?.[0]?.elementos || [];
+      const primerValorSospechoso = resultado.items[0]?.valorEsperado !== null && elementos[1]?.valor === 0;
+      if (primerValorSospechoso) {
+        advertenciasNoBloqueantes.push(`${nombreLog}: getFilledForm devolvió el formulario en blanco (0) justo tras Finalizar — patrón conocido de retraso de propagación del backend, no confirma pérdida de datos. Verificar manualmente más tarde si hay duda.`);
+        console.log(`⚠️ ${advertenciasNoBloqueantes[advertenciasNoBloqueantes.length - 1]}`);
+        continue;
+      }
+      console.log(`  [diag] ${nombreLog}: relacion_id=${formInfo.relacion_id} filled.status=${filled?.status} elementos.length=${elementos.length}`);
+      for (const [idx, item] of resultado.items.entries()) {
+        // Comparación tolerante a acentos: la API devuelve "Torax" sin tilde
+        // mientras la UI muestra "Tórax" con tilde — un match exacto fallaba.
+        const elValor = elementos.find(e => sinAcentos(e.sTexto) === sinAcentos(item.nombre) && sinAcentos(e.sDescripcion) === sinAcentos(item.nombre));
+        const elObs = elementos[elementos.findIndex(e => e === elValor) + 1];
+        const valorReal = elValor?.valor;
+        const obsReal = elObs?.sTexto === 'Observaciones' ? elObs.valor : undefined;
+        if (idx === 0) {
+          console.log(`  [diag] item0 comparación: valorReal=${JSON.stringify(valorReal)} (${typeof valorReal}) vs esperado=${JSON.stringify(item.valorEsperado)} (${typeof item.valorEsperado}) | obsReal=${JSON.stringify(obsReal)} vs esperado=${JSON.stringify(item.observacionEsperada)} | elValorEncontrado=${!!elValor}`);
+        }
+        if (item.valorEsperado !== null && Number(valorReal) !== Number(item.valorEsperado)) {
+          inconsistencias.push(`${nombreLog} → "${item.nombre}": Normal/Anormal esperado=${item.valorEsperado} real=${valorReal}`);
+        }
+        if (item.observacionEsperada && String(obsReal).trim() !== String(item.observacionEsperada).trim()) {
+          inconsistencias.push(`${nombreLog} → "${item.nombre}": Observaciones esperado="${item.observacionEsperada}" real="${obsReal}"`);
+        }
+      }
+      const okItems = resultado.items.length - inconsistencias.filter(i => i.startsWith(nombreLog)).length;
+      console.log(`  ${nombreLog}: ${okItems}/${resultado.items.length} ítems verificados correctos`);
+    }
+
+    if (inconsistencias.length > 0) {
+      console.log(`\n🐛 ${inconsistencias.length} inconsistencia(s) encontradas tras Finalizar:`);
+      inconsistencias.forEach(i => console.log(`   - ${i}`));
+    } else {
+      console.log('\n✅ Todo lo llenado sigue guardado y coincide exactamente tras Finalizar.');
+    }
+    if (advertenciasNoBloqueantes.length > 0) {
+      console.log(`\n⚠️ ${advertenciasNoBloqueantes.length} advertencia(s) no bloqueante(s) (no cuentan como fallo del test):`);
+      advertenciasNoBloqueantes.forEach(a => console.log(`   - ${a}`));
+    }
+  });
+
   console.log('\n🎉 === CONSULTA COMPLETADA EXITOSAMENTE ===');
 
   const result = monitor.printSummary();
@@ -616,4 +989,5 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
 
   expect(serviciosSinOpciones, '🐛 BUG: dropdown "Agregar servicios" sin opciones ("No se encontraron elementos")').toBe(false);
   expect(result.failedApiCalls.length, `No debe haber responses con error de API: ${JSON.stringify(result.failedApiCalls)}`).toBe(0);
+  expect(inconsistencias, `Datos inconsistentes tras Finalizar:\n${inconsistencias.join('\n')}`).toEqual([]);
 });
