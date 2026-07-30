@@ -672,7 +672,7 @@ async function waitForFinalizarButton(page) {
 
 // Test principal
 test('Start a scheduled consultation from Inicio', async ({ page }) => {
-  test.setTimeout(420000); // 7 minutos — margen para los reintentos reales (no rushed) de getFilledForm post-Finalizar (hasta ~65s c/u, 2 secciones)
+  test.setTimeout(480000); // 8 minutos — margen para los reintentos reales (no rushed) de getFilledForm post-Finalizar (hasta ~130s c/u, 2 secciones)
 
   const monitor = setupConsoleMonitor(page);
   console.log('🔍 [MONITOR] DevTools monitor activo — capturando consola y red...\n');
@@ -934,13 +934,24 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
       // suficiente para comprobarlo dentro del propio test, y silenció el
       // caso como advertencia no bloqueante. Eso es exactamente la
       // racionalización que CLAUDE.md §0.4 prohíbe: ninguna anomalía se
-      // descarta sin evidencia de ESA corrida. Ahora se reintenta de verdad,
-      // con esperas largas (hasta ~65s en total), y solo si con ese margen
-      // realista sigue en blanco se cuenta como inconsistencia real.
+      // descarta sin evidencia de ESA corrida.
+      //
+      // Investigado a fondo el 2026-07-30 (`_investigar_getfilledform_blanco_dev.js`,
+      // monitoreo real de 5 minutos sobre una consulta real): con 65s de
+      // reintentos TODAVÍA estaba en blanco, pero ya había resuelto para
+      // cuando se volvió a chequear ~20-40s más tarde (es decir, en algún
+      // punto entre 65s y ~100s tras Finalizar) y se mantuvo resuelto de
+      // forma estable el resto de los 5 minutos monitoreados. Confirma que
+      // SÍ es un retraso de propagación transitorio (no pérdida de datos),
+      // pero más largo de lo que se había probado antes — la hipótesis
+      // vieja era correcta en el fondo, solo que nunca se había verificado
+      // con evidencia real. Se sube el margen de reintentos a ~130s con
+      // confianza (holgura sobre el ~100s observado), en vez de asumir un
+      // número arbitrario otra vez.
       let filled = await fetchApi('patients/getFilledForm', { paciente_id: pacienteId, relacion_id: formInfo.relacion_id, consulta_id: consultaId, doctor_id: doctorId });
       let elementos = filled?.data?.grupos?.[0]?.elementos || [];
       let siguesEnBlanco = resultado.items[0]?.valorEsperado !== null && elementos[1]?.valor === 0;
-      const esperasReintentoMs = [5000, 10000, 15000, 15000, 20000]; // ~65s total
+      const esperasReintentoMs = [10000, 15000, 20000, 25000, 30000, 30000]; // ~130s total — holgura real sobre el ~100s observado en vivo
       let intentoBlanco = 0;
       while (siguesEnBlanco && intentoBlanco < esperasReintentoMs.length) {
         const espera = esperasReintentoMs[intentoBlanco];
