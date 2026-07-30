@@ -672,7 +672,7 @@ async function waitForFinalizarButton(page) {
 
 // Test principal
 test('Start a scheduled consultation from Inicio', async ({ page }) => {
-  test.setTimeout(300000); // 5 minutos de timeout
+  test.setTimeout(420000); // 7 minutos — margen para los reintentos reales (no rushed) de getFilledForm post-Finalizar (hasta ~65s c/u, 2 secciones)
 
   const monitor = setupConsoleMonitor(page);
   console.log('🔍 [MONITOR] DevTools monitor activo — capturando consola y red...\n');
@@ -929,24 +929,36 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
       }
       // getFilledForm justo después de Finalizar puede devolver el formulario
       // con TODOS los valores en 0/vacío (plantilla en blanco) durante un
-      // rato — confirmado en vivo (2026-07-28) con 3 métodos distintos
-      // (fetch() en la misma pestaña, fetch() con cache:'no-store', y
-      // page.request fuera del JS de la página): ninguno lo evita, y ni 4
-      // reintentos de 3s (12s) bastan. Pero la MISMA consulta, revisada 1-2
-      // minutos después con un script aparte, SIEMPRE mostró el valor real
-      // guardado correctamente — es un retraso de propagación/caché del
-      // backend, no pérdida de datos. Verificar esto de forma confiable
-      // requeriría esperar minutos dentro del test (impráctico); en vez de
-      // reportar 8-15 "inconsistencias" falsas por sección cuando esto pasa,
-      // se detecta el patrón (ítem #0 en 0) y se registra como advertencia
-      // aparte, sin tumbar el test.
-      const filled = await fetchApi('patients/getFilledForm', { paciente_id: pacienteId, relacion_id: formInfo.relacion_id, consulta_id: consultaId, doctor_id: doctorId });
-      const elementos = filled?.data?.grupos?.[0]?.elementos || [];
-      const primerValorSospechoso = resultado.items[0]?.valorEsperado !== null && elementos[1]?.valor === 0;
-      if (primerValorSospechoso) {
-        advertenciasNoBloqueantes.push(`${nombreLog}: getFilledForm devolvió el formulario en blanco (0) justo tras Finalizar — patrón conocido de retraso de propagación del backend, no confirma pérdida de datos. Verificar manualmente más tarde si hay duda.`);
-        console.log(`⚠️ ${advertenciasNoBloqueantes[advertenciasNoBloqueantes.length - 1]}`);
+      // rato — una sesión anterior (2026-07-28) asumió que era "retraso de
+      // propagación del backend, no pérdida de datos" SIN esperar lo
+      // suficiente para comprobarlo dentro del propio test, y silenció el
+      // caso como advertencia no bloqueante. Eso es exactamente la
+      // racionalización que CLAUDE.md §0.4 prohíbe: ninguna anomalía se
+      // descarta sin evidencia de ESA corrida. Ahora se reintenta de verdad,
+      // con esperas largas (hasta ~65s en total), y solo si con ese margen
+      // realista sigue en blanco se cuenta como inconsistencia real.
+      let filled = await fetchApi('patients/getFilledForm', { paciente_id: pacienteId, relacion_id: formInfo.relacion_id, consulta_id: consultaId, doctor_id: doctorId });
+      let elementos = filled?.data?.grupos?.[0]?.elementos || [];
+      let siguesEnBlanco = resultado.items[0]?.valorEsperado !== null && elementos[1]?.valor === 0;
+      const esperasReintentoMs = [5000, 10000, 15000, 15000, 20000]; // ~65s total
+      let intentoBlanco = 0;
+      while (siguesEnBlanco && intentoBlanco < esperasReintentoMs.length) {
+        const espera = esperasReintentoMs[intentoBlanco];
+        console.log(`  ⏳ ${nombreLog}: getFilledForm en blanco, esperando ${espera}ms antes de reintentar (intento ${intentoBlanco + 1}/${esperasReintentoMs.length})...`);
+        await page.waitForTimeout(espera);
+        filled = await fetchApi('patients/getFilledForm', { paciente_id: pacienteId, relacion_id: formInfo.relacion_id, consulta_id: consultaId, doctor_id: doctorId });
+        elementos = filled?.data?.grupos?.[0]?.elementos || [];
+        siguesEnBlanco = resultado.items[0]?.valorEsperado !== null && elementos[1]?.valor === 0;
+        intentoBlanco++;
+      }
+      if (siguesEnBlanco) {
+        inconsistencias.push(`${nombreLog}: getFilledForm siguió devolviendo el formulario en blanco tras ${esperasReintentoMs.reduce((a, b) => a + b, 0)}ms de reintentos — no se pudo confirmar que el retraso sea transitorio en esta corrida.`);
+        console.log(`❌ ${inconsistencias[inconsistencias.length - 1]}`);
         continue;
+      }
+      if (intentoBlanco > 0) {
+        advertenciasNoBloqueantes.push(`${nombreLog}: getFilledForm tardó ${intentoBlanco} reintento(s) en dejar de estar en blanco tras Finalizar (confirmado con evidencia real de esta corrida, no asumido).`);
+        console.log(`⚠️ ${advertenciasNoBloqueantes[advertenciasNoBloqueantes.length - 1]}`);
       }
       console.log(`  [diag] ${nombreLog}: relacion_id=${formInfo.relacion_id} filled.status=${filled?.status} elementos.length=${elementos.length}`);
       for (const [idx, item] of resultado.items.entries()) {
