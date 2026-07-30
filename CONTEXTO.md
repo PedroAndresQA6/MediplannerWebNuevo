@@ -80,6 +80,16 @@ Monitoreo real de 5 minutos sobre la misma consulta (`consulta_id=39`, paciente 
 
 **Conclusión: la hipótesis original (retraso de propagación del backend, no pérdida de datos) era correcta en el fondo** — el error no fue la hipótesis en sí, fue afirmarla con confianza total sin haberla verificado dentro de un test, lo que la dejó sin corregir cuando el margen de espera real necesario (~100s, no los ~12s que se probaban originalmente ni los 65s de este mismo día) resultó ser mayor al asumido. Se subió el reintento de `consultation.full-flow.spec.js` a ~130s totales (con holgura sobre el ~100s observado) y el `test.setTimeout` a 8 minutos para darle espacio. **No volver a bajar este tiempo de espera sin volver a medirlo con evidencia real.**
 
+### ✅ Verificación de la 2ª vista (perfil del paciente → Consultas → sub-pestañas → "Ver consulta")
+
+A pedido de Pedro (quien señaló que el mismo dato de una consulta se puede revisar desde una segunda superficie distinta, no solo justo al finalizarla): se navegó al perfil de "Percentil Prueba Prueba" → pestaña "Consultas" (lista paginada, 39 consultas de las pruebas de hoy) → se seleccionó una "Consulta inicial" → se recorrieron sus sub-pestañas (General/Exploración/Diagnóstico/Tratamiento/Notas del médico, vista preliminar) → botón **"Ver consulta"** → navega a `/Consulta/ConsultaDetalles`, la misma vista completa que se ve recién al finalizar.
+
+**Resultado: consistente con la vista de recién-finalizar.** "Exploración segmentaria" y "Aparatos y sistemas" muestran cada ítem con su sub-formulario completo — Normal/Anormal seleccionado + Observaciones con texto real, ítem por ítem (Cabeza, Cuello, Tórax, Abdomen, Columna vertebral, Miembros superiores, Genitales, Miembros inferiores, y los 15 sistemas de Aparatos y sistemas) — confirmado visualmente en captura (`test-results/vista-consultas-3-completa.png`). Diagnóstico y Tratamiento también se ven completos y correctos.
+
+**Nota técnica:** durante esta navegación también aparecieron 2 responses 404 de `getFilledForm` (mismo patrón ya investigado arriba) — pese a eso, la UI mostró los datos completos y correctos, consistente con que es un problema transitorio del lado del panel "Expediente" y no afecta lo que finalmente se renderiza en la vista completa.
+
+**Gotcha de automatización descubierto en el camino** (para scripts futuros que naveguen esta pantalla): el texto "Consulta inicial" aparece en la lista visible **y también dentro de un `<option>` oculto de un select de filtro** en la misma página — un `getByText()` sin filtrar por tag puede resolver al `<option>` invisible y quedarse esperando timeout al intentar clickearlo. Hay que descartar explícitamente los `<option>` o verificar visibilidad elemento por elemento antes de clickear.
+
 ---
 
 ## 🐛 Bug confirmado (2026-07-28): botón "Consulta" crea la consulta con Tipo de Cita/Hospital vacíos
