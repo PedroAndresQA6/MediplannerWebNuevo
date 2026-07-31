@@ -61,7 +61,7 @@ Se reescribió el escenario con timing representativo de un médico real: tecleo
 
 ---
 
-## 🔬 Investigación: ¿getFilledForm en blanco tras Finalizar es transitorio o real? (2026-07-30, EN CURSO)
+## 🔬 Investigación: ¿getFilledForm en blanco tras Finalizar es transitorio o real? (2026-07-30, RESUELTO)
 
 Contexto completo del error metodológico que motivó la nueva norma (`CLAUDE.md` §0): una sesión anterior (2026-07-28) documentó que `getFilledForm` puede devolver el formulario de un checklist (Exploración segmentaria/Aparatos y sistemas) en blanco justo tras Finalizar una consulta, y asumió — **sin verificarlo dentro de un test, solo por haber revisado "1-2 minutos después con un script aparte"** — que era un simple retraso de propagación del backend, no pérdida de datos. Esa hipótesis se propagó sin cuestionarse durante toda la sesión del 2026-07-30 (aparece 3 veces: como "advertencia no bloqueante" en el full-flow, como hallazgo suelto del 404, y como "Cargando preguntas" en un screenshot) hasta que Pedro lo señaló.
 
