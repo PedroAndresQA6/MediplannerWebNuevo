@@ -19,14 +19,14 @@ function section(t: string) { console.log(`\n${'═'.repeat(70)}\n🗺️  ${t}\
 async function goToVacunacion(page: Page): Promise<void> {
   await page.goto('/Pacientes');
   await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
-  await page.waitForSelector('a.font-semibold.text-sm.text-gray-900', { timeout: 25000 });
+  await page.waitForSelector('span.font-semibold.text-sm.text-gray-900', { timeout: 25000 });
   await page.waitForTimeout(1500);
   const pageSize = page.locator('select').first();
   if (await pageSize.isVisible({ timeout: 3000 }).catch(() => false)) {
     await pageSize.selectOption({ label: 'Todos' }).catch(() => {});
     await page.waitForTimeout(2500);
   }
-  await page.locator('a.font-semibold.text-sm.text-gray-900', { hasText: PATIENT }).first().click();
+  await page.locator('span.font-semibold.text-sm.text-gray-900', { hasText: PATIENT }).first().click();
   await page.waitForTimeout(3000);
   await page.getByText(/^\s*Vacunación\s*$/i).first().click();
   await page.waitForTimeout(3000);

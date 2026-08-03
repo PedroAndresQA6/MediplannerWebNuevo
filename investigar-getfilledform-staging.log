@@ -1,0 +1,163 @@
+[dotenv@17.3.1] injecting env (4) from ..\.env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+⏳ Token todavía no capturado, esperando/reintentando (intento 1/4)...
+⏳ Token todavía no capturado, esperando/reintentando (intento 2/4)...
+⏳ Token todavía no capturado, esperando/reintentando (intento 3/4)...
+Token capturado: OK | doctor_id: null
+Formularios de la consulta: [
+  {
+    "nombre": "Tratamiento",
+    "relacion_id": 46
+  },
+  {
+    "nombre": "Laboratorios y Procedimientos",
+    "relacion_id": 47
+  },
+  {
+    "nombre": "Signos",
+    "relacion_id": 48
+  },
+  {
+    "nombre": "Aparatos y sistemas",
+    "relacion_id": 49
+  },
+  {
+    "nombre": "Exploracion segmentaria",
+    "relacion_id": 50
+  }
+]
+Consulta estatus: Terminada
+📍 Perfil del paciente: https://admin-staging.mediplanner.mx/Pacientes/Dashboard
+
+=== [t=0s desde el inicio de ESTE monitoreo] Vuelta 1/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=0s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=0s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [UI] "Cargando preguntas" visible 0 vez(es) tras recargar el perfil del paciente
+
+=== [t=19s desde el inicio de ESTE monitoreo] Vuelta 2/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=19s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=19s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [UI] "Cargando preguntas" visible 0 vez(es) tras recargar el perfil del paciente
+
+=== [t=38s desde el inicio de ESTE monitoreo] Vuelta 3/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=38s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=38s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+
+=== [t=55s desde el inicio de ESTE monitoreo] Vuelta 4/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=55s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=55s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [UI] "Cargando preguntas" visible 0 vez(es) tras recargar el perfil del paciente
+
+=== [t=75s desde el inicio de ESTE monitoreo] Vuelta 5/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=75s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=75s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+
+=== [t=91s desde el inicio de ESTE monitoreo] Vuelta 6/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=91s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=91s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [UI] "Cargando preguntas" visible 0 vez(es) tras recargar el perfil del paciente
+
+=== [t=110s desde el inicio de ESTE monitoreo] Vuelta 7/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=110s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=110s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+
+=== [t=126s desde el inicio de ESTE monitoreo] Vuelta 8/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=126s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=126s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [UI] "Cargando preguntas" visible 0 vez(es) tras recargar el perfil del paciente
+
+=== [t=147s desde el inicio de ESTE monitoreo] Vuelta 9/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=147s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=147s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+
+=== [t=164s desde el inicio de ESTE monitoreo] Vuelta 10/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=164s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=164s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [UI] "Cargando preguntas" visible 0 vez(es) tras recargar el perfil del paciente
+
+=== [t=183s desde el inicio de ESTE monitoreo] Vuelta 11/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=183s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=183s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+
+=== [t=200s desde el inicio de ESTE monitoreo] Vuelta 12/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=200s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=200s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [UI] "Cargando preguntas" visible 0 vez(es) tras recargar el perfil del paciente
+
+=== [t=219s desde el inicio de ESTE monitoreo] Vuelta 13/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=219s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=219s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+
+=== [t=235s desde el inicio de ESTE monitoreo] Vuelta 14/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=235s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=235s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [UI] "Cargando preguntas" visible 0 vez(es) tras recargar el perfil del paciente
+
+=== [t=255s desde el inicio de ESTE monitoreo] Vuelta 15/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=255s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=255s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+
+=== [t=271s desde el inicio de ESTE monitoreo] Vuelta 16/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=271s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=271s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [UI] "Cargando preguntas" visible 0 vez(es) tras recargar el perfil del paciente
+
+=== [t=290s desde el inicio de ESTE monitoreo] Vuelta 17/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=290s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=290s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+
+=== [t=306s desde el inicio de ESTE monitoreo] Vuelta 18/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=306s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=306s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [UI] "Cargando preguntas" visible 0 vez(es) tras recargar el perfil del paciente
+
+=== [t=326s desde el inicio de ESTE monitoreo] Vuelta 19/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=326s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=326s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+
+=== [t=343s desde el inicio de ESTE monitoreo] Vuelta 20/20 ===
+  [API] Exploración segmentaria: status=OK elementos=17 valoresConDato=17
+  ✅✅ [API] Exploración segmentaria YA MUESTRA DATOS REALES en t=343s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [API] Aparatos y sistemas: status=OK elementos=31 valoresConDato=31
+  ✅✅ [API] Aparatos y sistemas YA MUESTRA DATOS REALES en t=343s de este monitoreo — no es un bug permanente, solo tardó más de lo probado antes.
+  [UI] "Cargando preguntas" visible 0 vez(es) tras recargar el perfil del paciente
+
+
+=== FIN de la investigación (5 min de monitoreo adicionales sobre consulta_id=9) ===

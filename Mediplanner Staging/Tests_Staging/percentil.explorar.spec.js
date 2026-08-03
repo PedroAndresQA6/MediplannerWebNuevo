@@ -2,8 +2,10 @@ const { test, expect } = require('@playwright/test');
 const { setupConsoleMonitor } = require('../e2e/utils.js');
 
 // Exploratorio: el paciente "percentil prueba prueba" YA EXISTE (lo creó Pedro).
-// Buscarlo con el campo "Buscar Usuarios" de /Pacientes, abrirlo y volcar las
+// Buscarlo con el campo "Buscar paciente" de /Pacientes, abrirlo y volcar las
 // acciones disponibles para entender cómo arrancar/agendar su consulta.
+// Placeholder confirmado en vivo contra staging 2026-08-03: es "Buscar paciente",
+// no "Buscar Usuarios" (el de dev).
 const PACIENTE = 'percentil';
 
 test('Buscar paciente y mapear acciones', async ({ page }) => {
@@ -14,8 +16,8 @@ test('Buscar paciente y mapear acciones', async ({ page }) => {
   await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
   await page.waitForTimeout(3000);
 
-  console.log(`🔎 Buscando "${PACIENTE}" en el campo "Buscar Usuarios"...`);
-  const buscar = page.locator('input[placeholder="Buscar Usuarios"]').first();
+  console.log(`🔎 Buscando "${PACIENTE}" en el campo "Buscar paciente"...`);
+  const buscar = page.locator('input[placeholder="Buscar paciente"]').first();
   await buscar.waitFor({ state: 'visible', timeout: 20000 });
   await buscar.click();
   await buscar.fill(PACIENTE);

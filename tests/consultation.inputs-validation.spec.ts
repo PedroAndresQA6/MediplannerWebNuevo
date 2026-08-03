@@ -1,5 +1,5 @@
 import { test, expect, Page, Locator } from '@playwright/test';
-const { createAppointment: createAppointmentExternal } = require('../e2e/utils.js');
+const { createAppointment: createAppointmentExternal, checkNextDaysForIniciarButton: checkNextDaysForIniciarButtonExternal } = require('../e2e/utils.js');
 
 interface ValidationResult {
   campo: string;
@@ -1461,29 +1461,14 @@ async function registrarMedicamento(
   console.log('   ℹ️ Medicamento registrado (se guardará al final)');
 }
 
+// Antes reimplementaba esto localmente con selectores de botones "+N días"
+// que no existen en el calendario real del Dashboard (es un grid con celdas
+// `td[data-day]`, no botones de salto rápido) — el loop nunca navegaba a
+// ningún lado y por eso fallaba en cuanto la cita creada no caía en la vista
+// inicial. Se usa la versión de `e2e/utils.js`, que sí navega el calendario
+// celda por celda (confirmado en vivo 2026-07-31).
 async function checkNextDaysForIniciarButton(page: Page): Promise<boolean> {
-  console.log('🔍 Buscando botón Iniciar en próximos días...');
-  
-  for (let day = 1; day <= 5; day++) {
-    console.log(`📅 Verificando día +${day}...`);
-    
-    const dayButtons = page.locator(`button:has-text("+${day}"), button:has-text("+${day} días"), button:has-text("+${day}d")`);
-    
-    if (await dayButtons.count() > 0) {
-      await dayButtons.first().click();
-      await page.waitForTimeout(2000);
-    }
-    
-    const iniciarButtons = page.getByRole('button', { name: /iniciar/i });
-    const count = await iniciarButtons.count();
-    
-    if (count > 0) {
-      console.log(`✅ Encontradas ${count} citas con Iniciar en día +${day}`);
-      return true;
-    }
-  }
-  
-  return false;
+  return checkNextDaysForIniciarButtonExternal(page);
 }
 
 async function createAppointment(page: Page): Promise<void> {

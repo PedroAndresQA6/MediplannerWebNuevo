@@ -1,0 +1,487 @@
+
+Running 2 tests using 1 worker
+
+Iniciando proceso de autenticacion en staging...
+URL base: https://admin-staging.mediplanner.mx/
+Email: dr@rym-solutions.com
+Pagina cargada
+Formulario de login detectado
+Email ingresado
+Password ingresado
+Boton de login clickeado
+Pagina principal cargada
+Autenticacion exitosa
+Sesion guardada en storageState.json
+  ok 1 [setup] › Tests_Staging\auth.setup.ts:7:6 › authenticate (19.0s)
+🔍 [MONITOR] DevTools monitor activo — capturando consola y red...
+
+🎯 Paciente objetivo: "Percentil Prueba Prueba" — set #1 (peso=13 talla=92 perímetro=48)
+📅 Creando cita para "Percentil Prueba Prueba"...
+[2026-07-31T18:11:52.188Z] ℹ️  Explorando próximos 5 días para registrar una cita...
+[2026-07-31T18:11:52.189Z] ℹ️  Paciente objetivo de la cita: "Percentil"
+❌ [REQUEST FAILED +0.84s] https://www.google-analytics.com/g/collect?v=2&tid=G-ZVKJ9CWYCW&gtm=45je67t1v9248896219za200zd9248896219&_p=1785521512511&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AAAAAAQ&are=1&cid=1508328449.1785521493&frm=0&ngs=1&pscdl=noapi&rcb=2&sr=1920x1080&uaa=x86&uab=64&uafvl=Chromium%3B145.0.7632.6%7CNot%253AA-Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=10.0&uaw=0&ul=en-us&_s=1&tag_exp=115938465~115938469~118897920~118897930~119527019~119896803&sid=1785521493&sct=1&seg=1&dl=https%3A%2F%2Fadmin-staging.mediplanner.mx%2FCitas&dt=Mediplanner&en=page_view&_ee=1&tfd=592 — net::ERR_ABORTED
+❌ [REQUEST FAILED +2.36s] https://mediplanner-atencion.zendesk.com/frontendevents/pv?client=1B752747-577B-429A-A0E0-83861AF69088 — net::ERR_ABORTED
+❌ [REQUEST FAILED +5.69s] https://www.google-analytics.com/g/collect?v=2&tid=G-ZVKJ9CWYCW&gtm=45je67t1v9248896219za200zd9248896219&_p=1785521512511&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AEAAAAQ&ae=a&are=1&cid=1508328449.1785521493&frm=0&ngs=1&pscdl=noapi&rcb=2&sr=1920x1080&uaa=x86&uab=64&uafvl=Chromium%3B145.0.7632.6%7CNot%253AA-Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=10.0&uaw=0&ul=en-us&_s=2&tag_exp=115938465~115938469~118897920~118897930~119527019~119896803&sid=1785521493&sct=1&seg=1&dl=https%3A%2F%2Fadmin-staging.mediplanner.mx%2FCitas&dt=Mediplanner&en=scroll&epn.percent_scrolled=90&_et=4&tfd=5598 — net::ERR_ABORTED
+📤 [API REQUEST    +7.04s] POST https://admin-staging.mediplanner.mx/api/permissions/getPermissions
+📤 [API REQUEST    +7.04s] GET https://admin-staging.mediplanner.mx/api/profile/getProfile
+✅ [API RESPONSE   +7.52s] (477ms) 200 https://admin-staging.mediplanner.mx/api/permissions/getPermissions → {"status":"OK","data":[{"id":1,"name":"Consultar","module":"Usuarios","module_id":1,"active":false},{"id":2,"name":"Crea
+✅ [API RESPONSE   +7.53s] (484ms) 200 https://admin-staging.mediplanner.mx/api/profile/getProfile → {"status":"OK","data":{"id":312,"sNombre":"Emmett","sPaterno":"Brown","sMaterno":"Ayala","sCorreo":"dr@rym-solutions.com
+📤 [API REQUEST    +7.58s] POST https://admin-staging.mediplanner.mx/api/appointments/getFilteredAppointments
+✅ [API RESPONSE   +7.92s] (344ms) 200 https://admin-staging.mediplanner.mx/api/appointments/getFilteredAppointments → {"status":"OK","data":[]}
+[2026-07-31T18:12:02.957Z] ℹ️  Buscando botón "Agendar cita"...
+🔴 [DEVTOOLS ERROR +11.43s] data-stepper-next not found
+📤 [API REQUEST    +11.43s] POST https://admin-staging.mediplanner.mx/api/patients/getPatients
+📤 [API REQUEST    +11.43s] POST https://admin-staging.mediplanner.mx/api/appointments/getAppointmentTypes
+✅ [API RESPONSE   +11.79s] (360ms) 200 https://admin-staging.mediplanner.mx/api/appointments/getAppointmentTypes → {"status":"OK","data":[{"doctor_id":312,"relacion_id":1,"cita_nombre":"Consulta inicial","duracion":40,"producto_id":116
+[2026-07-31T18:12:03.979Z] ℹ️  Comboboxes en wizard: 1
+❌ [REQUEST FAILED +11.85s] https://mediplanner-atencion.zendesk.com/frontendevents/pv?client=1B752747-577B-429A-A0E0-83861AF69088 — net::ERR_ABORTED
+✅ [API RESPONSE   +12.01s] (572ms) 200 https://admin-staging.mediplanner.mx/api/patients/getPatients → {"status":"OK","data":{"patients":[{"id":1025,"iUsuarioDrId":312,"sImagen":"","sNombre":"Percentil","sPaterno":"Prueba",
+📤 [API REQUEST    +12.59s] POST https://admin-staging.mediplanner.mx/api/patients/getPatients
+[2026-07-31T18:12:04.831Z] ℹ️  Buscando: "Percentil" (intento 1/5)...
+✅ [API RESPONSE   +13.03s] (440ms) 200 https://admin-staging.mediplanner.mx/api/patients/getPatients → {"status":"OK","data":{"patients":[{"id":1025,"iUsuarioDrId":312,"sImagen":"","sNombre":"Percentil","sPaterno":"Prueba",
+[2026-07-31T18:12:06.848Z] ℹ️  Opciones encontradas: 1
+[2026-07-31T18:12:06.964Z] ✅ Opción seleccionada (coincide "Percentil"): "Percentil Prueba Prueba"
+❌ [REQUEST FAILED +17.04s] https://www.google-analytics.com/g/collect?v=2&tid=G-ZVKJ9CWYCW&gtm=45je67t1v9248896219za200zd9248896219&_p=1785521512511&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AEAAAAQ&ae=a&are=1&cid=1508328449.1785521493&frm=0&ngs=1&pscdl=noapi&rcb=2&sr=1920x1080&uaa=x86&uab=64&uafvl=Chromium%3B145.0.7632.6%7CNot%253AA-Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=10.0&uaw=0&ul=en-us&_s=3&tag_exp=115938465~115938469~118897920~118897930~119527019~119896803&dl=https%3A%2F%2Fadmin-staging.mediplanner.mx%2FCitas%2FCrearCita&dr=https%3A%2F%2Fadmin-staging.mediplanner.mx%2FCitas&sid=1785521493&sct=1&seg=1&dt=Mediplanner&en=page_view&_et=11232&tfd=16835 — net::ERR_ABORTED
+[2026-07-31T18:12:10.138Z] ℹ️  Selects en paso 2: 2
+[2026-07-31T18:12:10.142Z] ℹ️  Opciones tipo consulta: 4
+[2026-07-31T18:12:11.727Z] ℹ️  Opciones hospital: 4
+[2026-07-31T18:12:12.931Z] ℹ️  Buscando input de fecha...
+[2026-07-31T18:12:14.949Z] ✅ Input de fecha encontrado con selector: input[type="date"]
+[2026-07-31T18:12:14.954Z] ℹ️  Intentando registrar cita en: 2026-07-31
+📤 [API REQUEST    +22.80s] POST https://admin-staging.mediplanner.mx/api/appointments/getFreeSchedules
+✅ [API RESPONSE   +23.36s] (557ms) 200 https://admin-staging.mediplanner.mx/api/appointments/getFreeSchedules → {"status":"OK","data":[{"hora_inicio":"13:00:00","hora_fin":"13:40:00"},{"hora_inicio":"16:00:00","hora_fin":"16:40:00"}
+[2026-07-31T18:12:17.064Z] ✅ Horas disponibles en 2026-07-31: 14
+[2026-07-31T18:12:17.075Z] ℹ️  Intentando seleccionar hora: 13:00
+[2026-07-31T18:12:18.215Z] ✅ Hora seleccionada exitosamente
+📤 [API REQUEST    +27.29s] POST https://admin-staging.mediplanner.mx/api/appointments/createAppointment
+✅ [API RESPONSE   +29.08s] (1790ms) 200 https://admin-staging.mediplanner.mx/api/appointments/createAppointment → {"status":"OK","data":{"relacion_id":94,"message":"Cita creada correctamente"}}
+[2026-07-31T18:12:21.411Z] ✅ Cita registrada exitosamente en 2026-07-31
+🏠 Volviendo a Dashboard para iniciar SU cita...
+❌ [REQUEST FAILED +29.43s] https://www.google-analytics.com/g/collect?v=2&tid=G-ZVKJ9CWYCW&gtm=45je67t1v9248896219za200zd9248896219&_p=1785521512511&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AAAAAAQ&are=1&cid=1508328449.1785521493&frm=0&ngs=1&pscdl=noapi&rcb=2&sr=1920x1080&uaa=x86&uab=64&uafvl=Chromium%3B145.0.7632.6%7CNot%253AA-Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=10.0&uaw=0&ul=en-us&_s=4&tag_exp=115938465~115938469~118897920~118897930~119527019~119896803&sid=1785521493&sct=1&seg=1&dl=https%3A%2F%2Fadmin-staging.mediplanner.mx%2FCitas%2FCrearCita&dr=https%3A%2F%2Fadmin-staging.mediplanner.mx%2FCitas&dt=Mediplanner&en=user_engagement&_et=17570&tfd=29399 — net::ERR_ABORTED
+❌ [REQUEST FAILED +29.43s] https://p.clarity.ms/collect — net::ERR_ABORTED
+❌ [REQUEST FAILED +30.16s] https://www.google-analytics.com/g/collect?v=2&tid=G-ZVKJ9CWYCW&gtm=45je67t1v9248896219za200zd9248896219&_p=1785521542109&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AAAAAAQ&are=1&cid=1508328449.1785521493&frm=0&ngs=1&pscdl=noapi&rcb=14&sr=1920x1080&uaa=x86&uab=64&uafvl=Chromium%3B145.0.7632.6%7CNot%253AA-Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=10.0&uaw=0&ul=en-us&_s=1&tag_exp=115938465~115938468~118395334~118897920~118897930~119896802~120222309&sid=1785521493&sct=1&seg=1&dl=https%3A%2F%2Fadmin-staging.mediplanner.mx%2FDashboard&dt=Mediplanner&en=page_view&_ee=1&tfd=842 — net::ERR_ABORTED
+❌ [REQUEST FAILED +30.17s] https://mediplanner-atencion.zendesk.com/frontendevents/pv?client=1B752747-577B-429A-A0E0-83861AF69088 — net::ERR_ABORTED
+📤 [API REQUEST    +30.47s] POST https://admin-staging.mediplanner.mx/api/permissions/getPermissions
+📤 [API REQUEST    +30.47s] GET https://admin-staging.mediplanner.mx/api/profile/getProfile
+✅ [API RESPONSE   +30.79s] (317ms) 200 https://admin-staging.mediplanner.mx/api/permissions/getPermissions → {"status":"OK","data":[{"id":1,"name":"Consultar","module":"Usuarios","module_id":1,"active":false},{"id":2,"name":"Crea
+📤 [API REQUEST    +30.91s] POST https://admin-staging.mediplanner.mx/api/appointments/getFilteredAppointments
+📤 [API REQUEST    +30.91s] POST https://admin-staging.mediplanner.mx/api/dashboard/getDashboardData
+📤 [API REQUEST    +30.91s] POST https://admin-staging.mediplanner.mx/api/procedures/getLastProceduresFilesByDoctorId
+📤 [API REQUEST    +30.91s] POST https://admin-staging.mediplanner.mx/api/dashboard/getDashboardPayments
+📤 [API REQUEST    +30.91s] POST https://admin-staging.mediplanner.mx/api/wizard/getActiveStep
+📤 [API REQUEST    +30.94s] POST https://admin-staging.mediplanner.mx/api/appointments/getAppointmentCount
+✅ [API RESPONSE   +30.94s] (465ms) 200 https://admin-staging.mediplanner.mx/api/profile/getProfile → {"status":"OK","data":{"id":312,"sNombre":"Emmett","sPaterno":"Brown","sMaterno":"Ayala","sCorreo":"dr@rym-solutions.com
+✅ [API RESPONSE   +31.57s] (656ms) 200 https://admin-staging.mediplanner.mx/api/dashboard/getDashboardData → {"status":"OK","data":{"monthConsultations":{"count":12,"percentage":0},"recurring":{"count":6,"percentage":20},"patient
+✅ [API RESPONSE   +31.58s] (667ms) 200 https://admin-staging.mediplanner.mx/api/procedures/getLastProceduresFilesByDoctorId → {"status":"OK","data":{"procedimientos":[{"paciente_id":289,"paciente_nombre":"Juan Armando Nieto","procedimiento_id":56
+✅ [API RESPONSE   +31.58s] (669ms) 200 https://admin-staging.mediplanner.mx/api/appointments/getFilteredAppointments → {"status":"OK","data":[{"title":"Consulta inicial","doctor_id":312,"doctor_name":"Dr.Emmett Brown Ayala","doctor_img":"h
+✅ [API RESPONSE   +31.59s] (673ms) 200 https://admin-staging.mediplanner.mx/api/wizard/getActiveStep → {"status":"OK","data":{"activeStep":1,"date":"2026-07-31 11:58:39"}}
+✅ [API RESPONSE   +31.59s] (677ms) 200 https://admin-staging.mediplanner.mx/api/dashboard/getDashboardPayments → {"status":"OK","data":{"grafica_actual":[{"etiqueta":"Viernes","total_pagos":0,"monto":0}],"grafica_anterior":[{"etiquet
+✅ [API RESPONSE   +31.86s] (920ms) 200 https://admin-staging.mediplanner.mx/api/appointments/getAppointmentCount → {"status":"OK","data":[{"date":"2026-07-01","count":0},{"date":"2026-07-02","count":0},{"date":"2026-07-03","count":0},{
+❌ [REQUEST FAILED +32.18s] https://mediplanner-atencion.zendesk.com/frontendevents/pv?client=1B752747-577B-429A-A0E0-83861AF69088 — net::ERR_ABORTED
+⚠️ Botón "Iniciar" no encontrado todavía (intento 1/3)
+❌ [REQUEST FAILED +32.80s] https://p.clarity.ms/collect — net::ERR_ABORTED
+❌ [REQUEST FAILED +32.80s] https://admin-staging.mediplanner.mx/assets/index-DaRNjsiQ.js — net::ERR_ABORTED
+❌ [REQUEST FAILED +32.80s] https://www.google-analytics.com/g/collect?v=2&tid=G-ZVKJ9CWYCW&gtm=45je67t1v9248896219za200zd9248896219&_p=1785521542109&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AEAAAAQ&ae=a&are=1&cid=1508328449.1785521493&frm=0&ngs=1&pscdl=noapi&rcb=14&sr=1920x1080&uaa=x86&uab=64&uafvl=Chromium%3B145.0.7632.6%7CNot%253AA-Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=10.0&uaw=0&ul=en-us&tag_exp=115938465~115938468~118395334~118897920~118897930~119896802~120222309&sid=1785521493&sct=1&seg=1&dl=https%3A%2F%2Fadmin-staging.mediplanner.mx%2FDashboard&dt=Mediplanner&_s=2&tfd=3551 — net::ERR_ABORTED
+❌ [REQUEST FAILED +33.09s] https://www.google-analytics.com/g/collect?v=2&tid=G-ZVKJ9CWYCW&gtm=45je67t1v9248896219za200zd9248896219&_p=1785521545114&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AAAAAAQ&are=1&cid=1508328449.1785521493&frm=0&ngs=1&pscdl=noapi&rcb=16&sr=1920x1080&uaa=x86&uab=64&uafvl=Chromium%3B145.0.7632.6%7CNot%253AA-Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=10.0&uaw=0&ul=en-us&_s=1&tag_exp=115938465~115938469~118897920~118897930~119527019~119896802&sid=1785521493&sct=1&seg=1&dl=https%3A%2F%2Fadmin-staging.mediplanner.mx%2Fwizard%2Fonboarding&dt=Mediplanner&en=page_view&_ee=1&tfd=339 — net::ERR_ABORTED
+❌ [REQUEST FAILED +33.20s] https://mediplanner-atencion.zendesk.com/frontendevents/pv?client=1B752747-577B-429A-A0E0-83861AF69088 — net::ERR_ABORTED
+📤 [API REQUEST    +34.69s] POST https://admin-staging.mediplanner.mx/api/wizard/getActiveStep
+✅ [API RESPONSE   +34.95s] (253ms) 200 https://admin-staging.mediplanner.mx/api/wizard/getActiveStep → {"status":"OK","data":{"activeStep":1,"date":"2026-07-31 11:58:39"}}
+📤 [API REQUEST    +34.98s] POST https://admin-staging.mediplanner.mx/api/catalogs/getCatalogs
+📤 [API REQUEST    +34.98s] GET https://admin-staging.mediplanner.mx/api/profile/getProfile
+📤 [API REQUEST    +34.98s] POST https://admin-staging.mediplanner.mx/api/wizard/saveStep
+✅ [API RESPONSE   +35.25s] (277ms) 200 https://admin-staging.mediplanner.mx/api/catalogs/getCatalogs → {"status":"OK","data":{"titles":[{"id":1,"name":"Dra."},{"id":2,"name":"Dr."}],"nationalities":[{"id":1,"name":"Afgano/a
+✅ [API RESPONSE   +35.31s] (328ms) 200 https://admin-staging.mediplanner.mx/api/wizard/saveStep → {"status":"OK","data":{"activeStep":1,"date":"2026-07-31 12:12:27"}}
+✅ [API RESPONSE   +35.36s] (383ms) 200 https://admin-staging.mediplanner.mx/api/profile/getProfile → {"status":"OK","data":{"id":312,"sNombre":"Emmett","sPaterno":"Brown","sMaterno":"Ayala","sCorreo":"dr@rym-solutions.com
+ℹ️ Wizard de "Configuración de tu cuenta" detectado — clickeando "Configurar más tarde"
+❌ [REQUEST FAILED +35.88s] https://www.google-analytics.com/g/collect?v=2&tid=G-ZVKJ9CWYCW&gtm=45je67t1v9248896219za200zd9248896219&_p=1785521545114&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AEAAAAQ&ae=a&are=1&cid=1508328449.1785521493&frm=0&ngs=1&pscdl=noapi&rcb=16&sr=1920x1080&uaa=x86&uab=64&uafvl=Chromium%3B145.0.7632.6%7CNot%253AA-Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=10.0&uaw=0&ul=en-us&_s=2&tag_exp=115938465~115938469~118897920~118897930~119527019~119896802&sid=1785521493&sct=1&seg=1&dl=https%3A%2F%2Fadmin-staging.mediplanner.mx%2Fwizard%2Fonboarding&dt=Mediplanner&en=scroll&epn.percent_scrolled=90&_et=13&tfd=3207 — net::ERR_ABORTED
+❌ [REQUEST FAILED +35.88s] https://www.google-analytics.com/g/collect?v=2&tid=G-ZVKJ9CWYCW&gtm=45je67t1v9248896219za200zd9248896219&_p=1785521545114&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AAAAAAQ&are=1&cid=1508328449.1785521493&frm=0&ngs=1&pscdl=noapi&rcb=16&sr=1920x1080&uaa=x86&uab=64&uafvl=Chromium%3B145.0.7632.6%7CNot%253AA-Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=10.0&uaw=0&ul=en-us&_s=3&tag_exp=115938465~115938469~118897920~118897930~119527019~119896802&sid=1785521493&sct=1&seg=1&dl=https%3A%2F%2Fadmin-staging.mediplanner.mx%2Fwizard%2Fonboarding&dt=Mediplanner&en=user_engagement&_et=2866&tfd=3207 — net::ERR_ABORTED
+❌ [REQUEST FAILED +35.88s] https://p.clarity.ms/collect — net::ERR_ABORTED
+📤 [API REQUEST    +36.20s] POST https://admin-staging.mediplanner.mx/api/permissions/getPermissions
+📤 [API REQUEST    +36.20s] GET https://admin-staging.mediplanner.mx/api/profile/getProfile
+📤 [API REQUEST    +36.20s] POST https://admin-staging.mediplanner.mx/api/appointments/getFilteredAppointments
+📤 [API REQUEST    +36.20s] POST https://admin-staging.mediplanner.mx/api/dashboard/getDashboardData
+📤 [API REQUEST    +36.20s] POST https://admin-staging.mediplanner.mx/api/procedures/getLastProceduresFilesByDoctorId
+📤 [API REQUEST    +36.20s] POST https://admin-staging.mediplanner.mx/api/dashboard/getDashboardPayments
+📤 [API REQUEST    +36.22s] POST https://admin-staging.mediplanner.mx/api/appointments/getAppointmentCount
+❌ [REQUEST FAILED +36.26s] https://mediplanner-atencion.zendesk.com/frontendevents/pv?client=1B752747-577B-429A-A0E0-83861AF69088 — net::ERR_ABORTED
+❌ [REQUEST FAILED +36.30s] https://www.google-analytics.com/g/collect?v=2&tid=G-ZVKJ9CWYCW&gtm=45je67t1v9248896219za200zd9248896219&_p=1785521548174&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AAAAAAQ&are=1&cid=1508328449.1785521493&frm=0&ngs=1&pscdl=noapi&rcb=3&sr=1920x1080&uaa=x86&uab=64&uafvl=Chromium%3B145.0.7632.6%7CNot%253AA-Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=10.0&uaw=0&ul=en-us&_s=1&tag_exp=115938465~115938468~118897920~118897930~119527020~119896802~120222307&sid=1785521493&sct=1&seg=1&dl=https%3A%2F%2Fadmin-staging.mediplanner.mx%2FDashboard&dr=https%3A%2F%2Fadmin-staging.mediplanner.mx%2Fwizard%2Fonboarding&dt=Mediplanner&en=page_view&_ee=1&tfd=541 — net::ERR_ABORTED
+✅ [API RESPONSE   +36.69s] (487ms) 200 https://admin-staging.mediplanner.mx/api/appointments/getFilteredAppointments → {"status":"OK","data":[{"title":"Consulta inicial","doctor_id":312,"doctor_name":"Dr.Emmett Brown Ayala","doctor_img":"h
+✅ [API RESPONSE   +36.79s] (587ms) 200 https://admin-staging.mediplanner.mx/api/dashboard/getDashboardData → {"status":"OK","data":{"monthConsultations":{"count":12,"percentage":0},"recurring":{"count":6,"percentage":20},"patient
+✅ [API RESPONSE   +36.89s] (693ms) 200 https://admin-staging.mediplanner.mx/api/procedures/getLastProceduresFilesByDoctorId → {"status":"OK","data":{"procedimientos":[{"paciente_id":289,"paciente_nombre":"Juan Armando Nieto","procedimiento_id":56
+✅ [API RESPONSE   +36.90s] (698ms) 200 https://admin-staging.mediplanner.mx/api/profile/getProfile → {"status":"OK","data":{"id":312,"sNombre":"Emmett","sPaterno":"Brown","sMaterno":"Ayala","sCorreo":"dr@rym-solutions.com
+✅ [API RESPONSE   +36.92s] (723ms) 200 https://admin-staging.mediplanner.mx/api/permissions/getPermissions → {"status":"OK","data":[{"id":1,"name":"Consultar","module":"Usuarios","module_id":1,"active":false},{"id":2,"name":"Crea
+✅ [API RESPONSE   +36.99s] (794ms) 200 https://admin-staging.mediplanner.mx/api/dashboard/getDashboardPayments → {"status":"OK","data":{"grafica_actual":[{"etiqueta":"Viernes","total_pagos":0,"monto":0}],"grafica_anterior":[{"etiquet
+✅ [API RESPONSE   +37.00s] (777ms) 200 https://admin-staging.mediplanner.mx/api/appointments/getAppointmentCount → {"status":"OK","data":[{"date":"2026-07-01","count":0},{"date":"2026-07-02","count":0},{"date":"2026-07-03","count":0},{
+▶️ Iniciando consulta de "Percentil Prueba Prueba" (set #1)...
+📤 [API REQUEST    +37.97s] POST https://admin-staging.mediplanner.mx/api/appointments/getFilteredAppointments
+📤 [API REQUEST    +37.97s] POST https://admin-staging.mediplanner.mx/api/patients/getPatient
+💉 Llenando signos vitales...
+✅ [API RESPONSE   +38.33s] (355ms) 200 https://admin-staging.mediplanner.mx/api/patients/getPatient → {"status":"OK","data":{"id":1025,"iEstatusId":2,"sEstatus":"Aceptada","sImagen":"","sNombre":"Percentil","sPaterno":"Pru
+✅ [API RESPONSE   +38.33s] (357ms) 200 https://admin-staging.mediplanner.mx/api/appointments/getFilteredAppointments → {"status":"OK","data":[{"title":"Consulta inicial","doctor_id":312,"doctor_name":"Dr.Emmett Brown Ayala","doctor_img":"h
+💉 Signos vitales [set #1]: peso=13 talla=92 perímetro=48 PA=118/078 temp=36.8 FC=65 sat=97 FR=16 glucosa=85
+📤 [API REQUEST    +39.07s] POST https://admin-staging.mediplanner.mx/api/patients/getPatient
+📤 [API REQUEST    +39.15s] POST https://admin-staging.mediplanner.mx/api/patients/getPatient
+❌ [REQUEST FAILED +39.22s] https://www.google-analytics.com/g/collect?v=2&tid=G-ZVKJ9CWYCW&gtm=45je67t1v9248896219za200zd9248896219&_p=1785521548174&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AEAAAAQ&ae=a&are=1&cid=1508328449.1785521493&frm=0&ngs=1&pscdl=noapi&rcb=3&sr=1920x1080&uaa=x86&uab=64&uafvl=Chromium%3B145.0.7632.6%7CNot%253AA-Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=10.0&uaw=0&ul=en-us&_s=2&tag_exp=115938465~115938468~118897920~118897930~119527020~119896802~120222307&sid=1785521493&sct=1&seg=1&dl=https%3A%2F%2Fadmin-staging.mediplanner.mx%2FDashboard&dr=https%3A%2F%2Fadmin-staging.mediplanner.mx%2Fwizard%2Fonboarding&dt=Mediplanner&en=scroll&epn.percent_scrolled=90&_et=2&tfd=3440 — net::ERR_ABORTED
+ℹ️ No se encontró campo de perímetro cefálico en signos vitales (puede no aplicar).
+📤 [API REQUEST    +39.26s] POST https://admin-staging.mediplanner.mx/api/patients/getPatient
+📤 [API REQUEST    +39.35s] POST https://admin-staging.mediplanner.mx/api/patients/getPatient
+✅ [API RESPONSE   +39.35s] (285ms) 200 https://admin-staging.mediplanner.mx/api/patients/getPatient → {"status":"OK","data":{"id":1025,"iEstatusId":2,"sEstatus":"Aceptada","sImagen":"","sNombre":"Percentil","sPaterno":"Pru
+✅ [API RESPONSE   +39.40s] (250ms) 200 https://admin-staging.mediplanner.mx/api/patients/getPatient → {"status":"OK","data":{"id":1025,"iEstatusId":2,"sEstatus":"Aceptada","sImagen":"","sNombre":"Percentil","sPaterno":"Pru
+📤 [API REQUEST    +39.42s] POST https://admin-staging.mediplanner.mx/api/patients/getPatient
+📤 [API REQUEST    +39.50s] POST https://admin-staging.mediplanner.mx/api/patients/getPatient
+✅ [API RESPONSE   +39.50s] (242ms) 200 https://admin-staging.mediplanner.mx/api/patients/getPatient → {"status":"OK","data":{"id":1025,"iEstatusId":2,"sEstatus":"Aceptada","sImagen":"","sNombre":"Percentil","sPaterno":"Pru
+📤 [API REQUEST    +39.59s] POST https://admin-staging.mediplanner.mx/api/patients/getPatient
+✅ [API RESPONSE   +39.60s] (253ms) 200 https://admin-staging.mediplanner.mx/api/patients/getPatient → {"status":"OK","data":{"id":1025,"iEstatusId":2,"sEstatus":"Aceptada","sImagen":"","sNombre":"Percentil","sPaterno":"Pru
+✅ [API RESPONSE   +39.76s] (335ms) 200 https://admin-staging.mediplanner.mx/api/patients/getPatient → {"status":"OK","data":{"id":1025,"iEstatusId":2,"sEstatus":"Aceptada","sImagen":"","sNombre":"Percentil","sPaterno":"Pru
+✅ [API RESPONSE   +39.78s] (283ms) 200 https://admin-staging.mediplanner.mx/api/patients/getPatient → {"status":"OK","data":{"id":1025,"iEstatusId":2,"sEstatus":"Aceptada","sImagen":"","sNombre":"Percentil","sPaterno":"Pru
+✅ [API RESPONSE   +39.87s] (281ms) 200 https://admin-staging.mediplanner.mx/api/patients/getPatient → {"status":"OK","data":{"id":1025,"iEstatusId":2,"sEstatus":"Aceptada","sImagen":"","sNombre":"Percentil","sPaterno":"Pru
+📤 [API REQUEST    +41.22s] POST https://admin-staging.mediplanner.mx/api/consultations/registerVitalSigns
+✅ Signos vitales guardados
+📤 [API REQUEST    +41.61s] POST https://admin-staging.mediplanner.mx/api/appointments/updateAppointmentStatus
+✅ [API RESPONSE   +41.60s] (380ms) 200 https://admin-staging.mediplanner.mx/api/consultations/registerVitalSigns → {"status":"OK","data":{"message":"Signos vitales registrados correctamente","consulta_id":9}}
+✅ [API RESPONSE   +41.84s] (227ms) 200 https://admin-staging.mediplanner.mx/api/appointments/updateAppointmentStatus → {"status":"OK","data":{"relacion_id":94,"message":"Estado de la cita actualizado correctamente"}}
+📤 [API REQUEST    +43.60s] POST https://admin-staging.mediplanner.mx/api/treatments/getActiveTemplates
+📤 [API REQUEST    +43.60s] POST https://admin-staging.mediplanner.mx/api/catalogs/getCatalogs
+📤 [API REQUEST    +43.60s] POST https://admin-staging.mediplanner.mx/api/consultations/getTreatments
+📤 [API REQUEST    +43.60s] POST https://admin-staging.mediplanner.mx/api/treatments/getUserTemplate
+📤 [API REQUEST    +43.60s] POST https://admin-staging.mediplanner.mx/api/appointments/getAppointmentTypes
+📤 [API REQUEST    +43.60s] POST https://admin-staging.mediplanner.mx/api/consultations/getConsultation
+📤 [API REQUEST    +43.60s] POST https://admin-staging.mediplanner.mx/api/catalogs/getConfigurations
+📤 [API REQUEST    +43.60s] POST https://admin-staging.mediplanner.mx/api/patients/getHistoryForms
+📤 [API REQUEST    +43.60s] POST https://admin-staging.mediplanner.mx/api/patients/getPatient
+❌ [REQUEST FAILED +43.73s] https://www.google-analytics.com/g/collect?v=2&tid=G-ZVKJ9CWYCW&gtm=45je67t1v9248896219za200zd9248896219&_p=1785521548174&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AEEAAAQ&ae=a&are=1&cid=1508328449.1785521493&frm=0&ngs=1&pscdl=noapi&rcb=3&sr=1920x1080&uaa=x86&uab=64&uafvl=Chromium%3B145.0.7632.6%7CNot%253AA-Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=10.0&uaw=0&ul=en-us&_s=3&tag_exp=115938465~115938468~118897920~118897930~119527020~119896802~120222307&sid=1785521493&sct=1&seg=1&dl=https%3A%2F%2Fadmin-staging.mediplanner.mx%2FDashboard&dr=https%3A%2F%2Fadmin-staging.mediplanner.mx%2Fwizard%2Fonboarding&dt=Mediplanner&en=form_start&ep.form_id=&ep.form_destination=https%3A%2F%2Fadmin-staging.mediplanner.mx%2FDashboard&epn.form_length=10&ep.first_field_id=&ep.first_field_name=peso&ep.first_field_type=text&epn.first_field_position=7&_et=2896&tfd=7960 — net::ERR_ABORTED
+🔄 Esperando redirección...
+✅ Redirigido a página de consulta
+⏳ Esperando carga completa de la consulta...
+✅ [API RESPONSE   +43.96s] (358ms) 200 https://admin-staging.mediplanner.mx/api/catalogs/getCatalogs → {"status":"OK","data":{"medicamentos_tiempo":[{"id":1,"name":"Día","pluralName":"Días"},{"id":2,"name":"Semana","pluralN
+✅ [API RESPONSE   +44.06s] (458ms) 200 https://admin-staging.mediplanner.mx/api/consultations/getTreatments → {"status":"OK","data":[]}
+✅ [API RESPONSE   +44.26s] (661ms) 200 https://admin-staging.mediplanner.mx/api/treatments/getActiveTemplates → {"status":"OK","data":{"plantillas_personalizadas":[],"plantilla_mediplanner":{"id":1,"nombre":"Plantilla Mediplanner","
+❌ [REQUEST FAILED +44.27s] https://mediplanner-atencion.zendesk.com/frontendevents/pv?client=1B752747-577B-429A-A0E0-83861AF69088 — net::ERR_ABORTED
+📤 [API REQUEST    +44.34s] POST https://admin-staging.mediplanner.mx/api/forms/getFormsByCategory
+📤 [API REQUEST    +44.34s] POST https://admin-staging.mediplanner.mx/api/consultations/getVitalSigns
+📤 [API REQUEST    +44.34s] POST https://admin-staging.mediplanner.mx/api/patients/getPatient
+📤 [API REQUEST    +44.34s] POST https://admin-staging.mediplanner.mx/api/consultations/getConsultations
+📤 [API REQUEST    +44.35s] POST https://admin-staging.mediplanner.mx/api/procedures/getConsultationProcedures
+📤 [API REQUEST    +44.35s] POST https://admin-staging.mediplanner.mx/api/patients/getHistoryForms
+📤 [API REQUEST    +44.35s] POST https://admin-staging.mediplanner.mx/api/consultations/getForms
+📤 [API REQUEST    +44.35s] POST https://admin-staging.mediplanner.mx/api/catalogs/getCatalogs
+📤 [API REQUEST    +44.35s] GET https://admin-staging.mediplanner.mx/api/hospitals/getDrHospitals
+📤 [API REQUEST    +44.35s] POST https://admin-staging.mediplanner.mx/api/consultations/getNotes
+📤 [API REQUEST    +44.35s] POST https://admin-staging.mediplanner.mx/api/patients/getAllergiesByPatientId
+✅ [API RESPONSE   +44.33s] (729ms) 200 https://admin-staging.mediplanner.mx/api/catalogs/getConfigurations → {"status":"OK","data":{"configurations":[{"type":1,"value":"30","name":"time_save","description":"Tiempo de guardado","i
+✅ [API RESPONSE   +44.33s] (730ms) 200 https://admin-staging.mediplanner.mx/api/appointments/getAppointmentTypes → {"status":"OK","data":[{"doctor_id":312,"relacion_id":1,"cita_nombre":"Consulta inicial","duracion":40,"producto_id":116
+✅ [API RESPONSE   +44.34s] (740ms) 200 https://admin-staging.mediplanner.mx/api/consultations/getConsultation → {"status":"OK","data":{"id":9,"doctor_id":312,"doctor_titulo":"Dr.","doctor_nombre":"Emmett Brown Ayala","doctor_img":"h
+✅ [API RESPONSE   +44.41s] (809ms) 200 https://admin-staging.mediplanner.mx/api/treatments/getUserTemplate → {"status":"OK","data":{"plantilla_id":1,"tipo_plantilla_id":1,"ancho_encabezado":800,"ancho_pie_pagina":800,"elemento1_i
+✅ [API RESPONSE   +44.56s] (960ms) 200 https://admin-staging.mediplanner.mx/api/patients/getHistoryForms → {"status":"OK","data":[{"relacion_id":1,"nombre":"ANTECEDENTES HEREDOFAMILIARES (2025)","fecha_creacion":"05/11/2025","f
+📤 [API REQUEST    +44.58s] POST https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+📤 [API REQUEST    +44.58s] POST https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+📤 [API REQUEST    +44.58s] POST https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+📤 [API REQUEST    +44.58s] POST https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+📤 [API REQUEST    +44.58s] POST https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+✅ [API RESPONSE   +44.88s] (1277ms) 200 https://admin-staging.mediplanner.mx/api/patients/getPatient → {"status":"OK","data":{"id":1025,"iEstatusId":2,"sEstatus":"Aceptada","sImagen":"","sNombre":"Percentil","sPaterno":"Pru
+✅ [API RESPONSE   +44.89s] (548ms) 200 https://admin-staging.mediplanner.mx/api/consultations/getVitalSigns → {"status":"OK","data":{"presion":"118/078","oxigenacion":"97","temperatura":"36.8","peso":"13","imc":"15.36","frecuencia
+✅ [API RESPONSE   +44.97s] (627ms) 200 https://admin-staging.mediplanner.mx/api/patients/getPatient → {"status":"OK","data":{"id":1025,"iEstatusId":2,"sEstatus":"Aceptada","sImagen":"","sNombre":"Percentil","sPaterno":"Pru
+✅ [API RESPONSE   +44.97s] (628ms) 200 https://admin-staging.mediplanner.mx/api/procedures/getConsultationProcedures → {"status":"OK","data":[]}
+📤 [API REQUEST    +45.40s] POST https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+✅ [API RESPONSE   +45.39s] (1048ms) 200 https://admin-staging.mediplanner.mx/api/catalogs/getCatalogs → {"status":"OK","data":{"tipos_consulta":[{"id":1,"name":"Consulta General"},{"id":2,"name":"Seguimiento"}]}}
+✅ [API RESPONSE   +45.40s] (1051ms) 200 https://admin-staging.mediplanner.mx/api/patients/getHistoryForms → {"status":"OK","data":[{"relacion_id":1,"nombre":"ANTECEDENTES HEREDOFAMILIARES (2025)","fecha_creacion":"05/11/2025","f
+✅ [API RESPONSE   +45.40s] (1053ms) 200 https://admin-staging.mediplanner.mx/api/consultations/getForms → {"status":"OK","data":[{"formulario_padre":115,"relacion_id":46,"nombre":"Tratamiento","fecha_creacion":"31/07/2026","fe
+✅ [API RESPONSE   +45.40s] (1054ms) 200 https://admin-staging.mediplanner.mx/api/hospitals/getDrHospitals → {"status":"OK","data":[{"hospital_id":1,"relacion_id":1,"nombre":"Hospital Angeles Centro Sur","lugar":"A","consultorio"
+📤 [API REQUEST    +45.41s] POST https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+📤 [API REQUEST    +45.41s] POST https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+📤 [API REQUEST    +45.41s] POST https://admin-staging.mediplanner.mx/api/services/getServices
+📤 [API REQUEST    +45.51s] POST https://admin-staging.mediplanner.mx/api/procedures/searchProcedures
+✅ [API RESPONSE   +45.51s] (1167ms) 200 https://admin-staging.mediplanner.mx/api/forms/getFormsByCategory → {"status":"OK","data":[{"id":115,"sNombre":"Tratamiento","sVersion":"1.0","bActivo":false,"sEmoji":"","sDescripcion":"Tr
+✅ [API RESPONSE   +45.51s] (1164ms) 200 https://admin-staging.mediplanner.mx/api/consultations/getConsultations → {"status":"OK","data":[{"id":8,"doctor_id":312,"doctor_titulo":"Dr.","doctor_nombre":"Emmett Brown Ayala","doctor_img":"
+✅ [API RESPONSE   +45.88s] (1529ms) 200 https://admin-staging.mediplanner.mx/api/patients/getAllergiesByPatientId → {"status":"OK","data":[]}
+✅ [API RESPONSE   +45.91s] (1561ms) 200 https://admin-staging.mediplanner.mx/api/consultations/getNotes → {"status":"OK","data":[]}
+✅ [API RESPONSE   +46.11s] (1538ms) 200 https://admin-staging.mediplanner.mx/api/patients/getFilledForm → {"status":"OK","data":{"id":124,"sNombre":"ANTECEDENTES PERSONALES NO PATOLÓGICOS (2025)","sVersion":"1","bActivo":true,
+✅ [API RESPONSE   +46.21s] (1635ms) 200 https://admin-staging.mediplanner.mx/api/patients/getFilledForm → {"status":"OK","data":{"id":122,"sNombre":"Antecedentes Gineco-Obstetricos","sVersion":"1.0","bActivo":true,"sEmoji":"",
+✅ [API RESPONSE   +46.42s] (1842ms) 200 https://admin-staging.mediplanner.mx/api/patients/getFilledForm → {"status":"OK","data":{"id":126,"sNombre":"ANTECEDENTES HEREDOFAMILIARES (2025)","sVersion":"1","bActivo":true,"sEmoji":
+✅ [API RESPONSE   +46.42s] (1845ms) 200 https://admin-staging.mediplanner.mx/api/patients/getFilledForm → {"status":"OK","data":{"id":125,"sNombre":"ANTECEDENTES PERSONALES PATOLÓGICOS (2025)","sVersion":"1","bActivo":true,"sE
+✅ [API RESPONSE   +46.42s] (1847ms) 200 https://admin-staging.mediplanner.mx/api/patients/getFilledForm → {"status":"OK","data":{"id":110,"sNombre":"ANTECEDENTES RELEVANTES","sVersion":"1","bActivo":true,"sEmoji":"","sDescripc
+📤 [API REQUEST    +46.60s] POST https://admin-staging.mediplanner.mx/api/procedures/getProceduresList
+✅ [API RESPONSE   +46.60s] (1201ms) 200 https://admin-staging.mediplanner.mx/api/patients/getFilledForm → {"status":"OK","data":{"id":126,"sNombre":"ANTECEDENTES HEREDOFAMILIARES (2025)","sVersion":"1","bActivo":true,"sEmoji":
+📤 [API REQUEST    +46.62s] POST https://admin-staging.mediplanner.mx/api/consultations/getDiagnosis
+✅ [API RESPONSE   +46.92s] (1506ms) 200 https://admin-staging.mediplanner.mx/api/patients/getFilledForm → {"status":"OK","data":{"id":5,"iUsuarioId":312,"sNombre":"Exploracion segmentaria","sVersion":"","bActivo":true,"sEmoji"
+✅ [API RESPONSE   +46.92s] (1509ms) 200 https://admin-staging.mediplanner.mx/api/services/getServices → {"status":"OK","data":[{"servicio_id":3,"nombre":"Vacunación","duracion":20,"producto_id":43,"unidad_id":2,"objeto_id":2
+📋 Llenando sección General...
+✅ [API RESPONSE   +46.98s] (1467ms) 200 https://admin-staging.mediplanner.mx/api/procedures/searchProcedures → {"status":"OK","data":{"procedures":[{"procedimiento_id":5628,"nombre":"'OTRA RECONSTRUCCIÓN TOTAL DE MAMA","tipo_id":2,
+✅ Motivo de la consulta llenado
+✅ [API RESPONSE   +47.03s] (418ms) 200 https://admin-staging.mediplanner.mx/api/consultations/getDiagnosis → {"status":"OK","data":[]}
+✅ [API RESPONSE   +47.09s] (1677ms) 200 https://admin-staging.mediplanner.mx/api/patients/getFilledForm → {"status":"OK","data":{"id":4,"iUsuarioId":312,"sNombre":"Aparatos y sistemas","sVersion":"","bActivo":true,"sEmoji":"",
+✅ Padecimiento actual llenado
+✅ [API RESPONSE   +47.11s] (512ms) 200 https://admin-staging.mediplanner.mx/api/procedures/getProceduresList → {"status":"OK","data":{"procedures":[{"fecha_procedimiento":"2026-07-31 11:07:33","diagnosticos":[],"estudio":"ACTINA MÚ
+✅ Notas de evolución llenadas
+✅ Nombre referido llenado
+✅ Sección General completada
+👤 Llenando Apariencia general...
+✅ Apariencia general llenada
+🔍 Llenando Exploración segmentaria...
+☑️ Exploración segmentaria: 8 checkboxes encontrados
+❌ [REQUEST FAILED +48.77s] https://www.google-analytics.com/g/collect?v=2&tid=G-ZVKJ9CWYCW&gtm=45je67t1v9248896219za200zd9248896219&_p=1785521548174&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AEAAAAQ&ae=a&are=1&cid=1508328449.1785521493&frm=0&ngs=1&pscdl=noapi&rcb=3&sr=1920x1080&uaa=x86&uab=64&uafvl=Chromium%3B145.0.7632.6%7CNot%253AA-Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=10.0&uaw=0&ul=en-us&_s=4&tag_exp=115938465~115938468~118897920~118897930~119527020~119896802~120222307&dl=https%3A%2F%2Fadmin-staging.mediplanner.mx%2FConsulta%2FConsultaGeneral&dr=https%3A%2F%2Fadmin-staging.mediplanner.mx%2FDashboard&sid=1785521493&sct=1&seg=1&dt=Mediplanner&en=page_view&_et=4518&tfd=12973 — net::ERR_ABORTED
+✅ Exploración segmentaria: 8/8 checkbox(es) marcados → [Cabeza, Cuello, Tórax, Abdomen, Columna vertebral, Miembros superiores, Genitales, Miembros inferiores]
+Exploración segmentaria: 16 botones Normal/Anormal (esperados 16) | 8 campos de Observaciones (esperados 8)
+✅ Exploración segmentaria: Normal/Anormal y Observaciones resueltos para los 8 ítems → [Cabeza, Cuello, Tórax, Abdomen, Columna vertebral, Miembros superiores, Genitales, Miembros inferiores]
+📤 [API REQUEST    +55.45s] POST https://admin-staging.mediplanner.mx/api/patients/registerAnswers
+✅ [API RESPONSE   +55.95s] (503ms) 200 https://admin-staging.mediplanner.mx/api/patients/registerAnswers → {"status":"OK","data":[]}
+💾 Exploración segmentaria: "Guardar Respuestas" clickeado
+🔍 Llenando Aparatos y sistemas...
+☑️ Aparatos y sistemas: 15 checkboxes encontrados
+✅ Aparatos y sistemas: 15/15 checkbox(es) marcados → [Articulado, Cardiovascular, Circulatorio, Digestivo, Endocrino, Esqueletico, Excretor, Inmunitario, Integumentario, Linfatico, Locomotor, Muscular, Nervioso, Reproductor, Respiratorio]
+Aparatos y sistemas: 30 botones Normal/Anormal (esperados 30) | 15 campos de Observaciones (esperados 15)
+✅ Aparatos y sistemas: Normal/Anormal y Observaciones resueltos para los 15 ítems → [Articulado, Cardiovascular, Circulatorio, Digestivo, Endocrino, Esqueletico, Excretor, Inmunitario, Integumentario, Linfatico, Locomotor, Muscular, Nervioso, Reproductor, Respiratorio]
+📤 [API REQUEST    +70.16s] POST https://admin-staging.mediplanner.mx/api/patients/registerAnswers
+✅ [API RESPONSE   +71.22s] (1058ms) 200 https://admin-staging.mediplanner.mx/api/patients/registerAnswers → {"status":"OK","data":[]}
+💾 Aparatos y sistemas: "Guardar Respuestas" clickeado
+🩺 Llenando sección de Diagnóstico...
+📤 [API REQUEST    +72.95s] POST https://admin-staging.mediplanner.mx/api/consultations/searchDiagnoses
+✅ [API RESPONSE   +73.37s] (419ms) 200 https://admin-staging.mediplanner.mx/api/consultations/searchDiagnoses → {"status":"OK","data":{"diagnosticos":[{"id":8318,"letra":null,"nombre":"CEFALEA","codigo":"R51X","capitulo":null,"grupo
+📤 [API REQUEST    +74.36s] POST https://admin-staging.mediplanner.mx/api/consultations/editConsultation
+✅ Diagnóstico CIE-10 seleccionado: "R51X - CEFALEA..."
+✅ [API RESPONSE   +74.68s] (320ms) 200 https://admin-staging.mediplanner.mx/api/consultations/editConsultation → {"status":"OK","data":{"consulta_id":9,"message":"Consulta actualizada exitosamente"}}
+✅ Impresión diagnóstica llenada
+📤 [API REQUEST    +75.87s] POST https://admin-staging.mediplanner.mx/api/consultations/searchDiagnoses
+✅ Observaciones del diagnóstico llenadas
+✅ Sección de Diagnóstico completada
+💊 Llenando sección de Tratamiento...
+✅ [API RESPONSE   +76.11s] (243ms) 200 https://admin-staging.mediplanner.mx/api/consultations/searchDiagnoses → {"status":"OK","data":{"diagnosticos":[],"current_page":1,"from":0,"last_page":1,"per_page":20,"to":0,"total":0}}
+✅ Indicaciones generales de tratamiento llenadas
+📤 [API REQUEST    +77.23s] POST https://admin-staging.mediplanner.mx/api/medications/searchMedications
+✅ [API RESPONSE   +77.55s] (314ms) 200 https://admin-staging.mediplanner.mx/api/medications/searchMedications → {"status":"OK","data":{"medications":[{"id":1215,"nombre":"DAYS Tabletas","presentacion":"1 Caja, Envase(s) de burbuja, 
+✅ Medicamento seleccionado: "DAYS TabletasIBUPROFENOMERCK" (buscado: "Ibuprofeno")
+✅ Formulario del medicamento llenado
+✅ "Otros medicamentos" llenado: "Dieta blanda"
+✅ Sección de Tratamiento completada (se guarda con el botón global "Guardar cambios")
+🔬 Llenando Laboratorios y Procedimientos...
+✅ Indicaciones de laboratorio llenadas
+📤 [API REQUEST    +82.73s] POST https://admin-staging.mediplanner.mx/api/procedures/searchProcedures
+✅ [API RESPONSE   +83.08s] (343ms) 200 https://admin-staging.mediplanner.mx/api/procedures/searchProcedures → {"status":"OK","data":{"procedures":[{"procedimiento_id":2,"nombre":"BIOMETRÍA HEMÁTICA","tipo_id":1,"tipo_nombre":"Labo
+✅ Laboratorio seleccionado: "BIOMETRÍA HEMÁTICA" (buscado: "Biometría")
+✅ Procedimiento llenado
+✅ Laboratorios y Procedimientos completado (se guarda con el botón global "Guardar cambios")
+📋 Llenando Notas del Médico...
+✅ Notas del médico llenadas
+🏥 Llenando sección de Servicios...
+📋 2 opciones de servicio disponibles
+✅ Servicio seleccionado: "Certificado Médico $300"
+✅ Sección de Servicios completada (se guarda con el botón global "Guardar cambios")
+💾 Clickeando "Guardar cambios" (global)...
+📤 [API REQUEST    +87.88s] POST https://admin-staging.mediplanner.mx/api/consultations/addDiagnosis
+📤 [API REQUEST    +88.50s] POST https://admin-staging.mediplanner.mx/api/consultations/setTreatments
+✅ [API RESPONSE   +88.50s] (626ms) 200 https://admin-staging.mediplanner.mx/api/consultations/addDiagnosis → {"status":"OK","data":{"message":"Diagnósticos de consulta actualizados exitosamente"}}
+📤 [API REQUEST    +88.72s] POST https://admin-staging.mediplanner.mx/api/consultations/setFreeTreatmentsConsultation
+✅ [API RESPONSE   +88.72s] (217ms) 200 https://admin-staging.mediplanner.mx/api/consultations/setTreatments → {"status":"OK","data":{"message":"Tratamientos de consulta actualizados exitosamente"}}
+📤 [API REQUEST    +88.94s] POST https://admin-staging.mediplanner.mx/api/procedures/setProceduresConsultation
+✅ [API RESPONSE   +88.93s] (212ms) 200 https://admin-staging.mediplanner.mx/api/consultations/setFreeTreatmentsConsultation → {"status":"OK","data":"Tratamientos de consulta registrados exitosamente"}
+📤 [API REQUEST    +89.22s] POST https://admin-staging.mediplanner.mx/api/consultations/addServices
+✅ [API RESPONSE   +89.22s] (283ms) 200 https://admin-staging.mediplanner.mx/api/procedures/setProceduresConsultation → {"status":"OK","data":{"message":"Procedimientos de consulta actualizados exitosamente","nuevos":[{"relacion_id":1,"nomb
+📤 [API REQUEST    +89.54s] POST https://admin-staging.mediplanner.mx/api/consultations/addNote
+✅ [API RESPONSE   +89.53s] (314ms) 200 https://admin-staging.mediplanner.mx/api/consultations/addServices → {"status":"OK","data":"Servicios de consulta actualizados exitosamente"}
+📤 [API REQUEST    +89.77s] POST https://admin-staging.mediplanner.mx/api/consultations/getNotes
+✅ [API RESPONSE   +89.77s] (232ms) 200 https://admin-staging.mediplanner.mx/api/consultations/addNote → {"status":"OK","data":{"nota_id":1,"message":"Notas de consulta actualizadas exitosamente"}}
+✅ [API RESPONSE   +90.01s] (241ms) 200 https://admin-staging.mediplanner.mx/api/consultations/getNotes → {"status":"OK","data":[{"nota_id":1,"texto":"<p>Notas del médico: Seguimiento de evolución clínica favorable. Paciente r
+💾 Llamadas de guardado disparadas por "Guardar cambios": 6
+   200 consultations/addDiagnosis
+   200 consultations/setTreatments
+   200 consultations/setFreeTreatmentsConsultation
+   200 procedures/setProceduresConsultation
+   200 consultations/addServices
+   200 consultations/addNote
+
+🏁 === INICIANDO FINALIZACIÓN DE CONSULTA ===
+🏁 Esperando botón de finalizar consulta...
+✅ Botón de finalizar encontrado y habilitado
+📤 [API REQUEST    +93.03s] POST https://admin-staging.mediplanner.mx/api/consultations/finishConsultation
+ℹ️ finishConsultation body → consulta_id=9 paciente_id=1025
+✅ Consulta finalizada
+✅ [API RESPONSE   +93.27s] (242ms) 200 https://admin-staging.mediplanner.mx/api/consultations/finishConsultation → {"status":"OK","data":{"message":"Consulta finalizada exitosamente"}}
+✅ Confirmación clickeada
+
+🔎 === VERIFICANDO QUE LO LLENADO SIGUE GUARDADO Y ES CORRECTO ===
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/treatments/getActiveTemplates
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/catalogs/getCatalogs
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/consultations/getTreatments
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/treatments/getUserTemplate
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/forms/getFormsByCategory
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/appointments/getAppointmentTypes
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/consultations/getVitalSigns
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/patients/getPatient
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/consultations/getConsultation
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/consultations/getConsultations
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/consultations/getDiagnosis
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/procedures/getConsultationProcedures
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/patients/getHistoryForms
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/consultations/getNotes
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/patients/getAllergiesByPatientId
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/catalogs/getCatalogs
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/treatments/getActiveTemplates
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/patients/getHistoryForms
+📤 [API REQUEST    +94.57s] POST https://admin-staging.mediplanner.mx/api/patients/getPatient
+🔴 [DEVTOOLS ERROR +94.96s] Failed to load resource: the server responded with a status of 404 (Not Found)
+🔴 [DEVTOOLS ERROR +94.97s] Error fetching formularios paciente: undefined
+🟠 [API RESPONSE   +94.96s] (396ms) 404 https://admin-staging.mediplanner.mx/api/patients/getFilledForm → {"status":"ERROR","message":"No se encontró el formulario asignado al paciente"}
+🔴 [DEVTOOLS ERROR +95.02s] Failed to load resource: the server responded with a status of 404 (Not Found)
+🔴 [DEVTOOLS ERROR +95.02s] Error fetching formularios paciente: undefined
+✅ [API RESPONSE   +95.02s] (453ms) 200 https://admin-staging.mediplanner.mx/api/treatments/getActiveTemplates → {"status":"OK","data":{"plantillas_personalizadas":[],"plantilla_mediplanner":{"id":1,"nombre":"Plantilla Mediplanner","
+🟠 [API RESPONSE   +95.02s] (456ms) 404 https://admin-staging.mediplanner.mx/api/patients/getFilledForm → {"status":"ERROR","message":"No se encontró el formulario asignado al paciente"}
+✅ [API RESPONSE   +95.36s] (792ms) 200 https://admin-staging.mediplanner.mx/api/catalogs/getCatalogs → {"status":"OK","data":{"medicamentos_tiempo":[{"id":1,"name":"Día","pluralName":"Días"},{"id":2,"name":"Semana","pluralN
+✅ [API RESPONSE   +95.46s] (896ms) 200 https://admin-staging.mediplanner.mx/api/consultations/getTreatments → {"status":"OK","data":[{"tratamiento_id":1,"medicamento_id":1215,"medicamento_nombre":"DAYS Tabletas","indicaciones":"In
+✅ [API RESPONSE   +95.75s] (1182ms) 200 https://admin-staging.mediplanner.mx/api/consultations/getVitalSigns → {"status":"OK","data":{"presion":"118/078","oxigenacion":"97","temperatura":"36.8","peso":"13","imc":"15.36","frecuencia
+✅ [API RESPONSE   +95.75s] (1188ms) 200 https://admin-staging.mediplanner.mx/api/appointments/getAppointmentTypes → {"status":"OK","data":[{"doctor_id":312,"relacion_id":1,"cita_nombre":"Consulta inicial","duracion":40,"producto_id":116
+✅ [API RESPONSE   +95.89s] (1320ms) 200 https://admin-staging.mediplanner.mx/api/patients/getPatient → {"status":"OK","data":{"id":1025,"iEstatusId":2,"sEstatus":"Aceptada","sImagen":"","sNombre":"Percentil","sPaterno":"Pru
+✅ [API RESPONSE   +95.89s] (1323ms) 200 https://admin-staging.mediplanner.mx/api/treatments/getUserTemplate → {"status":"OK","data":{"plantilla_id":1,"tipo_plantilla_id":1,"ancho_encabezado":800,"ancho_pie_pagina":800,"elemento1_i
+✅ [API RESPONSE   +96.16s] (1588ms) 200 https://admin-staging.mediplanner.mx/api/consultations/getConsultation → {"status":"OK","data":{"id":9,"doctor_id":312,"doctor_titulo":"Dr.","doctor_nombre":"Emmett Brown Ayala","doctor_img":"h
+✅ [API RESPONSE   +96.18s] (1616ms) 200 https://admin-staging.mediplanner.mx/api/consultations/getDiagnosis → {"status":"OK","data":[{"diagnostico_id":8318,"nombre":"CEFALEA","codigo":"R51X","fecha_creacion":"31/07/2026","fecha_ac
+📤 [API REQUEST    +96.40s] POST https://admin-staging.mediplanner.mx/api/consultations/searchDiagnoses
+📤 [API REQUEST    +96.40s] POST https://admin-staging.mediplanner.mx/api/procedures/searchProcedures
+📤 [API REQUEST    +96.40s] POST https://admin-staging.mediplanner.mx/api/consultations/getForms
+📤 [API REQUEST    +96.41s] POST https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+❌ [REQUEST FAILED +96.41s] https://mediplanner-atencion.zendesk.com/frontendevents/pv?client=1B752747-577B-429A-A0E0-83861AF69088 — net::ERR_ABORTED
+✅ [API RESPONSE   +96.39s] (1826ms) 200 https://admin-staging.mediplanner.mx/api/procedures/getConsultationProcedures → {"status":"OK","data":[{"procedimiento_id":2,"relacion_id":1,"nombre":"BIOMETRÍA HEMÁTICA","indicaciones":"Biometría hem
+✅ [API RESPONSE   +96.40s] (1832ms) 200 https://admin-staging.mediplanner.mx/api/forms/getFormsByCategory → {"status":"OK","data":[{"id":115,"sNombre":"Tratamiento","sVersion":"1.0","bActivo":false,"sEmoji":"","sDescripcion":"Tr
+✅ [API RESPONSE   +96.41s] (1843ms) 200 https://admin-staging.mediplanner.mx/api/patients/getHistoryForms → {"status":"OK","data":[{"relacion_id":1,"nombre":"ANTECEDENTES HEREDOFAMILIARES (2025)","fecha_creacion":"05/11/2025","f
+✅ [API RESPONSE   +96.80s] (2230ms) 200 https://admin-staging.mediplanner.mx/api/consultations/getNotes → {"status":"OK","data":[{"nota_id":1,"texto":"<p>Notas del médico: Seguimiento de evolución clínica favorable. Paciente r
+✅ [API RESPONSE   +96.80s] (2234ms) 200 https://admin-staging.mediplanner.mx/api/treatments/getActiveTemplates → {"status":"OK","data":{"plantillas_personalizadas":[],"plantilla_mediplanner":{"id":1,"nombre":"Plantilla Mediplanner","
+✅ [API RESPONSE   +96.81s] (2236ms) 200 https://admin-staging.mediplanner.mx/api/patients/getHistoryForms → {"status":"OK","data":[{"relacion_id":1,"nombre":"ANTECEDENTES HEREDOFAMILIARES (2025)","fecha_creacion":"05/11/2025","f
+✅ [API RESPONSE   +96.81s] (2238ms) 200 https://admin-staging.mediplanner.mx/api/catalogs/getCatalogs → {"status":"OK","data":{"tipos_consulta":[{"id":1,"name":"Consulta General"},{"id":2,"name":"Seguimiento"}]}}
+✅ [API RESPONSE   +96.80s] (2234ms) 200 https://admin-staging.mediplanner.mx/api/patients/getAllergiesByPatientId → {"status":"OK","data":[]}
+📤 [API REQUEST    +96.82s] POST https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+📤 [API REQUEST    +96.82s] POST https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+📤 [API REQUEST    +96.82s] POST https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+📤 [API REQUEST    +96.82s] POST https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+📤 [API REQUEST    +96.82s] POST https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+✅ [API RESPONSE   +96.90s] (2333ms) 200 https://admin-staging.mediplanner.mx/api/consultations/getConsultations → {"status":"OK","data":[{"id":9,"doctor_id":312,"doctor_titulo":"Dr.","doctor_nombre":"Emmett Brown Ayala","doctor_img":"
+✅ [API RESPONSE   +97.31s] (908ms) 200 https://admin-staging.mediplanner.mx/api/consultations/getForms → {"status":"OK","data":[{"formulario_padre":115,"relacion_id":46,"nombre":"Tratamiento","fecha_creacion":"31/07/2026","fe
+📤 [API REQUEST    +97.32s] POST https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+📤 [API REQUEST    +97.32s] POST https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+✅ [API RESPONSE   +97.44s] (1042ms) 200 https://admin-staging.mediplanner.mx/api/consultations/searchDiagnoses → {"status":"OK","data":{"diagnosticos":[{"id":167,"letra":null,"nombre":"YERSINIOSIS EXTRAINTESTINAL","codigo":"A282","ca
+✅ [API RESPONSE   +97.44s] (2874ms) 200 https://admin-staging.mediplanner.mx/api/patients/getPatient → {"status":"OK","data":{"id":1025,"iEstatusId":2,"sEstatus":"Aceptada","sImagen":"","sNombre":"Percentil","sPaterno":"Pru
+✅ [API RESPONSE   +97.57s] (1166ms) 200 https://admin-staging.mediplanner.mx/api/procedures/searchProcedures → {"status":"OK","data":{"procedures":[{"procedimiento_id":5628,"nombre":"'OTRA RECONSTRUCCIÓN TOTAL DE MAMA","tipo_id":2,
+✅ [API RESPONSE   +97.72s] (1306ms) 200 https://admin-staging.mediplanner.mx/api/patients/getFilledForm → {"status":"OK","data":{"id":126,"sNombre":"ANTECEDENTES HEREDOFAMILIARES (2025)","sVersion":"1","bActivo":true,"sEmoji":
+✅ [API RESPONSE   +97.82s] (996ms) 200 https://admin-staging.mediplanner.mx/api/patients/getFilledForm → {"status":"OK","data":{"id":126,"sNombre":"ANTECEDENTES HEREDOFAMILIARES (2025)","sVersion":"1","bActivo":true,"sEmoji":
+✅ [API RESPONSE   +97.85s] (1031ms) 200 https://admin-staging.mediplanner.mx/api/patients/getFilledForm → {"status":"OK","data":{"id":124,"sNombre":"ANTECEDENTES PERSONALES NO PATOLÓGICOS (2025)","sVersion":"1","bActivo":true,
+✅ [API RESPONSE   +98.14s] (1318ms) 200 https://admin-staging.mediplanner.mx/api/patients/getFilledForm → {"status":"OK","data":{"id":110,"sNombre":"ANTECEDENTES RELEVANTES","sVersion":"1","bActivo":true,"sEmoji":"","sDescripc
+✅ [API RESPONSE   +98.15s] (1325ms) 200 https://admin-staging.mediplanner.mx/api/patients/getFilledForm → {"status":"OK","data":{"id":122,"sNombre":"Antecedentes Gineco-Obstetricos","sVersion":"1.0","bActivo":true,"sEmoji":"",
+✅ [API RESPONSE   +98.15s] (1327ms) 200 https://admin-staging.mediplanner.mx/api/patients/getFilledForm → {"status":"OK","data":{"id":125,"sNombre":"ANTECEDENTES PERSONALES PATOLÓGICOS (2025)","sVersion":"1","bActivo":true,"sE
+✅ [API RESPONSE   +98.28s] (958ms) 200 https://admin-staging.mediplanner.mx/api/patients/getFilledForm → {"status":"OK","data":{"id":5,"iUsuarioId":312,"sNombre":"Exploracion segmentaria","sVersion":"","bActivo":true,"sEmoji"
+✅ [API RESPONSE   +98.86s] (1532ms) 200 https://admin-staging.mediplanner.mx/api/patients/getFilledForm → {"status":"OK","data":{"id":4,"iUsuarioId":312,"sNombre":"Aparatos y sistemas","sVersion":"","bActivo":true,"sEmoji":"",
+❌ [REQUEST FAILED +100.61s] https://www.google-analytics.com/g/collect?v=2&tid=G-ZVKJ9CWYCW&gtm=45je67t1v9248896219za200zd9248896219&_p=1785521548174&gcd=13l3l3l3l1l1&npa=0&dma=0&_eu=AEAAAAQ&ae=a&are=1&cid=1508328449.1785521493&frm=0&ngs=1&pscdl=noapi&rcb=3&sr=1920x1080&uaa=x86&uab=64&uafvl=Chromium%3B145.0.7632.6%7CNot%253AA-Brand%3B99.0.0.0&uam=&uamb=0&uap=Windows&uapv=10.0&uaw=0&ul=en-us&_s=5&tag_exp=115938465~115938468~118897920~118897930~119527020~119896802~120222307&dl=https%3A%2F%2Fadmin-staging.mediplanner.mx%2FConsulta%2FConsultaDetalles&dr=https%3A%2F%2Fadmin-staging.mediplanner.mx%2FConsulta%2FConsultaGeneral&sid=1785521493&sct=1&seg=1&dt=Mediplanner&en=page_view&_et=51676&tfd=64651 — net::ERR_ABORTED
+Estatus de la consulta reabierta: "Terminada"
+  ✅ motivo: "Paciente acude a consulta por cefalea persistente de 3 días "
+  ✅ padecimiento: "Inicia padecimiento actual hace 3 días con cefalea frontal d"
+  ✅ notas_evolucion: "Evolución favorable sin complicaciones"
+  ✅ nombre_referido: "Dr. Alejandro Torres (Medicina General)"
+  ✅ apariencia: "Paciente bien nutrido, hidratado, consciente, orientado, sin"
+  ✅ impresion_diagnostico: "Impresión diagnóstica: Condición médica a evaluar. Se solici"
+  ✅ indicaciones_general: "<p>Dieta blanda, evitar irritantes, seguimiento en 48-72 hor"
+  ✅ indicaciones_procedimiento: "<p>Solicitar estudios de laboratorio de rutina</p>"
+  ✅ diagnosticos: 1 elemento(s)
+  ✅ servicios: 1 elemento(s)
+  ✅ medicamentos guardados: 2
+  ⏳ Exploración segmentaria: getFilledForm en blanco, esperando 10000ms antes de reintentar (intento 1/6)...
+  ⏳ Exploración segmentaria: getFilledForm en blanco, esperando 15000ms antes de reintentar (intento 2/6)...
+  ⏳ Exploración segmentaria: getFilledForm en blanco, esperando 20000ms antes de reintentar (intento 3/6)...
+  ⏳ Exploración segmentaria: getFilledForm en blanco, esperando 25000ms antes de reintentar (intento 4/6)...
+  ⏳ Exploración segmentaria: getFilledForm en blanco, esperando 30000ms antes de reintentar (intento 5/6)...
+  ⏳ Exploración segmentaria: getFilledForm en blanco, esperando 30000ms antes de reintentar (intento 6/6)...
+❌ Exploración segmentaria: getFilledForm siguió devolviendo el formulario en blanco tras 130000ms de reintentos — no se pudo confirmar que el retraso sea transitorio en esta corrida.
+  ⏳ Aparatos y sistemas: getFilledForm en blanco, esperando 10000ms antes de reintentar (intento 1/6)...
+  ⏳ Aparatos y sistemas: getFilledForm en blanco, esperando 15000ms antes de reintentar (intento 2/6)...
+  ⏳ Aparatos y sistemas: getFilledForm en blanco, esperando 20000ms antes de reintentar (intento 3/6)...
+  ⏳ Aparatos y sistemas: getFilledForm en blanco, esperando 25000ms antes de reintentar (intento 4/6)...
+  ⏳ Aparatos y sistemas: getFilledForm en blanco, esperando 30000ms antes de reintentar (intento 5/6)...
+  ⏳ Aparatos y sistemas: getFilledForm en blanco, esperando 30000ms antes de reintentar (intento 6/6)...
+❌ Aparatos y sistemas: getFilledForm siguió devolviendo el formulario en blanco tras 130000ms de reintentos — no se pudo confirmar que el retraso sea transitorio en esta corrida.
+
+🐛 2 inconsistencia(s) encontradas tras Finalizar:
+   - Exploración segmentaria: getFilledForm siguió devolviendo el formulario en blanco tras 130000ms de reintentos — no se pudo confirmar que el retraso sea transitorio en esta corrida.
+   - Aparatos y sistemas: getFilledForm siguió devolviendo el formulario en blanco tras 130000ms de reintentos — no se pudo confirmar que el retraso sea transitorio en esta corrida.
+
+🎉 === CONSULTA COMPLETADA EXITOSAMENTE ===
+
+══════════════════════════════════════════════════════════════════════
+📊  RESUMEN DEVTOOLS MONITOR
+══════════════════════════════════════════════════════════════════════
+⏱️  Duración total:         376.5s
+📤  API Requests enviados:  117
+✅  Responses exitosas:     115
+🟠  Responses con error:    2
+🔴  Errores de JS/consola:  31
+🟡  Warnings de consola:    0
+
+── Errores detectados ──────────────────────────────────────────────
+  [1] +0.84s → net::ERR_ABORTED
+  [2] +2.36s → net::ERR_ABORTED
+  [3] +5.69s → net::ERR_ABORTED
+  [4] +11.43s → data-stepper-next not found
+  [5] +11.85s → net::ERR_ABORTED
+  [6] +17.04s → net::ERR_ABORTED
+  [7] +29.43s → net::ERR_ABORTED
+  [8] +29.43s → net::ERR_ABORTED
+  [9] +30.16s → net::ERR_ABORTED
+  [10] +30.17s → net::ERR_ABORTED
+  [11] +32.18s → net::ERR_ABORTED
+  [12] +32.80s → net::ERR_ABORTED
+  [13] +32.80s → net::ERR_ABORTED
+  [14] +32.80s → net::ERR_ABORTED
+  [15] +33.09s → net::ERR_ABORTED
+  [16] +33.20s → net::ERR_ABORTED
+  [17] +35.88s → net::ERR_ABORTED
+  [18] +35.88s → net::ERR_ABORTED
+  [19] +35.88s → net::ERR_ABORTED
+  [20] +36.26s → net::ERR_ABORTED
+  [21] +36.30s → net::ERR_ABORTED
+  [22] +39.22s → net::ERR_ABORTED
+  [23] +43.73s → net::ERR_ABORTED
+  [24] +44.27s → net::ERR_ABORTED
+  [25] +48.77s → net::ERR_ABORTED
+  [26] +94.96s → Failed to load resource: the server responded with a status of 404 (Not Found)
+  [27] +94.97s → Error fetching formularios paciente: undefined
+  [28] +95.02s → Failed to load resource: the server responded with a status of 404 (Not Found)
+  [29] +95.02s → Error fetching formularios paciente: undefined
+  [30] +96.41s → net::ERR_ABORTED
+  [31] +100.61s → net::ERR_ABORTED
+
+── API calls fallidas ──────────────────────────────────────────────
+  [1] +94.96s → 404 https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+       Body: {"status":"ERROR","message":"No se encontró el formulario asignado al paciente"}
+  [2] +95.02s → 404 https://admin-staging.mediplanner.mx/api/patients/getFilledForm
+       Body: {"status":"ERROR","message":"No se encontró el formulario asignado al paciente"}
+══════════════════════════════════════════════════════════════════════
+
+⚠️ El test terminó con 31 error(es) y 2 API call(s) fallida(s).
+  x  2 [doctor-consultation] › Tests_Staging\consultation.full-flow.spec.js:662:1 › Start a scheduled consultation from Inicio (6.3m)
+
+
+  1) [doctor-consultation] › Tests_Staging\consultation.full-flow.spec.js:662:1 › Start a scheduled consultation from Inicio 
+
+    Error: No debe haber responses con error de API: [{"direction":"RESPONSE","method":"POST","status":404,"url":"https://admin-staging.mediplanner.mx/api/patients/getFilledForm","bodyPreview":"{\"status\":\"ERROR\",\"message\":\"No se encontró el formulario asignado al paciente\"}","timestamp":"94.96","latencyMs":396},{"direction":"RESPONSE","method":"POST","status":404,"url":"https://admin-staging.mediplanner.mx/api/patients/getFilledForm","bodyPreview":"{\"status\":\"ERROR\",\"message\":\"No se encontró el formulario asignado al paciente\"}","timestamp":"95.02","latencyMs":456}]
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m0[39m
+    Received: [31m2[39m
+
+      984 |
+      985 |   expect(serviciosSinOpciones, '🐛 BUG: dropdown "Agregar servicios" sin opciones ("No se encontraron elementos")').toBe(false);
+    > 986 |   expect(result.failedApiCalls.length, `No debe haber responses con error de API: ${JSON.stringify(result.failedApiCalls)}`).toBe(0);
+          |                                                                                                                              ^
+      987 |   expect(inconsistencias, `Datos inconsistentes tras Finalizar:\n${inconsistencias.join('\n')}`).toEqual([]);
+      988 | });
+      989 |
+        at C:\Users\pandr\OneDrive\00_Pedro_Quijada\03_RYM-Solutions\Repositorios\MediplannerWebNuevo\Mediplanner Staging\Tests_Staging\consultation.full-flow.spec.js:986:126
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ..\test-results\consultation.full-flow-Sta-327b2-ed-consultation-from-Inicio-doctor-consultation\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ..\test-results\consultation.full-flow-Sta-327b2-ed-consultation-from-Inicio-doctor-consultation\error-context.md
+
+  Slow test file: [doctor-consultation] › Tests_Staging\consultation.full-flow.spec.js (6.3m)
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  1 failed
+    [doctor-consultation] › Tests_Staging\consultation.full-flow.spec.js:662:1 › Start a scheduled consultation from Inicio 
+  1 passed (6.7m)

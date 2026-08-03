@@ -13,7 +13,7 @@ test.describe('Subir Estudios', () => {
     logger.info('Navegando al Dashboard...');
     await page.goto('/Dashboard');
     await expect(page).toHaveURL(/Dashboard/);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load').catch(() => {});
     await page.waitForTimeout(2000);
 
     // 2. Dar clic en "Pacientes" desde la barra lateral
@@ -25,7 +25,7 @@ test.describe('Subir Estudios', () => {
 
     // 3. Esperar a que cargue la página de pacientes
     logger.info('Esperando carga de la página de Pacientes...');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load').catch(() => {});
     await page.waitForTimeout(3000);
 
     const loading = page.locator('text=/cargando/i');
@@ -61,7 +61,7 @@ test.describe('Subir Estudios', () => {
       // 5. Acceder al perfil del paciente
       logger.info('Accediendo al perfil del paciente...');
       await pacienteSeleccionado.click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('load').catch(() => {});
       await page.waitForTimeout(3000);
 
       const loading2 = page.locator('text=/cargando/i');
@@ -81,7 +81,7 @@ test.describe('Subir Estudios', () => {
       if (await consultasLink.isVisible({ timeout: 10000 }).catch(() => false)) {
         await consultasLink.click();
         logger.success('Click en "Consultas" realizado');
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('load').catch(() => {});
         await page.waitForTimeout(3000);
 
         const loading3 = page.locator('text=/cargando/i');
@@ -117,7 +117,7 @@ test.describe('Subir Estudios', () => {
           ultimaConsultaEvaluada = i;
 
           await opcion.click();
-          await page.waitForLoadState('networkidle');
+          await page.waitForLoadState('load').catch(() => {});
           await page.waitForTimeout(2000);
 
           const loading4 = page.locator('text=/cargando/i');
@@ -134,7 +134,7 @@ test.describe('Subir Estudios', () => {
             logger.success(`Botón "Ver consulta" encontrado en consulta ${i + 1}`);
             await verConsultaBtn.click();
             logger.success('Click en "Ver consulta" realizado');
-            await page.waitForLoadState('networkidle');
+            await page.waitForLoadState('load').catch(() => {});
             await page.waitForTimeout(3000);
 
             const loading5 = page.locator('text=/cargando/i');
@@ -154,7 +154,7 @@ test.describe('Subir Estudios', () => {
             if (await tratamientoTab.isVisible({ timeout: 10000 }).catch(() => false)) {
               await tratamientoTab.click();
               logger.success('Click en pestaña "Tratamiento" realizado');
-              await page.waitForLoadState('networkidle');
+              await page.waitForLoadState('load').catch(() => {});
               await page.waitForTimeout(3000);
 
               const loading6 = page.locator('text=/cargando/i');
@@ -174,12 +174,12 @@ test.describe('Subir Estudios', () => {
                 logger.warning(`⚠️ Consulta ${i + 1} ya tiene estudios subidos, regresando al perfil del paciente...`);
                 // Navegar al Dashboard y seleccionar el paciente de nuevo
                 await page.goto('/Dashboard');
-                await page.waitForLoadState('networkidle');
+                await page.waitForLoadState('load').catch(() => {});
                 await page.waitForTimeout(3000);
 
                 // Dar clic en "Pacientes" desde la barra lateral
                 await page.locator('span.menu-title:text-is("Pacientes")').click();
-                await page.waitForLoadState('networkidle');
+                await page.waitForLoadState('load').catch(() => {});
                 await page.waitForTimeout(3000);
 
                 const loadingP = page.locator('text=/cargando/i');
@@ -198,7 +198,7 @@ test.describe('Subir Estudios', () => {
                   if (textoPaciente.includes(nombrePaciente.trim())) {
                     logger.info(`Paciente "${nombrePaciente.trim()}" encontrado nuevamente, accediendo al perfil...`);
                     await pacientesNuevos.nth(p).click();
-                    await page.waitForLoadState('networkidle');
+                    await page.waitForLoadState('load').catch(() => {});
                     await page.waitForTimeout(3000);
                     break;
                   }
@@ -214,7 +214,7 @@ test.describe('Subir Estudios', () => {
               if (await cargarResultados.isVisible({ timeout: 10000 }).catch(() => false)) {
                 await cargarResultados.click();
                 logger.success('Click en "Cargar resultados de laboratorio" realizado');
-                await page.waitForLoadState('networkidle');
+                await page.waitForLoadState('load').catch(() => {});
                 await page.waitForTimeout(3000);
 
                 const loading7 = page.locator('text=/cargando/i');
@@ -280,7 +280,7 @@ test.describe('Subir Estudios', () => {
                       // 15. Verificar en Dashboard
                       logger.info('Navegando al Dashboard...');
                       await page.goto('/Dashboard');
-                      await page.waitForLoadState('networkidle');
+                      await page.waitForLoadState('load').catch(() => {});
                       await page.waitForTimeout(3000);
 
                       const nuevosEstudios = page.locator('h3:has-text("Nuevos estudios")');
@@ -332,7 +332,7 @@ test.describe('Subir Estudios', () => {
             } else {
               logger.warning('No se encontró pestaña "Tratamiento"');
               await page.goto('/Dashboard');
-              await page.waitForLoadState('networkidle');
+              await page.waitForLoadState('load').catch(() => {});
               await page.waitForTimeout(3000);
               continue;
             }

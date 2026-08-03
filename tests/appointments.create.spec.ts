@@ -37,7 +37,7 @@ test.describe('Schedule Appointment Flow', () => {
           logger.info(`Avanzando a semana ${semana + 1}...`);
           await page.waitForTimeout(2000);
         } else {
-          logger.warn('Botón "Semana siguiente" no encontrado');
+          logger.warning('Botón "Semana siguiente" no encontrado');
           break;
         }
       }
@@ -65,10 +65,10 @@ test.describe('Schedule Appointment Flow', () => {
               await confirmButton.click();
               logger.success('Cita confirmada exitosamente');
             } else {
-              logger.warn('Botón "confirmar" no encontrado en el modal');
+              logger.warning('Botón "confirmar" no encontrado en el modal');
             }
           } else {
-            logger.warn('Modal no se abrió');
+            logger.warning('Modal no se abrió');
           }
           
           citaEncontrada = true;

@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { createAppointment, handleModals, setupConsoleMonitor } = require('../e2e/utils.js');
+const { createAppointment, handleModals, setupConsoleMonitor, buscarBotonIniciarDePaciente } = require('../e2e/utils.js');
 
 // ─────────────────────────────────────────────────────────────────────────
 // "Error guessing" — a diferencia de tests/consultation.inputs-validation.spec.ts
@@ -19,26 +19,23 @@ async function irAPestana(page, nombre) {
   await page.waitForTimeout(1500);
 }
 
-// Crea una cita para HOY y arranca la consulta de PACIENTE_BUSQUEDA, dejando
-// signos vitales llenados y la vista en Consulta/ConsultaGeneral. Setup propio
-// (no comparte código con consultation.full-flow.spec.js) para no arriesgar
-// el spec insignia con cambios pensados para escenarios de error.
+// Crea una cita y arranca la consulta de PACIENTE_BUSQUEDA, dejando signos
+// vitales llenados y la vista en Consulta/ConsultaGeneral. Setup propio (no
+// comparte código con consultation.full-flow.spec.js) para no arriesgar el
+// spec insignia con cambios pensados para escenarios de error.
+//
+// OJO: pese al nombre, la cita NO necesariamente queda para HOY —
+// createAppointment toma el primer día de los próximos 5 con horario libre
+// (confirmado en vivo 2026-07-31: dev puede tener la agenda llena hoy/mañana/
+// pasado). Por eso se navega el calendario día por día en vez de mirar solo
+// la vista inicial del Dashboard.
 async function iniciarConsultaDeHoy(page) {
   await createAppointment(page, PACIENTE_BUSQUEDA);
   await page.goto('/Dashboard');
   await page.waitForLoadState('load').catch(() => {});
   await page.waitForTimeout(3000);
 
-  const botones = page.getByRole('button', { name: /iniciar/i });
-  const total = await botones.count();
-  let iniciarBtn = null;
-  for (let i = 0; i < total; i++) {
-    const btn = botones.nth(i);
-    if (!(await btn.isVisible().catch(() => false))) continue;
-    const fila = btn.locator('xpath=ancestor::*[self::div or self::tr][1]');
-    const texto = (await fila.textContent().catch(() => '') || '');
-    if (texto.toLowerCase().includes(PACIENTE_BUSQUEDA.split(' ')[0].toLowerCase())) { iniciarBtn = btn; break; }
-  }
+  const iniciarBtn = await buscarBotonIniciarDePaciente(page, PACIENTE_BUSQUEDA.split(' ')[0]);
   if (!iniciarBtn) throw new Error(`No se encontró botón "Iniciar" para "${PACIENTE_BUSQUEDA}" tras crear su cita`);
 
   const overlay = page.locator('div.fixed.inset-0.bg-black.bg-opacity-50');

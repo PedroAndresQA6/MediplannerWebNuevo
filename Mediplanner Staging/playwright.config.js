@@ -90,5 +90,26 @@ module.exports = defineConfig({
       dependencies: ['setup'],
       timeout: 600000,
     },
+    {
+      name: 'ajustes-servicios',
+      testMatch: /ajustes\.servicios\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1920, height: 1080 } },
+      dependencies: ['setup'],
+      timeout: 90000,
+    },
+    {
+      name: 'dashboard',
+      testMatch: /dashboard\.spec\.js/,
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1920, height: 1080 } },
+      dependencies: ['setup'],
+      timeout: 90000,
+    },
+    {
+      name: 'recetas',
+      testMatch: /recetas\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], storageState: 'storageState.json', viewport: { width: 1920, height: 1080 } },
+      dependencies: ['setup'],
+      timeout: 180000,
+    },
   ],
 });

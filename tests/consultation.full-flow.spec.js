@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { createAppointment, handleModals, setupConsoleMonitor } = require('../e2e/utils.js');
+const { createAppointment, handleModals, setupConsoleMonitor, buscarBotonIniciarDePaciente } = require('../e2e/utils.js');
 
 // ─────────────────────────────────────────────────────────────────────────
 // REESCRITO 2026-07-23 tras el rediseño de la pantalla de Consulta: pasó de
@@ -124,30 +124,17 @@ async function iniciarConsultaDelPaciente(page) {
   await createAppointment(page, PACIENTE_BUSQUEDA);
 
   console.log('🏠 Volviendo a Dashboard para iniciar SU cita...');
+  await page.goto('/Dashboard');
+  await page.waitForLoadState('load').catch(() => {});
+  await page.waitForTimeout(2000);
+  await saltarOnboardingYWizardConfig(page);
 
-  const buscarIniciarDelPaciente = async () => {
-    const botones = page.getByRole('button', { name: /iniciar/i });
-    const total = await botones.count();
-    for (let i = 0; i < total; i++) {
-      const btn = botones.nth(i);
-      if (!(await btn.isVisible().catch(() => false))) continue;
-      const fila = btn.locator('xpath=ancestor::*[self::div or self::tr][1]');
-      const texto = (await fila.textContent().catch(() => '') || '');
-      if (texto.toLowerCase().includes(PACIENTE_BUSQUEDA.toLowerCase())) return btn;
-    }
-    return null;
-  };
-
-  let iniciarBtn = null;
-  for (let intento = 1; intento <= 3 && !iniciarBtn; intento++) {
-    if (intento === 1) await page.goto('/Dashboard');
-    else await page.reload();
-    await page.waitForLoadState('load').catch(() => {});
-    await page.waitForTimeout(2000);
-    await saltarOnboardingYWizardConfig(page);
-    iniciarBtn = await buscarIniciarDelPaciente();
-    if (!iniciarBtn) console.log(`⚠️ Botón "Iniciar" no encontrado todavía (intento ${intento}/3)`);
-  }
+  // createAppointment toma el PRIMER día de los próximos 5 con horario libre
+  // — no necesariamente hoy (confirmado en vivo 2026-07-31: dev puede tener
+  // la agenda llena los próximos 2-3 días). Buscar el botón "Iniciar" de este
+  // paciente navegando el calendario del Dashboard día por día, no solo en la
+  // vista de "hoy" — si no, nunca se encuentra y el test falla sin más.
+  const iniciarBtn = await buscarBotonIniciarDePaciente(page, PACIENTE_BUSQUEDA);
   if (!iniciarBtn) {
     throw new Error(`No se encontró botón "Iniciar" para "${PACIENTE_NOMBRE}" tras crear su cita`);
   }

@@ -12,8 +12,13 @@ test('system health check', async ({ page }) => {
       failedRequests.push(`${response.status()} - ${response.url()}`);
     }
   });
-  await page.goto('/dashboard');
-  await page.waitForLoadState('networkidle');
+  // '/Dashboard' (mayúscula) y waitForLoadState('load') en vez de 'networkidle':
+  // el entorno mantiene tráfico constante de GA/Zendesk/Clarity que nunca deja
+  // una ventana de 500ms sin requests, así que 'networkidle' nunca se cumple
+  // (confirmado en vivo 2026-08-03 — timeout consistente en 2 corridas).
+  await page.goto('/Dashboard');
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(2000);
   const content = await page.content();
   expect(consoleErrors).toEqual([]);
   expect(failedRequests).toEqual([]);

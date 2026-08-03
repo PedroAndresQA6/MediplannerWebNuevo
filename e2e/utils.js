@@ -288,6 +288,46 @@ async function checkNextDaysForIniciarButton(page) {
   return false;
 }
 
+// Igual que checkNextDaysForIniciarButton, pero filtrando el botón "Iniciar"
+// por el nombre del paciente en su fila — necesario cuando el Dashboard
+// puede mostrar citas de OTROS pacientes el mismo día (ej. "Carla Perez
+// Rojas" ya agendada) y createAppointment cae en un día futuro (no
+// necesariamente hoy: agarra el primer día de los próximos 5 con horario
+// libre). Agregado 2026-07-31 tras encontrar que 3 specs distintos
+// (`consultation.full-flow.spec.js`, `consultation.user-errors.spec.js`,
+// `consultation.inputs-validation.spec.ts`) tenían su propia reimplementación
+// de "buscar Iniciar tras crear cita" que solo miraba la vista de HOY (o, en
+// el caso de inputs-validation, buscaba botones "+N días" que no existen en
+// el calendario real) — todas fallaban en cuanto el día con horario libre no
+// era hoy, algo que pasa seguido en dev (agenda ya llena los próximos días).
+async function buscarBotonIniciarDePaciente(page, patientSearch, { maxDiasOffset = 5 } = {}) {
+  logger.info(`Buscando botón Iniciar para "${patientSearch}" en los próximos ${maxDiasOffset} días...`);
+  await asegurarCalendarioDashboard(page);
+
+  for (let dayOffset = 0; dayOffset <= maxDiasOffset; dayOffset++) {
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + dayOffset);
+    const dateStr = targetDate.toISOString().split('T')[0];
+
+    if (dayOffset > 0 && !(await irADiaEnCalendarioDashboard(page, dateStr))) continue;
+
+    const botones = page.getByRole('button', { name: /iniciar/i });
+    const total = await botones.count();
+    for (let i = 0; i < total; i++) {
+      const btn = botones.nth(i);
+      if (!(await btn.isVisible().catch(() => false))) continue;
+      const fila = btn.locator('xpath=ancestor::*[self::div or self::tr][1]');
+      const texto = (await fila.textContent().catch(() => '') || '');
+      if (texto.toLowerCase().includes(patientSearch.toLowerCase())) {
+        logger.success(`Botón Iniciar de "${patientSearch}" encontrado en ${dateStr}`);
+        return btn;
+      }
+    }
+  }
+
+  return null;
+}
+
 async function createAppointment(page, patientSearch = '') {
   logger.info('Explorando próximos 5 días para registrar una cita...');
   if (patientSearch) logger.info(`Paciente objetivo de la cita: "${patientSearch}"`);
@@ -1288,4 +1328,4 @@ async function auditarPantalla(page, etiqueta, opts = {}) {
   return reporte;
 }
 
-module.exports = { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals, setupConsoleMonitor, detectUnsavedSections, auditConsultationIndicators, scanResidualIndicators, asegurarCalendarioDashboard, irADiaEnCalendarioDashboard, auditarPantalla };
+module.exports = { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals, setupConsoleMonitor, detectUnsavedSections, auditConsultationIndicators, scanResidualIndicators, asegurarCalendarioDashboard, irADiaEnCalendarioDashboard, auditarPantalla, buscarBotonIniciarDePaciente };
