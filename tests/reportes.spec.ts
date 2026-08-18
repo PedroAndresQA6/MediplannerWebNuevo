@@ -52,7 +52,7 @@ test('Reportes: cargar KPIs/Top 10, filtrar por rango de fechas y ver "Ingresos 
   });
 
   await test.step('KPIs visibles: Número de consultas / Total / Total cobrado', async () => {
-    await expect(page.locator('text=Número de consultas')).toBeVisible();
+    await expect(page.locator('text=Citas del período')).toBeVisible();
     await expect(page.locator('text=Total cobrado')).toBeVisible();
     await page.screenshot({ path: 'test-results/reportes-01-kpis.png', fullPage: true });
   });
@@ -78,20 +78,22 @@ test('Reportes: cargar KPIs/Top 10, filtrar por rango de fechas y ver "Ingresos 
     const rangoSelect = page.locator('select').nth(2);
     await expect(rangoSelect, 'Debe existir el select de rango de fechas').toBeVisible();
 
-    const antesTexto = (await page.locator('text=/Desde:.*Hasta:/i').first().textContent().catch(() => '') || '').trim();
+    const antesTexto = (await page.locator('text=/\\d{2}-\\d{2}-\\d{4}\\s*[–-]\\s*\\d{2}-\\d{2}-\\d{4}/').first().textContent().catch(() => '') || '').trim();
+    expect(antesTexto, 'Debe encontrarse el texto del rango de fechas (formato DD-MM-YYYY – DD-MM-YYYY)').not.toBe('');
 
     const respPromise = page.waitForResponse(
       r => /\/api\/dashboard\/getDashboardPayments/.test(r.url()),
       { timeout: 10000 }
     ).catch(() => null);
-    await rangoSelect.selectOption({ label: 'Últimos mes' });
+    await rangoSelect.selectOption({ label: 'Último mes' });
+    await page.getByRole('button', { name: 'Buscar' }).click();
     const resp = await respPromise;
 
     expect(resp, 'Cambiar el rango de fechas debe disparar getDashboardPayments').not.toBeNull();
     if (resp) expect(resp!.status(), 'getDashboardPayments debe responder 2xx').toBeLessThan(400);
 
     await page.waitForTimeout(1500);
-    const despuesTexto = (await page.locator('text=/Desde:.*Hasta:/i').first().textContent().catch(() => '') || '').trim();
+    const despuesTexto = (await page.locator('text=/\\d{2}-\\d{2}-\\d{4}\\s*[–-]\\s*\\d{2}-\\d{2}-\\d{4}/').first().textContent().catch(() => '') || '').trim();
     console.log(`📅 Rango: "${antesTexto}" → "${despuesTexto}"`);
     expect(despuesTexto, 'El texto "Desde/Hasta" debe actualizarse al cambiar el rango').not.toBe(antesTexto);
   });
@@ -102,7 +104,7 @@ test('Reportes: cargar KPIs/Top 10, filtrar por rango de fechas y ver "Ingresos 
     await expect(consultorioSelect).toBeVisible();
     await expect(estatusSelect).toBeVisible();
     const estatusOptions = await estatusSelect.locator('option').allTextContents();
-    expect(estatusOptions.map(o => o.trim())).toEqual(expect.arrayContaining(['Todos los estatus', 'Pagado', 'Pendiente']));
+    expect(estatusOptions.map(o => o.trim())).toEqual(expect.arrayContaining(['Todos', 'Pagado', 'Pendiente']));
   });
 
   await test.step('"Ingresos recientes" → "Ver todos" navega a /reportes/todos con datos paginados', async () => {

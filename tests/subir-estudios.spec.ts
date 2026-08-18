@@ -38,7 +38,7 @@ test.describe('Subir Estudios', () => {
 
     // 4. Seleccionar un paciente aleatorio
     logger.info('Buscando pacientes en la tabla...');
-    const pacientes = page.locator('[role="cell"] a.font-semibold');
+    const pacientes = page.locator('[role="cell"] span.font-semibold');
     const totalPacientes = await pacientes.count();
     logger.info(`Encontrados ${totalPacientes} pacientes`);
 
@@ -76,7 +76,7 @@ test.describe('Subir Estudios', () => {
 
       // 6. Dar clic en "Consultas"
       logger.info('Buscando sección "Consultas"...');
-      const consultasLink = page.locator('a:has-text("Consultas")').first();
+      const consultasLink = page.locator('button:has-text("Consultas"), a:has-text("Consultas")').first();
 
       if (await consultasLink.isVisible({ timeout: 10000 }).catch(() => false)) {
         await consultasLink.click();
@@ -95,8 +95,11 @@ test.describe('Subir Estudios', () => {
         logger.success('Sección de Consultas cargada');
 
         // 7. Buscar consultas
+        // El listado dejó de ser <li class="cursor-pointer">: cada consulta ahora
+        // es un <button> (fila con fecha dd/mm/yyyy + estatus). Se localiza por
+        // contenido (fecha) en vez de clases Tailwind, que ya cambiaron una vez.
         logger.info('Buscando opciones de consultas...');
-        const opciones = page.locator('li.cursor-pointer');
+        const opciones = page.locator('button').filter({ hasText: /\d{2}\/\d{2}\/\d{4}/ });
         const totalOpciones = await opciones.count();
         logger.info(`Encontradas ${totalOpciones} consultas`);
 
@@ -171,40 +174,15 @@ test.describe('Subir Estudios', () => {
               const estudiosExistentes = page.locator('section:has(span:text-is("Estuidos_ejemplo_mediplanner.pdf"))').first();
 
               if (await estudiosExistentes.isVisible({ timeout: 3000 }).catch(() => false)) {
-                logger.warning(`⚠️ Consulta ${i + 1} ya tiene estudios subidos, regresando al perfil del paciente...`);
-                // Navegar al Dashboard y seleccionar el paciente de nuevo
-                await page.goto('/Dashboard');
-                await page.waitForLoadState('networkidle');
-                await page.waitForTimeout(3000);
-
-                // Dar clic en "Pacientes" desde la barra lateral
-                await page.locator('span.menu-title:text-is("Pacientes")').click();
-                await page.waitForLoadState('networkidle');
-                await page.waitForTimeout(3000);
-
-                const loadingP = page.locator('text=/cargando/i');
-                if (await loadingP.isVisible().catch(() => false)) {
-                  for (let p = 0; p < 30; p++) {
-                    if (!(await loadingP.isVisible().catch(() => false))) break;
-                    await page.waitForTimeout(2000);
-                  }
-                }
-
-                // Buscar el paciente de nuevo y hacer clic
-                const pacientesNuevos = page.locator('[role="cell"] a.font-semibold');
-                const totalPacientesNuevos = await pacientesNuevos.count();
-                for (let p = 0; p < totalPacientesNuevos; p++) {
-                  const textoPaciente = await pacientesNuevos.nth(p).textContent().catch(() => '');
-                  if (textoPaciente.includes(nombrePaciente.trim())) {
-                    logger.info(`Paciente "${nombrePaciente.trim()}" encontrado nuevamente, accediendo al perfil...`);
-                    await pacientesNuevos.nth(p).click();
-                    await page.waitForLoadState('networkidle');
-                    await page.waitForTimeout(3000);
-                    break;
-                  }
-                }
-
-                continue;
+                logger.warning(`⚠️ Consulta ${i + 1} ya tiene estudios subidos, deteniendo la búsqueda en este paciente.`);
+                // No hay forma confiable de volver al estado de la lista de
+                // Consultas desde acá ("Ver consulta" no es una navegación de
+                // URL normal, goBack() no la restaura — bug real encontrado
+                // 2026-08-18: el `continue` original re-navegaba por Dashboard,
+                // dejando `opciones.nth(i+1)` huérfano de su lista → timeout de
+                // 15s en vez de seguir). Se corta acá en vez de intentar
+                // recuperar el estado; el test termina sin crashear.
+                break;
               }
 
               // 10. Dar clic en "Cargar resultados de laboratorio"
@@ -330,11 +308,12 @@ test.describe('Subir Estudios', () => {
               encontradaConsultaValida = true;
               break;
             } else {
-              logger.warning('No se encontró pestaña "Tratamiento"');
-              await page.goto('/Dashboard');
-              await page.waitForLoadState('networkidle');
-              await page.waitForTimeout(3000);
-              continue;
+              logger.warning('No se encontró pestaña "Tratamiento" — deteniendo la búsqueda en este paciente.');
+              // Mismo problema que en "ya tiene estudios subidos" (ver comentario
+              // de arriba): no hay forma confiable de volver al estado de la
+              // lista de Consultas desde la vista de "Ver consulta". Se corta
+              // acá en vez de reintentar con la siguiente opción.
+              break;
             }
           } else {
             logger.warning(`Botón "Ver consulta" no disponible en consulta ${i + 1}, explorando siguiente...`);

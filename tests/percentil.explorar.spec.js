@@ -14,8 +14,8 @@ test('Buscar paciente y mapear acciones', async ({ page }) => {
   await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
   await page.waitForTimeout(3000);
 
-  console.log(`🔎 Buscando "${PACIENTE}" en el campo "Buscar Usuarios"...`);
-  const buscar = page.locator('input[placeholder="Buscar Usuarios"]').first();
+  console.log(`🔎 Buscando "${PACIENTE}" en el campo "Buscar paciente"...`);
+  const buscar = page.locator('input[placeholder="Buscar paciente"]').first();
   await buscar.waitFor({ state: 'visible', timeout: 20000 });
   await buscar.click();
   await buscar.fill(PACIENTE);
