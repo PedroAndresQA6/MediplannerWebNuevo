@@ -2,7 +2,7 @@
 
 > **Qué es este archivo:** documento vivo de contexto del proyecto. Sirve para (a) comunicar en qué estamos trabajando y (b) poner al tanto a una sesión nueva de Claude Code (en esta u otra computadora). **Mantenerlo actualizado y commitearlo** cada vez que cambie el estado del trabajo.
 >
-> **Última actualización:** 2026-07-23 (**verificación manual post-reescritura:** se comparó, campo por campo vía `getConsultations`, una consulta recién creada contra lo que el test dice haber llenado — encontró y corrigió 1 bug real del test: "Motivo de consulta" usaba `input[name="visitaPaciente"]` pero el campo es un `<textarea>`, se guardaba vacío en silencio. Corregido y reverificado — ver sección "🔍 Verificación manual post-reescritura"). Anterior, mismo día: **`consultation.full-flow.spec.js` reescrito y verificado** para el nuevo "Modo Completo" de la pantalla de Consulta — ver sección "🚨 Rediseño de la pantalla de Consulta" → "✅ Reescritura completada y verificada" más abajo para el detalle completo. Backup de la versión de pestañas en `tests/consultation.full-flow.spec.js.backup`. Anterior, mismo día: hallazgo del rediseño en sí (la pantalla pasó de pestañas clickeables a una sola página con las 10 secciones visibles a la vez), detectado corriendo el full-flow "semi manualmente" apartado por apartado a pedido de Pedro. Anterior: 2026-07-21 (nuevo spec `tests/consultation.user-errors.spec.js` con 6 tests de "error guessing" — errores humanos reales, no fuzzing de seguridad — pero **escrito y sin verificar aún contra dev** (ver sección "🧪 Pendiente: verificar consultation.user-errors.spec.js" más abajo); a pedido de Pedro se dejó documentado como pendiente para retomarlo después, sin correr las 6 corridas todavía). Anterior, mismo día: re-verificación del bug 422 "relacion_id" con 3 corridas limpias de `doctor-consultation` → se baja a "no reproduce", ver sección "🔁 Re-verificación del bug 422". Anterior, mismo día: limpieza de archivos muertos + fix del selector roto de la lista de Pacientes en dev + 2 bugs de test encontrados y corregidos al verificar el fix en los 7 specs afectados (ver sección "🔧 Fix selector de Pacientes" más abajo). Anterior: 2026-07-21 (`8c358b2`, en `AppEstacionamientosColaboradores/` — sesión de reverificación de los bugs de plataforma de Estacionamientos antes de reportarlos formalmente a devs. Resultado: **se retractó el hallazgo de prioridad ALTA "'Cancelar' libera el espacio igual"** — recon manual con coordenadas exactas de los botones y capturas en cada paso probó que la app SÍ se comporta bien; el bug real estaba en el propio harness (`codigos_de_espacios_visibles()` matcheaba el título del sidebar, que queda abierto tras cancelar, como si fuera una fila real de la tabla). Se corrigió el helper (exige contenido multilínea) y se quitó el `xfail` de `test_9_4_liberar_espacio_cancelar`, que ahora pasa limpio. También se **corrigió y acotó** el hallazgo del chip "En línea" (módulo 13): una prueba controlada (verde estable → cortar red real confirmada por `dumpsys` → rojo a los 15s → reconectar → verde de nuevo) mostró que el **color del punto sí refleja la conectividad real** — el bug queda reducido a que el *texto* se queda fijo en "En línea", bajando de prioridad media a cosmético. Se reconfirmaron en vivo (con evidencia nueva, no solo pytest) los 5 hallazgos del portal web (sin evidencia fotográfica obligatoria, duplicidad silenciosa, pérdida de datos sin red, "Levantar falta" sin motivo preseleccionado, copy "obligatorio"/"obligatoria") y los 2 de app móvil que siguen en pie (crash del SDK de Maps confirmado con tombstone nuevo, permiso de ubicación silencioso reconfirmado). Detalle completo en `AppEstacionamientosColaboradores/HALLAZGOS.md`. Anterior: 2026-07-20 (tres commits. Dos en `AppEstacionamientosColaboradores/`, proyecto de estacionamientos "Querétaro con Futuro" — no Mediplanner: `9759a01` completó los módulos 8-13 del checklist de operador en la suite Appium — check-in, espacio ocupado, reporte/infracción, cierre de turno, permisos del sistema y resiliencia/ciclo de vida — más un fix de encoding en `conftest.py`; `f168d89` agregó una nueva suite **Playwright** para el portal web admin del mismo proyecto, con un test combinado Appium+Playwright y 5 hallazgos nuevos de plataforma — detalle completo en el `CONTEXTO.md`/`HALLAZGOS.md` propios de esa carpeta, no duplicado acá. El tercero, `0665923`, es de `MediplannerAppiumAutomation/` — módulo de bitácora + fix de espera en `test_perfil.py`; commiteado directo en este repo porque se confirmó que esa carpeta **ya no tiene su propio `.git`** pese a lo que decía la sección "Repos separados" — ver esa sección, corregida y marcada como pendiente de resolver con Pedro). Anterior: 2026-07-14 (se corrieron en **staging** los mismos tests adaptados en dev el 2026-07-09/10 — `doctor-consultation` y `ingresos` — para confirmar que el porteo, que había quedado sin commitear, funciona; commiteado en `807fe43`/`62e285c`. Ver sección STAGING abajo). Anterior: 2026-07-09 (re-verificación de los 2 bugs de plataforma pendientes: 422 relacion_id sigue vivo con otro endpoint, indicador "sin guardar" de Laboratorios ya no reproduce — ver sección homónima abajo). Mismo día, antes: rediseño de Ingresos + fix del wizard "Agendar cita" + paciente parametrizable. Anterior: 2026-07-07 (verificación de pendientes vs. código + corridas reales; + nueva suite Appium independiente en `AppEstacionamientosColaboradores/`)
+> **Última actualización:** 2026-08-18 — sesión con dos frentes. **(1) Staging: confirmado que ya tiene el rediseño "Modo Completo" de Consulta** — `tests/consultation.full-flow.spec.js` (dev) copiado tal cual a `Mediplanner Staging/Tests_Staging/` (backup del spec viejo en la misma carpeta) y corrido limpio de punta a punta contra staging real: las 10 secciones, guardado por sección, guardado global (7 endpoints) y "Finalizar Consulta" — todos 200 OK. El único "failed" del test es ruido ya investigado a fondo con Playwright+CDP y confirmado ajeno a Consulta (`404 POST /api/wizard/getActiveStep`, se dispara en cualquier carga de `/Dashboard`); Pedro decidió dejar el test tal cual. **(2) Producción: mismo porteo, BLOQUEADO A MEDIAS.** Se encontró y corrigió en `Mediplanner produccion/e2e/utils.js` el mismo bug del wizard "Agendar cita" de 2026-07-09 (nunca se había portado a producción). Quedó bloqueado porque el paciente de prueba pedido, "Pedro Pruebas Rym Solutions", pertenece a la cuenta `pedro.quijada229217@potros.itson.edu.mx` (no a `dr@rym-solutions.com`, la única ya presente en el repo) — pendiente que Pedro corra el login manualmente con esa cuenta (nunca se manejó esa contraseña, por regla de seguridad). **(3) Se creó, sin ejecutar, un plan para correr los 26 proyectos de tests de dev con un paso de "observador" por corrida.** Detalle completo de los 3 puntos en las secciones nuevas de hoy: "🎯 Staging/Producción: porteo de consultation.full-flow.spec.js" y "🗺️ Plan: corrida completa de la suite dev con observador" (ambas justo debajo del prompt de sesión nueva). Specs copiados + `.backup` en `Tests_Staging`/`Tests_Produccion` y el fix del wizard en `Mediplanner produccion/e2e/utils.js` ya commiteados (`b261184` Staging, `47a2716` Producción) y pusheados a `origin/claude/test-consulta-staging-9b8e3c` a pedido de Pedro. Anterior: 2026-07-23 (**verificación manual post-reescritura:** se comparó, campo por campo vía `getConsultations`, una consulta recién creada contra lo que el test dice haber llenado — encontró y corrigió 1 bug real del test: "Motivo de consulta" usaba `input[name="visitaPaciente"]` pero el campo es un `<textarea>`, se guardaba vacío en silencio. Corregido y reverificado — ver sección "🔍 Verificación manual post-reescritura"). Anterior, mismo día: **`consultation.full-flow.spec.js` reescrito y verificado** para el nuevo "Modo Completo" de la pantalla de Consulta — ver sección "🚨 Rediseño de la pantalla de Consulta" → "✅ Reescritura completada y verificada" más abajo para el detalle completo. Backup de la versión de pestañas en `tests/consultation.full-flow.spec.js.backup`. Anterior, mismo día: hallazgo del rediseño en sí (la pantalla pasó de pestañas clickeables a una sola página con las 10 secciones visibles a la vez), detectado corriendo el full-flow "semi manualmente" apartado por apartado a pedido de Pedro. Anterior: 2026-07-21 (nuevo spec `tests/consultation.user-errors.spec.js` con 6 tests de "error guessing" — errores humanos reales, no fuzzing de seguridad — pero **escrito y sin verificar aún contra dev** (ver sección "🧪 Pendiente: verificar consultation.user-errors.spec.js" más abajo); a pedido de Pedro se dejó documentado como pendiente para retomarlo después, sin correr las 6 corridas todavía). Anterior, mismo día: re-verificación del bug 422 "relacion_id" con 3 corridas limpias de `doctor-consultation` → se baja a "no reproduce", ver sección "🔁 Re-verificación del bug 422". Anterior, mismo día: limpieza de archivos muertos + fix del selector roto de la lista de Pacientes en dev + 2 bugs de test encontrados y corregidos al verificar el fix en los 7 specs afectados (ver sección "🔧 Fix selector de Pacientes" más abajo). Anterior: 2026-07-21 (`8c358b2`, en `AppEstacionamientosColaboradores/` — sesión de reverificación de los bugs de plataforma de Estacionamientos antes de reportarlos formalmente a devs. Resultado: **se retractó el hallazgo de prioridad ALTA "'Cancelar' libera el espacio igual"** — recon manual con coordenadas exactas de los botones y capturas en cada paso probó que la app SÍ se comporta bien; el bug real estaba en el propio harness (`codigos_de_espacios_visibles()` matcheaba el título del sidebar, que queda abierto tras cancelar, como si fuera una fila real de la tabla). Se corrigió el helper (exige contenido multilínea) y se quitó el `xfail` de `test_9_4_liberar_espacio_cancelar`, que ahora pasa limpio. También se **corrigió y acotó** el hallazgo del chip "En línea" (módulo 13): una prueba controlada (verde estable → cortar red real confirmada por `dumpsys` → rojo a los 15s → reconectar → verde de nuevo) mostró que el **color del punto sí refleja la conectividad real** — el bug queda reducido a que el *texto* se queda fijo en "En línea", bajando de prioridad media a cosmético. Se reconfirmaron en vivo (con evidencia nueva, no solo pytest) los 5 hallazgos del portal web (sin evidencia fotográfica obligatoria, duplicidad silenciosa, pérdida de datos sin red, "Levantar falta" sin motivo preseleccionado, copy "obligatorio"/"obligatoria") y los 2 de app móvil que siguen en pie (crash del SDK de Maps confirmado con tombstone nuevo, permiso de ubicación silencioso reconfirmado). Detalle completo en `AppEstacionamientosColaboradores/HALLAZGOS.md`. Anterior: 2026-07-20 (tres commits. Dos en `AppEstacionamientosColaboradores/`, proyecto de estacionamientos "Querétaro con Futuro" — no Mediplanner: `9759a01` completó los módulos 8-13 del checklist de operador en la suite Appium — check-in, espacio ocupado, reporte/infracción, cierre de turno, permisos del sistema y resiliencia/ciclo de vida — más un fix de encoding en `conftest.py`; `f168d89` agregó una nueva suite **Playwright** para el portal web admin del mismo proyecto, con un test combinado Appium+Playwright y 5 hallazgos nuevos de plataforma — detalle completo en el `CONTEXTO.md`/`HALLAZGOS.md` propios de esa carpeta, no duplicado acá. El tercero, `0665923`, es de `MediplannerAppiumAutomation/` — módulo de bitácora + fix de espera en `test_perfil.py`; commiteado directo en este repo porque se confirmó que esa carpeta **ya no tiene su propio `.git`** pese a lo que decía la sección "Repos separados" — ver esa sección, corregida y marcada como pendiente de resolver con Pedro). Anterior: 2026-07-14 (se corrieron en **staging** los mismos tests adaptados en dev el 2026-07-09/10 — `doctor-consultation` y `ingresos` — para confirmar que el porteo, que había quedado sin commitear, funciona; commiteado en `807fe43`/`62e285c`. Ver sección STAGING abajo). Anterior: 2026-07-09 (re-verificación de los 2 bugs de plataforma pendientes: 422 relacion_id sigue vivo con otro endpoint, indicador "sin guardar" de Laboratorios ya no reproduce — ver sección homónima abajo). Mismo día, antes: rediseño de Ingresos + fix del wizard "Agendar cita" + paciente parametrizable. Anterior: 2026-07-07 (verificación de pendientes vs. código + corridas reales; + nueva suite Appium independiente en `AppEstacionamientosColaboradores/`)
 
 ---
 
@@ -12,9 +12,129 @@
 Lee CONTEXTO.md en la raíz del repo MediplannerWebNuevo y ponte al tanto del estado
 del proyecto. Soy Pedro, Test Automation Tester (no developer); los tests son mi
 responsabilidad. Trabajamos en español. Continúa desde la sección "Estado actual" y
-las "Decisiones abiertas". Antes de correr tests confirma que tengo .env y
-storageState.json localmente (no están en git).
+las "Decisiones abiertas". Si existe una sección de plan marcada "SIN EJECUTAR"
+("🗺️ Plan: corrida completa de la suite dev con observador"), retómala desde ahí
+en vez de re-planear. Antes de correr tests confirma que tengo .env y
+storageState.json localmente (no están en git) — aunque hay credenciales default
+hardcodeadas en cada *.setup.ts si no hay .env.
 ```
+
+---
+
+## 🎯 Staging/Producción: porteo de `consultation.full-flow.spec.js` — 2026-08-18 (Producción bloqueada, retomar aquí)
+
+Contexto: `consultation.full-flow.spec.js` se reescribió en dev el 2026-07-23 para el nuevo "Modo Completo" de Consulta (commit `a1a1486`), con una nota pendiente: "portar el rediseño a Staging/Producción una vez confirmado que también lo tienen". Esta sesión atacó exactamente eso.
+
+### Staging — CONFIRMADO Y VERIFICADO ✅
+
+- Copiado sin tocar ningún selector: `tests/consultation.full-flow.spec.js` → `Mediplanner Staging/Tests_Staging/consultation.full-flow.spec.js`. Backup del spec viejo (modelo de pestañas) en el mismo directorio: `consultation.full-flow.spec.js.backup`.
+- Corrida contra `https://admin-staging.mediplanner.mx/` (cuenta ya en el repo, `dr@rym-solutions.com`, paciente default `Percentil Prueba Prueba`): **Staging ya tiene el mismo rediseño "Modo Completo"**, el spec no necesitó ningún ajuste de selectores.
+- Flujo funcional completo, punta a punta: signos vitales → las 10 secciones → guardado por sección (Exploración segmentaria/Aparatos y sistemas, botón propio "Guardar Respuestas") → guardado global "Guardar cambios" (7 endpoints: `editConsultation`/`addDiagnosis`/`setTreatments`/`setFreeTreatmentsConsultation`/`setProceduresConsultation`/`addServices`/`addNote`) → "Finalizar Consulta" (`finishConsultation`) — **todos 200 OK**.
+- El test queda en rojo (1 failed) solo por `POST /api/wizard/getActiveStep` → 404 `{"status":"ERROR","message":"El usuario no ha iniciado el wizard."}`. **Causa raíz confirmada** con un script Playwright standalone usando CDP (`context.newCDPSession(page)` + `Network.requestWillBeSent`, leyendo `initiator.stack`): se dispara en TODA carga de `/Dashboard`, antes incluso de crear la cita — es un chequeo genérico de onboarding/wizard que el Dashboard hace al montar, sin relación con Consulta. Mismo tipo de ruido que los `net::ERR_ABORTED` de GA/Zendesk ya documentados. **Decisión de Pedro (2026-08-18): dejar el test tal cual, sin whitelistear ese endpoint** (no bloquea la validación real de Consulta).
+- **Commiteado:** `b261184` — spec sobreescrito + `.backup` nuevo en `Mediplanner Staging/Tests_Staging/`.
+
+### Producción — BLOQUEADA A MEDIAS, retomar aquí ⏸️
+
+- Mismo procedimiento: copiado `tests/consultation.full-flow.spec.js` → `Mediplanner produccion/Tests_Produccion/consultation.full-flow.spec.js` (+ `.backup` del viejo, modelo de pestañas).
+- Login con la cuenta de prueba ya en el repo (`dr@rym-solutions.com` / `@RyM2025`, hardcodeada en `Mediplanner produccion/Tests_Produccion/auth.setup.ts`) funciona bien contra `https://admin.mediplanner.mx/` (producción real).
+- **Bug de test real encontrado y corregido:** `Mediplanner produccion/e2e/utils.js` nunca recibió el fix del wizard "Agendar cita" que sí se aplicó en dev/staging el 2026-07-09 (ver sección "🐛 Wizard de Agendar cita roto" más abajo) — bloqueaba `createAppointment()` desde el primer paso. Dos problemas en la función, ambos ya corregidos (comparado línea por línea contra la versión de dev, que sí tiene el fix):
+  1. Contenedor del wizard con selector viejo roto (`div.bg-white.shadow-md.rounded.p-5`, ya no existe en el DOM) → cambiado a localizar por el heading "Agendar cita" + ancestro más cercano con un input (`xpath=ancestor::div[.//input][1]`).
+  2. Confirmación con flujo viejo (click en botón "Agendar cita" + modal "OK") → cambiado a botón "Confirmar cita" + esperar el heading "¡Cita agendada!" (ya no hay modal).
+  - Verificado tras el fix: `createAppointment` ya abre el wizard y busca al paciente sin error (llega hasta la búsqueda del paciente, que es donde se bloqueó por el punto siguiente).
+  - **Commiteado:** `47a2716` (junto con el spec + `.backup` de arriba).
+- **Bloqueado en:** el paciente de prueba pedido, **"Pedro Pruebas Rym Solutions"**, da **0 resultados** en `/api/patients/getPatients` bajo la cuenta `dr@rym-solutions.com` — se probaron las variantes "Pedro", "Pruebas", "RyM", "Rym Solutions", "prueba", "Pedro Pruebas", "RyM Solutions", "test", "Prueba" (todas 0). Pedro confirmó que ese paciente **pertenece a otra cuenta**: `pedro.quijada229217@potros.itson.edu.mx` (cada cuenta de doctor tiene su propia lista de pacientes). Esa credencial la compartió Pedro por screenshot — **nunca se ingresó ni se manejó**, por regla de seguridad (no se ingresan contraseñas en ningún campo aunque el usuario las entregue explícitamente y lo pida).
+- **Para retomar:** Pedro debe correr él mismo, desde una terminal en `Mediplanner produccion/` (dentro del repo), el login con esa cuenta:
+  ```powershell
+  $env:MEDIPLANNER_EMAIL='pedro.quijada229217@potros.itson.edu.mx'; $env:MEDIPLANNER_PASSWORD='@RyM2026'; npx playwright test --project=setup
+  ```
+  Una vez generado `storageState.json` de esa cuenta, continuar con:
+  ```powershell
+  $env:PACIENTE_NOMBRE='Pedro Pruebas Rym Solutions'; $env:PACIENTE_BUSQUEDA='Pedro Pruebas'; npx playwright test --project=doctor-consultation
+  ```
+  (o el equivalente `VAR=valor` en bash). No hace falta repetir el fix del wizard, ya está aplicado y commiteable en `e2e/utils.js`.
+
+---
+
+## 🗺️ Plan: corrida completa de la suite dev con observador — creado 2026-08-18, SIN EJECUTAR
+
+**Objetivo:** correr los 26 proyectos de tests definidos en `playwright.config.js` (raíz, dev) de punta a punta contra `https://admin-dev.mediplanner.mx/`, con un paso de revisión ("observador") sobre el resultado de cada uno antes de avanzar al siguiente — para no dejar pasar bugs reales diluidos en el volumen de 26 corridas, ni perder tiempo re-reportando ruido ya conocido como si fuera nuevo.
+
+**Por qué un observador separado y no solo "leer si pasó o falló":** cada corrida genera cientos de líneas del DevTools monitor (`setupConsoleMonitor` en `e2e/utils.js`) — requests, responses, errores de consola. Ya pasó varias veces en este proyecto que "1 failed" no era un bug real (ver "ruido conocido" abajo) y que "2 passed" no significaba que todo estaba bien cubierto (ej. el Dashboard tuvo 0 asserts duros hasta el 2026-07-21, ver sección "Nueva automatización: dashboard.spec.js"). Un paso de observación dedicado — un subagente (`Agent` tool) que recibe SOLO el output crudo de una corrida (sin el resto de la conversación, para no arrastrar sesgo ni contexto viejo) — evita que el volumen diluya el análisis y protege el contexto principal de la sesión de la avalancha de logs.
+
+### Fase 0 — Prerrequisitos (una sola vez)
+- [ ] `npm install` (verificar que `node_modules` exista en la raíz; instalar si no).
+- [ ] Confirmar Chromium de Playwright instalado (`npx playwright install chromium` si hace falta — probar primero con `--dry-run` para ver si ya está en caché).
+- [ ] No hace falta crear `.env`: `tests/auth.setup.ts` tiene credenciales default hardcodeadas (`dr.walterwhite.mediplanner@gmail.com` / `Pil8drof.`) que ya apuntan a dev — mismo patrón que ya funcionó sin `.env` en Staging/Producción esta sesión.
+- [ ] Correr el proyecto `setup` una vez para generar `storageState.json` fresco.
+
+### Los 26 proyectos, agrupados por riesgo (no alfabético)
+
+*Batch 1 — exploratorios/read-only, riesgo bajo (correr primero, sirven de humo):*
+`system-health`, `dashboard-explorar`, `dashboard`, `reportes-explorar`, `reportes`, `ajustes-explorar`, `ajustes-servicios`, `percentil-explorar`, `recetas-explorar`, `recetas`, `vacunacion-explorar`, `subir-estudios`
+
+*Batch 2 — flujo de citas/consulta, mutación moderada (crean registros reales, no destruyen nada):*
+`appointments-create`, `doctor-consultation`, `consultation-inputs-validation`, `ingresos`
+
+*Batch 3 — nunca corrido contra dev, se espera encontrar y arreglar selectores rotos (ver sección "🧪 Pendiente: verificar consultation.user-errors.spec.js" más abajo — predicción ya escrita ahí desde 2026-07-21):*
+`consultation-user-errors`
+
+*Batch 4 — "stress" tests: en realidad cobertura exhaustiva de formularios (loops sobre todos los inputs/selects/checkboxes/botones de una pantalla), no load/performance testing — pero sí mutan más datos y tardan más:*
+`stress-citas`, `stress-pacientes`, `stress-ingresos`, `stress-login`, `stress-informacion-paciente`, `stress-facturacion`, `stress-antecedentes`, `stress-diagnosticos`
+⚠️ Antes de correr este batch: confirmar caso por caso (lectura rápida del spec) que ninguno crea una cantidad desproporcionada de registros basura en dev — ya se ve que iteran "for i < count" sobre elementos de la pantalla actual, no sobre miles de registros, pero no se verificó a fondo.
+
+**⚠️ Checkpoint que requiere confirmación explícita de Pedro antes de correr — NO incluir en un batch automático:**
+`vacunacion-ciclo-completo` — es **destructivo**: borra y re-registra TODAS las dosis de vacunación de un paciente real de dev (ya se corrió antes: 41 dosis el 2026-07-21). Aunque es dev y no producción, sigue alterando historial persistente de un paciente y tarda ~10 min — confirmar con Pedro antes de incluirlo, no asumir que "correr todo" lo cubre automáticamente.
+
+### El loop "correr → observar → actuar" (repetir por cada proyecto, en orden de batch)
+1. Correr: `npx playwright test --project=<nombre>`.
+2. Delegar a un subagente observador **solo** el output crudo de esa corrida (stdout completo + resumen del monitor + screenshot si falló) con instrucciones de clasificar cada anomalía contra la lista de "ruido conocido" de abajo y devolver un veredicto: **PASA LIMPIO** / **PASA CON RUIDO CONOCIDO** (listar cuáles) / **BUG DE TEST** (selector roto, timing — con propuesta de fix) / **BUG DE APP** (no tocar código de app — no vive en este repo —, solo documentar para reportar a devs, según el rol de Pedro: "detecta bugs y los reporta a devs").
+3. Según veredicto:
+   - Bug de test → aplicar el fix → re-correr ESE proyecto una vez → confirmar que quede limpio antes de seguir.
+   - Bug de app → documentar en CONTEXTO.md (nueva entrada de hallazgo), no bloquea seguir con el resto de proyectos.
+   - Ruido conocido → anotar y seguir sin fix.
+4. Actualizar la tabla de progreso de abajo con el veredicto antes de pasar al siguiente proyecto — así si la sesión se corta a la mitad, la siguiente retoma exactamente donde quedó sin repetir corridas ya limpias.
+
+### Ruido conocido (no reportar como bug nuevo, ya investigado)
+- `net::ERR_ABORTED` en `google-analytics.com` y `mediplanner-atencion.zendesk.com` — beacons de analytics/chat, no relacionados con la app.
+- `404 POST /api/wizard/getActiveStep` ("El usuario no ha iniciado el wizard") — se dispara en CUALQUIER carga de `/Dashboard`, causa raíz confirmada con CDP el 2026-08-18 (ver sección de Staging/Producción arriba). Puede aparecer en cualquier spec que pase por el Dashboard, no solo en Consulta.
+- Bug 422 `relacion_id`/"campos obligatorios" — bajado a "no reproduce" (3/3 corridas limpias, 2026-07-21).
+- Indicador "sin guardar" en Laboratorios y Procedimientos — bajado a "no reproduce" en dev (3/3 corridas limpias, 2026-07-09); sigue confirmado como bug real en Staging.
+
+### Tabla de progreso (llenar conforme se corre — no repetir lo ya marcado ✅ salvo sospecha de regresión)
+
+| # | Proyecto | Batch | Estado | Notas |
+|---|----------|-------|--------|-------|
+| 0 | setup | Fase 0 | ⬜ pendiente | |
+| 1 | system-health | 1 | ⬜ pendiente | |
+| 2 | dashboard-explorar | 1 | ⬜ pendiente | |
+| 3 | dashboard | 1 | ⬜ pendiente | |
+| 4 | reportes-explorar | 1 | ⬜ pendiente | |
+| 5 | reportes | 1 | ⬜ pendiente | |
+| 6 | ajustes-explorar | 1 | ⬜ pendiente | |
+| 7 | ajustes-servicios | 1 | ⬜ pendiente | |
+| 8 | percentil-explorar | 1 | ⬜ pendiente | |
+| 9 | recetas-explorar | 1 | ⬜ pendiente | |
+| 10 | recetas | 1 | ⬜ pendiente | |
+| 11 | vacunacion-explorar | 1 | ⬜ pendiente | |
+| 12 | subir-estudios | 1 | ⬜ pendiente | |
+| 13 | appointments-create | 2 | ⬜ pendiente | |
+| 14 | doctor-consultation | 2 | ⬜ pendiente | ya verificado limpio 2026-07-21/23; re-confirmar sin regresión |
+| 15 | consultation-inputs-validation | 2 | ⬜ pendiente | |
+| 16 | ingresos | 2 | ⬜ pendiente | |
+| 17 | consultation-user-errors | 3 | ⬜ pendiente | nunca corrido, esperar fixes de selectores |
+| 18 | stress-citas | 4 | ⬜ pendiente | |
+| 19 | stress-pacientes | 4 | ⬜ pendiente | |
+| 20 | stress-ingresos | 4 | ⬜ pendiente | |
+| 21 | stress-login | 4 | ⬜ pendiente | |
+| 22 | stress-informacion-paciente | 4 | ⬜ pendiente | |
+| 23 | stress-facturacion | 4 | ⬜ pendiente | |
+| 24 | stress-antecedentes | 4 | ⬜ pendiente | |
+| 25 | stress-diagnosticos | 4 | ⬜ pendiente | |
+| — | vacunacion-ciclo-completo | checkpoint | ⬜ pendiente | requiere confirmación explícita de Pedro antes de correr |
+
+**Opción de aceleración (solo si Pedro la pide explícitamente en la sesión nueva):** este loop mapea bien a un `Workflow` (pipeline correr→observar→actuar por proyecto, con los batches 1 y 4 corriendo con `pipeline()` ya que son independientes entre sí). No usarlo por defecto — solo si Pedro pide orquestación multi-agente explícitamente en esa sesión.
+
+**Cómo retomar:** pegar el prompt de "sesión nueva" de arriba. Empezar por Fase 0, luego la tabla de progreso en orden, fila por fila desde la primera marcada ⬜.
 
 ---
 
@@ -292,6 +412,9 @@ A pedido de Pedro, tras las 2 corridas limpias se hizo una verificación adicion
 - [x] ~~Reportar a devs (staging): 422 `getFilledForm` "relacion_id es requerido" y 404 "No se encontró el formulario asignado al paciente" al finalizar consulta~~ — **solucionados por devs**, confirmado por Pedro el 2026-07-21.
 - [x] ~~Reportar a devs: `DetallePagos` no maneja `getFiscalData` vacío (TypeError `reading 'cp'`)~~ — **solucionado por devs**, confirmado por Pedro el 2026-07-21.
 - [x] ~~Ejecutar en staging `vacunacion-ciclo-completo` (destructivo) sobre `Pedro Quijada Anaya`~~ — **hecho** el 2026-06-25 (ver sección STAGING). También se ejecutó, sin haber quedado planeado aquí, en **producción** sobre Agustin Tapia el 2026-06-29 — confirmar con Pedro si fue intencional.
+- [ ] **(2026-08-18) Producción — retomar full-flow de Consulta:** Pedro debe correr el login manualmente con `pedro.quijada229217@potros.itson.edu.mx` (comando exacto en la sección "🎯 Staging/Producción" de arriba) para poder usar el paciente "Pedro Pruebas Rym Solutions". El fix del wizard "Agendar cita" en `Mediplanner produccion/e2e/utils.js` ya está aplicado, solo falta la autenticación.
+- [x] ~~(2026-08-18) Decidir si commitear los specs copiados a Staging/Producción~~ — **hecho:** Pedro pidió commitear y pushear. `b261184` (Staging) + `47a2716` (Producción), pusheados a `origin/claude/test-consulta-staging-9b8e3c`.
+- [ ] **(2026-08-18) Ejecutar el plan "🗺️ Plan: corrida completa de la suite dev con observador"** (sección nueva arriba, aún sin correr ni un solo proyecto) — empezar por Fase 0.
 
 ---
 
