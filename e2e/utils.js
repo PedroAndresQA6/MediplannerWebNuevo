@@ -288,9 +288,10 @@ async function checkNextDaysForIniciarButton(page) {
   return false;
 }
 
-async function createAppointment(page, patientSearch = '') {
+async function createAppointment(page, patientSearch = '', tipoConsulta = '') {
   logger.info('Explorando próximos 5 días para registrar una cita...');
   if (patientSearch) logger.info(`Paciente objetivo de la cita: "${patientSearch}"`);
+  if (tipoConsulta) logger.info(`Tipo de consulta objetivo: "${tipoConsulta}"`);
   
   // Navegar a la página de citas usando el sidebar "Agendar"
   await page.goto('/Citas');
@@ -447,7 +448,19 @@ async function createAppointment(page, patientSearch = '') {
   if (selCount > 0) {
     const opts0 = await selectsStep2.nth(0).locator('option').count();
     logger.info(`Opciones tipo consulta: ${opts0}`);
-    if (opts0 > 1) await selectsStep2.nth(0).selectOption({ index: 1 });
+    if (opts0 > 1) {
+      if (tipoConsulta) {
+        try {
+          await selectsStep2.nth(0).selectOption({ label: tipoConsulta });
+          logger.success(`Tipo de consulta seleccionado: "${tipoConsulta}"`);
+        } catch (e) {
+          logger.warning(`No se encontró la opción "${tipoConsulta}", usando la primera disponible`);
+          await selectsStep2.nth(0).selectOption({ index: 1 });
+        }
+      } else {
+        await selectsStep2.nth(0).selectOption({ index: 1 });
+      }
+    }
   }
   // Hospital se habilita tras elegir tipo consulta
   if (selCount > 1) {
