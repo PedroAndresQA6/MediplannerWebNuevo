@@ -62,10 +62,12 @@ Contexto: `consultation.full-flow.spec.js` se reescribió en dev el 2026-07-23 p
 **Por qué un observador separado y no solo "leer si pasó o falló":** cada corrida genera cientos de líneas del DevTools monitor (`setupConsoleMonitor` en `e2e/utils.js`) — requests, responses, errores de consola. Ya pasó varias veces en este proyecto que "1 failed" no era un bug real (ver "ruido conocido" abajo) y que "2 passed" no significaba que todo estaba bien cubierto (ej. el Dashboard tuvo 0 asserts duros hasta el 2026-07-21, ver sección "Nueva automatización: dashboard.spec.js"). Un paso de observación dedicado — un subagente (`Agent` tool) que recibe SOLO el output crudo de una corrida (sin el resto de la conversación, para no arrastrar sesgo ni contexto viejo) — evita que el volumen diluya el análisis y protege el contexto principal de la sesión de la avalancha de logs.
 
 ### Fase 0 — Prerrequisitos (una sola vez)
-- [ ] `npm install` (verificar que `node_modules` exista en la raíz; instalar si no).
-- [ ] Confirmar Chromium de Playwright instalado (`npx playwright install chromium` si hace falta — probar primero con `--dry-run` para ver si ya está en caché).
-- [ ] No hace falta crear `.env`: `tests/auth.setup.ts` tiene credenciales default hardcodeadas (`dr.walterwhite.mediplanner@gmail.com` / `Pil8drof.`) que ya apuntan a dev — mismo patrón que ya funcionó sin `.env` en Staging/Producción esta sesión.
-- [ ] Correr el proyecto `setup` una vez para generar `storageState.json` fresco.
+- [x] `npm install` — ya estaba al día (37 packages, 0 vulnerabilidades).
+- [x] Confirmar Chromium de Playwright instalado — ya en caché (`chromium-1208`), 0 descargas.
+- [x] No hizo falta `.env` — credenciales default de `tests/auth.setup.ts` funcionaron directo.
+- [x] Proyecto `setup` corrido, `storageState.json` generado.
+
+**Batch 1 (12/12) completado 2026-08-18.** 2 bugs de test arreglados con re-corrida limpia (`reportes`, `percentil-explorar`), 1 parcial (`subir-estudios`: bugs de test arreglados pero gap real de fondo pendiente), 2 bugs de app nuevos confirmados y documentados (CSP Clarity + CSP cdnjs.cloudflare.com, `saveService` falso registro), resto ✅ ruido conocido. Detalle fila por fila en la tabla de progreso de abajo. **Pendiente retomar: Batch 2 en adelante** (fila 13, `appointments-create`).
 
 ### Los 26 proyectos, agrupados por riesgo (no alfabético)
 
