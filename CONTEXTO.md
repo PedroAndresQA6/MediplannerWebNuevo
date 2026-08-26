@@ -2,12 +2,33 @@
 
 > **Qué es este archivo:** documento vivo de contexto del proyecto. Sirve para (a) comunicar en qué estamos trabajando y (b) poner al tanto a una sesión nueva de Claude Code (en esta u otra computadora). **Mantenerlo actualizado y commitearlo** cada vez que cambie el estado del trabajo. Este documento se limpió a fondo el 2026-08-18 (a pedido de Pedro): lo viejo/resuelto quedó condensado en "Histórico resuelto" al final; acá arriba solo queda lo activo o accionable.
 >
-> **Última actualización:** 2026-08-18. Sesión larga, 3 frentes (el más reciente primero):
+> **Última actualización:** 2026-08-24. Re-verificación de los 5 bugs de app (misma metodología del 20/08: scripts Playwright standalone contra dev, video + screenshots + payloads reales). **Resultado: 2 arreglados, 1 parcialmente arreglado, 2 sin cambios:**
+> - ✅ **`cdnjs.cloudflare.com` — ARREGLADO.** El header CSP ahora incluye `https://cdnjs.cloudflare.com` en `script-src`. Confirmado en vivo: 0 errores de consola al abrir Vacunación (antes eran 2, uno por cada recurso bloqueado).
+> - ✅ **Cruce Tratamiento/Notas del Médico — ARREGLADO, confirmado 2/2.** Mismo procedimiento que encontró el bug (marcador distinto en cada editor, payload real capturado): esta vez `setFreeTreatmentsConsultation` y `addNote` llegaron cada uno con su propio texto, sin cruce, en las 2 corridas.
+> - 🟡 **`saveService` (falso registro) — PARCIALMENTE arreglado.** Apareció un campo nuevo `activo_servicio` (además del viejo `activo`) que sí refleja el checkbox correctamente al guardar. Pero la lista visible de Servicios sigue leyendo el campo viejo `activo` (que queda hardcodeado en `false`) — un servicio creado con "activo" marcado se sigue viendo como "Inactivo" en la UI, aunque ya no desaparece del catálogo (el caso más grave del 20/08 sí se resolvió).
+> - 🟡 **Signos vitales — PARCIALMENTE mejorado.** Ahora el modal muestra un texto "Rango permitido: X - Y" debajo de cada campo (ej. "Oxigenación: 1-100%", "Frecuencia Cardiaca: 20-300 lpm") — se ve que los devs tocaron este componente (hasta renombraron `frecuenciaCardiaca`→`frecuencia_cardiaca` y `frecuenciaRespiratoria`→`frecuencia_respiratoria`). Pero el mecanismo de falla en sí sigue igual: tecleando se sigue recortando el dígito en silencio, y pegando/autocompletando un valor fuera de rango sigue vaciando el campo por completo, sin ningún mensaje reactivo.
+> - ⬜ **CSP bloquea Clarity (`img-src`) — SIN CAMBIOS.** `img-src` sigue exactamente igual, sin ningún dominio `clarity.ms`. `c.clarity.ms/c.gif` se sigue bloqueando.
+>
+> **🆕 Bug nuevo encontrado en esta sesión (a pedido de Pedro, que vio el toast en vivo):** al iniciar una consulta y darle "Guardar cambios" sin haber tocado ningún otro campo, aparece un toast de error: **"Se necesita asignar el tipo de la consulta"**. Confirmado y capturado en pantalla. Causa raíz identificada: el wizard de "Agendar cita" SÍ manda el tipo correctamente (`"tipo_cita":"2"` en el payload real de `createAppointment`), pero ese valor nunca se copia a la Consulta que se crea al hacer clic en "Iniciar" — `getConsultation` devuelve `tipo_consulta:0, tipo_consulta_nombre:""` en el 100% de los casos probados hoy (9 consultas distintas, id 72 a 84, los 3 tipos de consulta). No bloquea el guardado real (todas las llamadas de guardado siguieron devolviendo 200), pero le muestra al doctor un error sin ninguna forma de resolverlo — la sección "General" de la consulta ya ni siquiera tiene un campo visible de "Tipo consulta" para asignarlo manualmente. Detalle completo en el nuevo hallazgo más abajo.
+>
+> Pendiente: decidir con Pedro si esto ya se reporta a devs (la [decisión abierta](#decisiones-abiertas--pendientes) ya estaba anotada desde el 18) y si se commitea/pushea este cambio de CONTEXTO.md.
+>
+> ---
+>
+> **Actualización anterior (2026-08-20).** Sesión de profundización sobre los 5 bugs de app ya reportados (CSP Clarity, CSP cdnjs, `saveService` falso registro, signos vitales, cruce Tratamiento/Notas) — se reprodujo cada uno en vivo contra dev con scripts Playwright standalone (fuera del test runner), capturando video + screenshots anotados + payloads/respuestas crudas de red. Reporte visual completo entregado a Pedro como Artifact. 2 hallazgos se refinaron significativamente respecto al 18:
+> - **Bug de signos vitales — re-caracterizado.** No es "sin validación de rango": los 7 campos SÍ tienen un límite máximo real, pero falla en silencio y de forma inconsistente según cómo llega el valor. Tecleado letra por letra, el dígito que excede el límite simplemente no aparece (ej. "999" en FC queda en "99"). Puesto de una sola vez (`fill()`, equivalente a un paste/autocompletado) con un valor apenas fuera de rango (ej. Oxigenación=101, el máximo real es 100), el campo se **vacía por completo** — sin aviso, sin borde rojo, sin mensaje.
+> - **Cruce Tratamiento/Notas del Médico — confirmado con payload real.** Se capturó el request HTTP exacto de `setFreeTreatmentsConsultation`: el campo `indicaciones` (Tratamiento) llegó con el texto literal de Notas del Médico. Confirmado 3/3 en "Consulta Express".
+>
+> Todo lo del 20 quedó sin commitear (igual que lo del 24). Lo del 18 sí está commiteado y pusheado a `origin/claude/test-consulta-staging-9b8e3c`.
+>
+> ---
+>
+> **Actualización anterior (2026-08-18).** Sesión larga, 3 frentes (el más reciente primero):
 > 1. **Plan de 26 proyectos — Fase 0 + Batch 1 completo (12/12)**, corrido con un subagente "observador" por proyecto. 2 bugs de app nuevos confirmados (CSP bloquea Microsoft Clarity y `cdnjs.cloudflare.com`; `saveService` a veces no persiste el servicio creado — falso registro), 2 bugs de test arreglados y verificados (`reportes.spec.ts`, `percentil.explorar.spec.js`), 1 parcial (`subir-estudios.spec.ts`). Detalle en "🗺️ Plan: corrida completa de la suite dev con observador". **Pendiente: retomar desde Batch 2** (`appointments-create`).
 > 2. **A pedido de Pedro: nuevo spec `consultation.tipos-consulta.spec.ts`** — prueba los 3 tipos reales de consulta (Completa/Exprés/Exprés Médico) llenando todo y verificando campo por campo contra la API. Confirmó que los signos vitales SÍ rechazan letras, pero encontró 2 bugs reales: sin validación de rango fisiológico, y un cruce de datos entre Tratamiento y Notas del Médico (2/2 en Exprés/Exprés Médico). Detalle en "🐛 Hallazgos nuevos durante la corrida del plan".
 > 3. **Porteo de `consultation.full-flow.spec.js` a Staging/Producción** — Staging confirmado funcionando end-to-end; Producción con el fix del wizard aplicado pero bloqueado por credenciales pendientes de Pedro. Detalle en "🎯 Staging/Producción" abajo.
 >
-> Todo lo de hoy está commiteado y pusheado a `origin/claude/test-consulta-staging-9b8e3c`.
+> Todo lo del 18 está commiteado y pusheado a `origin/claude/test-consulta-staging-9b8e3c`.
 
 ---
 
@@ -106,6 +127,59 @@ Contexto: `consultation.full-flow.spec.js` se reescribió en dev el 2026-07-23 p
 **Cómo retomar:** pegar el prompt de "sesión nueva". Seguir la tabla en orden desde la primera fila ⬜ (fila 13, `appointments-create`).
 
 **Aceleración con `Workflow` (pipeline correr→observar→actuar):** solo si Pedro lo pide explícitamente en la sesión — no usar por defecto.
+
+### 🐛 Hallazgos re-caracterizados con evidencia nueva (2026-08-20)
+
+**Signos vitales — el límite SÍ existe, pero falla en silencio (re-caracteriza el hallazgo del 18).** Investigado campo por campo con Playwright standalone (fuera del test runner, con video + overlay de evidencia). Los 7 campos son `<input type="text">` con `maxlength` (3-7 según el campo) — no tienen `min`/`max`/`step` en el HTML, el límite vive en un handler de JS. Comparando `.fill()` (bulk-set, equivalente a un paste) contra tipeo real letra por letra sobre el mismo campo:
+- **Tecleado real:** el dígito que haría que el valor supere el máximo real no llega a mostrarse — el campo se queda en el último valor válido. Ej.: "999" tecleado en Frecuencia Cardiaca → queda "99". "200" en Frecuencia Respiratoria → queda "20". Sin borde rojo, sin mensaje, sin tooltip.
+- **Puesto de una sola vez (`.fill()`/paste):** un valor apenas fuera de rango vacía el campo POR COMPLETO, sin importar qué tan cerca del límite estuviera. Oxigenación=101 (el máximo real es 100) → el campo queda `""`. Mismo resultado con 150 y 500. Con 98 (válido) sí queda "98". Mismo patrón en Peso (99999→vacío, pero 250 sí queda), Talla (999→vacío) y FC/FR.
+- El recorte NO es por longitud de texto: "999" (3 caracteres) se vacía en Talla (maxlength=5) igual que en Oxigenación (maxlength=3) — es un chequeo de valor máximo, no de cantidad de dígitos.
+- Con Oxigenación vacía (tras el vaciado silencioso) y el resto de los campos válidos, el botón "Guardar" quedó **deshabilitado** en esta cuenta — la app si bloquea el envío con un campo obligatorio vacío, pero nada en pantalla explica *por qué* está deshabilitado ni que el valor pegado desapareció.
+- Para reportar a devs: no es "agregar validación de rango" (ya existe) — es (a) mostrar feedback visible cuando un valor se recorta o se rechaza, en vez de fallar en silencio, y (b) decidir si un valor fuera de rango debería recortarse/clampearse en vez de vaciar el campo por completo.
+
+**Cruce Tratamiento ↔ Notas del Médico — confirmado con el payload real capturado (iguala/supera el hallazgo del 18).** Se instrumentó el request HTTP real en vez de solo comparar el guardado final. Escribiendo un marcador distinto en Tratamiento, Laboratorios y Notas del Médico (en ese orden) en una "Consulta Express": el editor Jodit de Tratamiento quedó **vacío** apenas se terminó de tipear en Notas (confirmado leyendo el DOM en vivo, antes de cualquier guardado explícito), y el guardado automático de la app (dispara solo, ~30s después de cargar la página — hay un config `time_save` que lo controla) mandó este payload real a `setFreeTreatmentsConsultation`:
+```
+{ "paciente_id": 903, "consulta_id": 73, "tratamientos": [],
+  "indicaciones": "<p>Seguimiento de evolución clínica favorable [NOTASMEDICO-MARCA-...]</p>" }
+```
+El campo `indicaciones` (que es "Indicaciones Generales" de **Tratamiento**) llegó con el texto literal de **Notas del Médico**. Una screenshot del estado final confirma lo mismo visualmente: el cuadro de Tratamiento muestra el texto de Notas, mientras que el cuadro de Laboratorios (con su propio editor Jodit), justo debajo, sí muestra su texto correcto — descarta que sea un problema de guardado en general. Confirmado 3/3 en total (2/2 sesiones anteriores + esta). Sigue sin confirmarse en "Consulta Completa". **Hipótesis técnica para devs:** el patrón (el editor tipeado *al final* "gana" y termina en el campo de Tratamiento, cuyo propio editor queda vacío) es consistente con que los 3 editores Jodit de la página compartan alguna referencia global al "contenido activo", y que el guardado de Tratamiento la lea en vez de leer su propio editor — a confirmar por los devs con el código fuente.
+
+Reporte completo con screenshots + video de las 5 reproducciones (incluye también CSP Clarity, CSP cdnjs y `saveService`, reproducidos de nuevo con evidencia más precisa) entregado a Pedro como Artifact el 2026-08-20.
+
+### 🔁 Re-verificación de los 5 (2026-08-24)
+
+A pedido de Pedro ("corre las automatizaciones de nuevo y fíjate si los bugs fueron arreglados"), se corrió el mismo procedimiento del 20/08 otra vez contra dev, prestando atención fina a cada corrida (incluye 2 reintentos por selectores que cambiaron de nombre — ver debajo). Resultado, bug por bug:
+
+1. **CSP Clarity (`img-src`): sin cambios.** Header idéntico al del 20/08, sin ningún dominio `clarity.ms` en `img-src`. `c.clarity.ms/c.gif` se sigue bloqueando.
+2. **CSP `cdnjs.cloudflare.com`: ARREGLADO.** `script-src` ahora incluye `https://cdnjs.cloudflare.com`. Confirmado en vivo abriendo Vacunación: 0 errores de consola (antes eran 2).
+3. **`saveService` falso registro: PARCIALMENTE arreglado.** Apareció un campo nuevo en la respuesta de `getServices`: **`activo_servicio`** (antes solo existía `activo`). Al crear un servicio con el checkbox "activo" marcado, `activo_servicio` ahora sí queda en `true` (correcto) — pero `activo` sigue quedando hardcodeado en `false` siempre. Como la lista visible de "Servicios" en la UI sigue mostrando el estatus según el campo viejo `activo`, un servicio recién creado con "activo" marcado se sigue viendo como "**Inactivo**" en la pantalla, aunque ya no desaparece del catálogo (eso sí se arregló). **Para reportar a devs:** falta que la UI lea `activo_servicio` en vez de (o además de) `activo`, o unificar ambos campos.
+4. **Signos vitales: PARCIALMENTE mejorado.** El modal ahora muestra "**Rango permitido: X - Y**" debajo de cada campo (Oxigenación 1-100%, FC 20-300 lpm, FR 10-70 rpm, Temperatura 10-46°C, Talla 1-246cm, Peso 1-635kg) — un cambio real y reciente (también renombraron los inputs `frecuenciaCardiaca`→`frecuencia_cardiaca` y `frecuenciaRespiratoria`→`frecuencia_respiratoria`, rompiendo selectores viejos que asuman camelCase). Pero el mecanismo de falla silenciosa en sí no cambió: tecleando, el dígito que excede el máximo se sigue recortando sin avisar; pegando/autocompletando un valor fuera de rango, el campo se sigue vaciando por completo sin ningún mensaje.
+5. **Cruce Tratamiento/Notas del Médico: ARREGLADO, confirmado 2/2.** Mismo procedimiento que originalmente lo encontró (marcador distinto en Tratamiento/Notas, payload real capturado): en las 2 corridas de hoy, `setFreeTreatmentsConsultation` y `addNote` llegaron cada uno con su propio texto — sin ningún cruce. `getConsultation` posterior confirma lo mismo. No se volvió a probar en "Consulta Completa" (igual que antes, sigue sin confirmarse ahí, aunque nunca se reprodujo en ese tipo de consulta).
+
+**Nota técnica para la próxima sesión:** si se vuelve a tocar el modal de signos vitales con scripts standalone, usar `input[name="frecuencia_cardiaca"]` / `input[name="frecuencia_respiratoria"]` (snake_case) — los nombres viejos en camelCase ya no existen. `input[name*="card" i]` sigue funcionando por casualidad (matchea el substring "card" dentro de "frecuencia_c**ard**iaca").
+
+### 🆕 Bug 6 — "Se necesita asignar el tipo de la consulta" (2026-08-24)
+
+Pedro vio este toast en vivo mientras yo corría las re-verificaciones y pidió investigarlo puntualmente. Reproducido y con causa raíz identificada:
+
+**Cómo reproducirlo (100% confirmado):**
+1. Agendar una cita de cualquier tipo (Completa / Express / Express Médico) — no importa cuál.
+2. Iniciar la consulta, capturar signos vitales y guardarlos (paso obligatorio, no se puede saltar).
+3. Ya en la página de Consulta (Modo Completo), **sin tocar ningún otro campo**, hacer clic en **"Guardar cambios"** (el botón azul global).
+4. ~5.5 segundos después aparece un toast de error arriba a la derecha: **"Se necesita asignar el tipo de la consulta"**.
+
+Con otros campos ya llenados antes de guardar (motivo, diagnóstico, etc.) el toast no se vio en varios intentos — parece disparar específicamente cuando "Guardar cambios" no tiene nada nuevo que persistir y termina revalidando/refrescando el estado completo de la consulta (se observan varias llamadas GET en cadena: `getConsultationProcedures`, `getForms`, `getNotes`, `getConsultations`, `getConfigConsultation`, `getDiagnosis`, `getProceduresList` — ninguna de escritura).
+
+**Causa raíz:** el wizard de "Agendar cita" manda el tipo de consulta correctamente — payload real capturado de `createAppointment`:
+```
+{"doctor_id":"467","paciente_id":903,"hospital_id":"2","tipo_cita":"2",
+ "fecha_inicio":"2026-08-24 16:45:00","fecha_fin":"2026-08-24 16:50:00"}
+```
+(`"tipo_cita":"2"` = Consulta Express, seleccionada en el `<select>` del paso 2 del wizard). Pero ese valor **nunca se copia** a la Consulta que se crea al hacer clic en "Iniciar": `getConsultation` devolvió `tipo_consulta: 0, tipo_consulta_nombre: ""` en **las 9 consultas creadas hoy** (ids 72, 73, 74, 78, 79, 81, 82, 83, 84), sin excepción, para los 3 tipos de consulta. El toast del frontend está detectando correctamente un dato real que falta — el bug no es el toast, es que el backend/frontend nunca traspasa `tipo_cita` (de la Cita) a `tipo_consulta` (de la Consulta).
+
+**Impacto:** no bloquea nada — todas las llamadas de guardado (`setTreatments`, `addNote`, `finishConsultation`, etc.) siguieron devolviendo 200 con el toast presente. Pero (a) todas las consultas quedan con su tipo sin clasificar, lo que rompería cualquier reporte/filtro que agrupe por tipo de consulta, y (b) la sección "General" de la consulta ya no muestra ningún campo "Tipo consulta" (existía como solo-lectura el 2026-08-18, según el spec de esa fecha) — el doctor ve el error pero no tiene ninguna forma de corregirlo desde la UI.
+
+**Para reportar a devs:** revisar el flujo `createAppointment` → "Iniciar consulta" para confirmar por qué `tipo_cita` de la Cita no se está copiando a `tipo_consulta` de la Consulta recién creada.
 
 ### 🐛 Hallazgos nuevos de esta sesión (2026-08-18)
 
