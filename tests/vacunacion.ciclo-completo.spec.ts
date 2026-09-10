@@ -73,9 +73,13 @@ async function countOtraVacuna(page: Page): Promise<number> {
   return await page.locator('button:has(svg[data-icon="trash"])').count();
 }
 
-// Botón de borrar de una dosis (btn-secondary con texto "×"), excluye el lápiz (editar).
+// Botón de borrar de una dosis: ahora es un ícono trash con title="Quitar
+// fecha" y clase "btn-clear text-danger" (confirmado en vivo 2026-09-10 —
+// el viejo "button.btn-secondary" con texto "×" ya no existe en el DOM real,
+// matcheaba 0 elementos y dejaba este paso de borrado como no-op silencioso).
+// Excluye el lápiz de "Editar detalle" (btn-light).
 function deleteDoseButtons(page: Page) {
-  return page.locator(`${TABLE} button.btn-secondary`).filter({ hasText: '×' });
+  return page.locator(`${TABLE} button.btn-clear.text-danger`);
 }
 
 // Botón de borrar de una fila "otra vacuna" (icono trash, mapeado 2026-06-23).
@@ -191,9 +195,16 @@ test('Vacunación: ciclo completo borrar-todo → vacío → registrar-todo → 
       await btn.click({ force: true }).catch(() => {});
       clicks++;
       // Esperar (máx 2s) a que baje el conteo de × en la tabla = borrado reflejado en UI.
+      // OJO: este waitForFunction seguía usando el selector viejo
+      // "button.btn-secondary" (0 matches siempre, ver deleteDoseButtons más
+      // arriba) — confirmado en vivo 2026-09-10: como querySelectorAll ya
+      // daba longitud 0, la condición "0 < n" era true de entrada y la
+      // función resolvía al instante SIN esperar realmente a que el clic
+      // surtiera efecto, así que el bucle disparaba 100 clics contra el
+      // mismo primer botón (sin dejar que React re-renderizara entre uno y
+      // otro) y el conteo de × nunca bajaba de 32. Usar el selector real.
       await page.waitForFunction(
-        (n) => Array.from(document.querySelectorAll('table.table-compact button.btn-secondary'))
-          .filter(b => (b.textContent || '').trim() === '×').length < n,
+        (n) => document.querySelectorAll('table.table-compact button.btn-clear.text-danger').length < n,
         antes, { timeout: 2000 }
       ).catch(() => {});
       guard++;

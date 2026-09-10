@@ -95,7 +95,13 @@ async function sectionContainer(page, headingRegex, maxDepth = 10) {
     if (box && box.height > 100) return container;
   }
   console.log(`⚠️ sectionContainer: no se pudo acotar "${headingRegex}", usando page completa (riesgo de contaminación cruzada)`);
-  return page;
+  // OJO: `page` no tiene `.elementHandle()` (solo Locator lo tiene) —
+  // confirmado en vivo 2026-09-10: este fallback rompía con
+  // "scope.elementHandle is not a function" en fillChecklistSection,
+  // abortando toda la sección en silencio (capturado por su propio
+  // try/catch) en vez de degradar de verdad a buscar en toda la página.
+  // page.locator('body') tiene la misma API que un Locator normal.
+  return page.locator('body');
 }
 
 // Dev puede caer en el wizard de "Configuración de tu cuenta" (6 pasos:
@@ -699,7 +705,10 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     if (await fcInput.count() > 0) await fcInput.first().fill(svFC);
     const satInput = page.locator('input[name="oxigenacion"]');
     if (await satInput.count() > 0) await satInput.first().fill(svSat);
-    const frInput = page.locator('input[name="frecuenciaRespiratoria"]');
+    // OJO: el name real es snake_case ("frecuencia_respiratoria"), no camelCase
+    // — confirmado en vivo 2026-09-10 (el selector viejo dejaba este campo
+    // vacío en silencio, y como es obligatorio, "Guardar" nunca se habilitaba).
+    const frInput = page.locator('input[name="frecuencia_respiratoria"]');
     if (await frInput.count() > 0) await frInput.first().fill(svFR);
     const glucosaInput = page.locator('input[name="glucosa"]');
     if (await glucosaInput.count() > 0) await glucosaInput.first().fill(svGlucosa);
@@ -769,7 +778,12 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
   await test.step('Llenar todas las secciones (ya visibles, sin pestañas)', async () => {
     await fillGeneralSection(page);
     await fillApenrienciaGeneralSection(page);
-    resultadoExploracion = await fillChecklistSection(page, /^Exploración segmentaria$/i, 'Exploración segmentaria');
+    // OJO: el <h3> real trae un espacio final ("Exploración segmentaria ")
+    // — confirmado en vivo 2026-09-10 con role=heading real (getByRole
+    // devolvía 0 matches con el regex exacto viejo, sectionContainer caía
+    // siempre al fallback de "página completa" y esa sección terminaba sin
+    // llenarse ni verificarse, sin que el test fallara por eso).
+    resultadoExploracion = await fillChecklistSection(page, /^Exploración segmentaria\s*$/i, 'Exploración segmentaria');
     resultadoAparatos = await fillChecklistSection(page, /^Aparatos y sistemas$/i, 'Aparatos y sistemas');
     await fillDiagnosticoSection(page);
     await fillTratamientoSection(page);
