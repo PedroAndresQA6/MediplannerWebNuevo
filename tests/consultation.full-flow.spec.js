@@ -11,9 +11,14 @@ const { createAppointment, handleModals, setupConsoleMonitor, buscarBotonIniciar
 // beacons de GA/Zendesk). Ver CONTEXTO.md → "🚨 Rediseño de la pantalla de
 // Consulta" para el detalle completo de la investigación.
 //
-// Mecanismo de guardado confirmado en vivo (recon 2026-07-23):
-//   - Exploración segmentaria y Aparatos y sistemas tienen SU PROPIO botón
-//     "Guardar Respuestas" cada uno (no los cubre el guardado global).
+// Mecanismo de guardado confirmado en vivo (recon 2026-07-23, actualizado
+// 2026-09-10):
+//   - Exploración segmentaria y Aparatos y sistemas: la suposición vieja de
+//     que tienen SU PROPIO botón "Guardar Respuestas" está desactualizada —
+//     confirmado en vivo que ese botón ya no aparece en ninguna de las 2
+//     secciones. En su lugar, cada respuesta (checkbox + Normal/Anormal +
+//     Observaciones) se autoguarda apenas se completa, vía
+//     `POST /api/patients/registerAnswers` (200 OK confirmado), sin botón.
 //   - Todo lo demás (General, Diagnóstico, Tratamiento, Laboratorios,
 //     Notas del Médico, Servicios) se persiste con el botón GLOBAL
 //     "Guardar cambios" del panel lateral derecho (dispara editConsultation/
@@ -800,12 +805,18 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
   await test.step('Llenar todas las secciones (ya visibles, sin pestañas)', async () => {
     await fillGeneralSection(page);
     await fillApenrienciaGeneralSection(page);
-    // OJO: el <h3> real trae un espacio final ("Exploración segmentaria ")
-    // — confirmado en vivo 2026-09-10 con role=heading real (getByRole
-    // devolvía 0 matches con el regex exacto viejo, sectionContainer caía
-    // siempre al fallback de "página completa" y esa sección terminaba sin
-    // llenarse ni verificarse, sin que el test fallara por eso).
-    resultadoExploracion = await fillChecklistSection(page, /^Exploración segmentaria\s*$/i, 'Exploración segmentaria');
+    // OJO (2026-09-10): el <h3> real dice "Exploración segmentaría" (con
+    // acento en la "í" — typo real de la app, confirmado con un recon que
+    // volcó page.getByRole('heading', {level:3}).allTextContents()), no
+    // "segmentaria" como asumía este regex. Por eso NUNCA matcheaba (ni con
+    // el fix previo del espacio final, que no era la causa real) y
+    // sectionContainer caía siempre al fallback de página completa —
+    // haciendo que fillChecklistSection escribiera sus "Observaciones" en
+    // los primeros <textarea> de TODA la página (los de "General"/
+    // "Apariencia general"), pisándolos con texto de checklist. Se usa un
+    // regex que matchea el prefijo estable en vez de depender de una vocal
+    // acentuada que la propia app podría corregir o volver a cambiar.
+    resultadoExploracion = await fillChecklistSection(page, /^Exploración segmentar[ií]a\s*$/i, 'Exploración segmentaria');
     resultadoAparatos = await fillChecklistSection(page, /^Aparatos y sistemas$/i, 'Aparatos y sistemas');
     await fillDiagnosticoSection(page);
     await fillTratamientoSection(page);
