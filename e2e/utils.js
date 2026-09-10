@@ -1271,7 +1271,14 @@ async function scanResidualIndicators(page, tabName, opts = {}) {
 async function auditarPantalla(page, etiqueta, opts = {}) {
   const maxWaitMs = opts.maxWaitMs ?? 20000;
   const pollMs = opts.pollMs ?? 2000;
-  const patronesCarga = opts.patronesCarga || [/cargando[^"]*/i, /loading\.\.\./i];
+  // 2026-09-10: la lista traía solo "cargando"/"loading..." — un repro real
+  // (ver CONTEXTO.md, hallazgo de "General" vaciado) encontró un overlay
+  // separado con el texto "Recuperando datos del paciente..." que ninguno de
+  // los 2 patrones matcheaba, dejando pasar por alto exactamente el tipo de
+  // carga en segundo plano que este helper existe para detectar. Se agregan
+  // otros verbos de carga usados en la app en vez de perseguir cada string
+  // nuevo uno por uno cuando aparezca.
+  const patronesCarga = opts.patronesCarga || [/cargando[^"]*/i, /recuperando[^"]*/i, /procesando[^"]*/i, /loading\.\.\./i];
 
   const reporte = {
     etiqueta,

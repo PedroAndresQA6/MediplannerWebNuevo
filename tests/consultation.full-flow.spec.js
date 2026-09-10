@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { createAppointment, handleModals, setupConsoleMonitor, buscarBotonIniciarDePaciente } = require('../e2e/utils.js');
+const { createAppointment, handleModals, setupConsoleMonitor, buscarBotonIniciarDePaciente, auditarPantalla } = require('../e2e/utils.js');
 
 // ─────────────────────────────────────────────────────────────────────────
 // REESCRITO 2026-07-23 tras el rediseño de la pantalla de Consulta: pasó de
@@ -88,20 +88,35 @@ async function fillPerimetroCefalico(page, valor) {
 async function sectionContainer(page, headingRegex, maxDepth = 10) {
   const heading = page.getByRole('heading', { level: 3, name: headingRegex }).first();
   await heading.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+
+  // Estrategia principal: subir hasta el ancestro con class="card" (el mismo
+  // patrón que ya usa con éxito auditConsultationIndicators()/
+  // detectUnsavedSections() en e2e/utils.js para TODOS los apartados de la
+  // consulta, "Exploración segmentaria"/"Aparatos y sistemas" incluidos).
+  const cardAncestor = heading.locator('xpath=ancestor::*[contains(concat(" ",normalize-space(@class)," ")," card ")][1]');
+  if (await cardAncestor.count() > 0) {
+    const box = await cardAncestor.boundingBox().catch(() => null);
+    if (box && box.height > 50) return cardAncestor;
+  }
+
+  // Fallback: el heurístico viejo de "primer ancestro con altura > 100px".
+  // Confirmado en vivo 2026-09-10: para "Exploración segmentaria" este
+  // heurístico solo NUNCA encontraba nada (los 10 niveles fallaban), y el
+  // fallback de ese entonces (page.locator('body'), scope = página completa)
+  // hacía que fillChecklistSection escribiera sus "Observaciones" en los
+  // PRIMEROS <textarea> visibles de TODA la página — que resultaron ser los
+  // de "General"/"Apariencia general" — pisándolos con texto de checklist
+  // ("motivo" terminó con "Cabeza: sin alteraciones..."). Ver CONTEXTO.md.
+  // Por eso ahora, si ni el ancestro .card ni este heurístico encuentran un
+  // contenedor real, se prefiere TRONAR (el section no se llena y el test lo
+  // reporta) antes que arriesgar contaminación cruzada silenciosa.
   for (let depth = 2; depth <= maxDepth; depth++) {
     const container = heading.locator(`xpath=ancestor::*[${depth}]`);
     if (await container.count() === 0) continue;
     const box = await container.boundingBox().catch(() => null);
     if (box && box.height > 100) return container;
   }
-  console.log(`⚠️ sectionContainer: no se pudo acotar "${headingRegex}", usando page completa (riesgo de contaminación cruzada)`);
-  // OJO: `page` no tiene `.elementHandle()` (solo Locator lo tiene) —
-  // confirmado en vivo 2026-09-10: este fallback rompía con
-  // "scope.elementHandle is not a function" en fillChecklistSection,
-  // abortando toda la sección en silencio (capturado por su propio
-  // try/catch) en vez de degradar de verdad a buscar en toda la página.
-  // page.locator('body') tiene la misma API que un Locator normal.
-  return page.locator('body');
+  throw new Error(`sectionContainer: no se pudo acotar "${headingRegex}" ni por .card ni por altura — abortando en vez de arriesgar contaminación cruzada con scope de página completa`);
 }
 
 // Dev puede caer en el wizard de "Configuración de tu cuenta" (6 pasos:
@@ -746,10 +761,17 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     }
 
     console.log('⏳ Esperando carga completa de la consulta...');
-    await page.waitForFunction(() => !document.body.innerText.includes('Cargando información de consulta'), { timeout: 30000 }).catch(() => {
-      console.log('⚠️ Timeout esperando carga, continuando de todos modos...');
-    });
-    await page.waitForTimeout(2000);
+    // 2026-09-10: este chequeo (solo "Cargando información de consulta" +
+    // catch mudo) dejaba pasar un SEGUNDO overlay independiente
+    // ("Recuperando datos del paciente...") — confirmado con una repro real
+    // que llenaba "General" mientras ese overlay seguía activo: al terminar
+    // el fetch de fondo, los campos quedaban vacíos, sin que este wait lo
+    // hubiera detectado (ver CONTEXTO.md, hallazgo de "General" vaciado).
+    // auditarPantalla() espera de forma realista a que CUALQUIER texto de
+    // carga conocido desaparezca (ya generalizado en e2e/utils.js) en vez de
+    // perseguir un único string exacto con un catch que traga el timeout.
+    await auditarPantalla(page, 'Consulta recién cargada, antes de llenar General', { maxWaitMs: 30000 });
+    await page.waitForTimeout(1000);
   });
 
   let serviciosSinOpciones = false;

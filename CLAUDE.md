@@ -99,6 +99,29 @@ Recorrerla **sección por sección** contra el inventario del punto 1, y volcar
 el texto completo de la página (`body.innerText()`) al log para poder
 revisarlo después con calma, no solo lo que parece relevante en el momento.
 
+### 7. Auditoría previa OBLIGATORIA — antes de correr un script, no después
+
+**Antes de ejecutar cualquier script contra dev/staging/producción** — un spec
+de `tests/`, un script suelto nuevo (`_diagnostico_*`/`_investigar_*`/
+`_verificar_*`), o código ya existente que se va a reusar/copiar — revisarlo
+primero contra esta norma, en particular los puntos 2 y 5 (¿algún wait de
+precondición tiene un `.catch(() => {})` que traga el timeout en vez de
+fallar? ¿reusa un helper compartido como `auditarPantalla()` de `e2e/utils.js`
+en vez de un chequeo de texto exacto armado a mano?). **Si no la cumple, se
+corrige primero y recién después se corre** — nunca al revés, ni siquiera
+para "un diagnóstico rápido".
+
+Agregado 2026-09-10 tras un error real: se escribió un script de diagnóstico
+nuevo copiando un patrón de espera de carga ya existente en el repo
+(`!body.innerText.includes('Cargando información de consulta')` +
+`.catch(() => {})`) sin auditarlo primero. Ese patrón dejaba pasar un overlay
+real y activo ("Recuperando datos del paciente...") que el chequeo no cubría
+— el script arrancó a escribir en la pantalla mientras la carga seguía en
+curso, y produjo un hallazgo **falso** (una "causa raíz confirmada" que
+después resultó ser un artefacto de la propia corrida, no de la app). Pedro lo
+detectó mirando la corrida en pantalla, no leyendo el script. Correrlo sin
+auditar antes no ahorra tiempo: obliga a re-hacer todo el trabajo después.
+
 ---
 
 ## Estructura del repo
