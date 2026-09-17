@@ -1,5 +1,5 @@
 const { chromium } = require('@playwright/test');
-const { createAppointment, handleModals } = require('./e2e/utils.js');
+const { createAppointment, handleModals } = require('../e2e/utils.js');
 require('dotenv').config({ path: '.env' });
 
 // Prueba dedicada del Hallazgo 2 en DEV (sin el Hallazgo 1 en medio, que rompe

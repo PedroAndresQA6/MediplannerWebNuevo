@@ -1,5 +1,5 @@
 const { chromium } = require('@playwright/test');
-const { createAppointment, handleModals } = require('./e2e/utils.js');
+const { createAppointment, handleModals } = require('../e2e/utils.js');
 require('dotenv').config({ path: '.env' });
 
 // Inspección de la estructura REAL de "Exploración segmentaria" / "Aparatos y

@@ -1,5 +1,5 @@
 const { chromium } = require('@playwright/test');
-const { handleModals } = require('./e2e/utils.js');
+const { handleModals } = require('../e2e/utils.js');
 require('dotenv').config({ path: '.env' });
 
 // Reproducción del bug reportado por Pedro (captura de pantalla, 2026-07-27):

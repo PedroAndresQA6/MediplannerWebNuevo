@@ -1,5 +1,5 @@
 const { chromium } = require('@playwright/test');
-const { createAppointment, handleModals } = require('./e2e/utils.js');
+const { createAppointment, handleModals } = require('../e2e/utils.js');
 require('dotenv').config({ path: '.env' });
 
 // Misma investigación de "error guessing" que _error_guessing_consulta_produccion.js,

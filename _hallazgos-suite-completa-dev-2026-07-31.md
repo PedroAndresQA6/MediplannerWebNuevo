@@ -149,7 +149,7 @@ registro". **Sube a candidato fuerte — ver pase 3.**
 ## Re-corrida enfocada — solo candidatos, 3 vueltas (a pedido de Pedro, tras el pase 2)
 
 Se detuvo la corrida completa de 25 proyectos (llegó hasta pase 2, proyecto
-ajustes-explorar) y se lanzó `_run-candidatos-3x.sh`: solo los 10 proyectos con
+ajustes-explorar) y se lanzó `scripts-diagnostico/_run-candidatos-3x.sh`: solo los 10 proyectos con
 hallazgos/candidatos, 3 vueltas seguidas, para confirmar más rápido sin gastar tiempo en
 los que ya salieron limpios. Log: `run-candidatos-3x-full.log`.
 

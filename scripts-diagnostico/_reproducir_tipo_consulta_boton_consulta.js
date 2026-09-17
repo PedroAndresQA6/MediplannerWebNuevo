@@ -1,5 +1,5 @@
 const { chromium } = require('@playwright/test');
-const { handleModals } = require('./e2e/utils.js');
+const { handleModals } = require('../e2e/utils.js');
 require('dotenv').config({ path: '.env' });
 
 // Reproducción confirmada por Pedro (captura de pantalla): dentro del perfil

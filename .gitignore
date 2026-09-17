@@ -13,5 +13,9 @@ node_modules/
 .env
 **/storageState.json
 
+# Logs de corridas y diagnósticos
+logs/
+*.log
+
 # Artefactos de corridas Appium (crash/ANR por test, se regeneran en cada run)
 MediplannerAppiumAutomation/Appium/reports/monitor/

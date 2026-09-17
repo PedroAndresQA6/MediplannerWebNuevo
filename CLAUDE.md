@@ -2,8 +2,12 @@
 
 Suite de automatización E2E con Playwright para la web admin de Mediplanner.
 Pedro es Test Automation Tester (no developer); los tests son su
-responsabilidad. Trabajamos en español. Ver `CONTEXTO.md` en la raíz para el
-estado vivo del proyecto — leerlo al empezar cualquier sesión.
+responsabilidad. Trabajamos en español.
+
+Al empezar una sesión, leer en este orden: `CONTEXTO.md` (estado vivo, corto) y
+`docs/tarea-actual.md` (el encargo en curso). `docs/hallazgos-abiertos.md` solo
+si se toca el área de un hallazgo; `docs/historial/` solo si hace falta el
+antecedente de una sesión cerrada.
 
 `.env` y `storageState.json` son locales, no están versionados (ver
 `.gitignore`); pedírselos a Pedro o copiarlos de otra máquina si hace falta
@@ -126,13 +130,14 @@ auditar antes no ahorra tiempo: obliga a re-hacer todo el trabajo después.
 
 ## Estructura del repo
 
-Ver `CONTEXTO.md` para el detalle vivo (hallazgos, pendientes, decisiones
-abiertas). Resumen de entornos: **dev** (raíz, `tests/`) → `admin-dev.mediplanner.mx`;
+Ver `CONTEXTO.md` para el estado vivo y `docs/hallazgos-abiertos.md` para los
+hallazgos con su evidencia. Resumen de entornos: **dev** (raíz, `tests/`) → `admin-dev.mediplanner.mx`;
 **staging** (`Mediplanner Staging/`) → `admin-staging.mediplanner.mx`;
 **producción** (`Mediplanner produccion/`). 3 ramas espejo (`Trabajando`
 default, `main`, `Normalization`) que Pedro mantiene sincronizadas al mismo
 commit.
 
-Scripts sueltos en la raíz (prefijo `_`) son exploración/error-guessing
-puntual, conservados como referencia — no son parte de la suite oficial de
-`tests/`.
+Scripts sueltos con prefijo `_` (en `scripts-diagnostico/`) son
+exploración/error-guessing puntual, conservados como referencia — no son
+parte de la suite oficial de `tests/`. Los `.log` de corridas y diagnósticos
+van a `logs/` (ignorado por git).
