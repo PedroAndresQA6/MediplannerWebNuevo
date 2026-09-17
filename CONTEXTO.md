@@ -92,11 +92,9 @@ Detalle completo en `docs/hallazgos-abiertos.md`.
 
 ## Pendientes de commit
 
-La reorganización de la raíz ya se commiteó (`74f22cd`). Queda por commitear
-la instrumentación de la Etapa 1 (`e2e/opcional.js`, `e2e/utils.js`,
-`tests/consultation.full-flow.spec.js`, `tests/appointments.create.spec.ts`,
-más los scripts de diagnóstico de la investigación de `getFilledForm`).
-
-Sin tocar (no son de esta sesión, revisar aparte antes de commitear): cambios
-pendientes en `MediplannerAppiumAutomation/`, `tests/auth.setup.ts`,
-`tests/reportes.spec.ts` y `tests/subir-estudios.spec.ts`.
+Nada pendiente por el momento. Los tres commits del 2026-09-17: `74f22cd`
+(reorganización de la raíz), `7b38f99` (instrumentación Etapa 1 +
+investigación de `getFilledForm`) y `22e0ecf` (credenciales sin default,
+selectores desactualizados de reportes/subir-estudios, y limpieza/
+endurecimiento de la suite Appium — este último revisado y confirmado por
+Pedro antes de subir, no era de esta sesión).
