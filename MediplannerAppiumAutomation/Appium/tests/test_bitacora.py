@@ -4,7 +4,6 @@ desde el boton flotante '+ Registrar' de Home y desde el '+' de Mi bitácora.
 
 Mapeo completo en ../PLAN_BITACORA.md (dumps reales de UI, 2026-07-14).
 """
-import pytest
 from appium.webdriver.common.appiumby import AppiumBy
 
 from pages.bitacora_page import CATEGORIAS_MODAL
@@ -311,22 +310,12 @@ def test_bitacora_buscador_lista(driver, bitacora_page):
     print("[2] Test completado (read-only)")
 
 
-@pytest.mark.smoke
-@pytest.mark.parametrize("categoria", CATEGORIAS_MODAL)
-def test_bitacora_smoke_categoria(driver, bitacora_page, categoria):
-    """Smoke, read-only: cada una de las 8 categorias del modal 'Agregar entrada
-    única' debe abrir una pantalla nueva (no debe quedarse en el modal ni tumbar
-    la app). No valida el contenido especifico de cada flujo -- solo detecta
-    categorias rotas; el detalle de cada una queda para tests dedicados
-    (ya cubierto para 'Medición' en los tests de arriba)."""
-    print(f"\n=== SMOKE: categoria '{categoria}' ===")
-    bitacora_page.abrir_modal_desde_home()
-    bitacora_page.elegir_categoria(categoria)
-
-    assert not bitacora_page.esta_visible(bitacora_page.modal_titulo, timeout=3), \
-        f"El modal 'Agregar entrada única' no se cerro al elegir '{categoria}'"
-    bitacora_page.tomar_screenshot(f"bitacora_smoke_{categoria}")
-    print(f"[OK] '{categoria}' abrio una pantalla nueva")
-
-    driver.back()
-    print("Test completado (read-only)")
+# NOTA: test_bitacora_smoke_categoria se eliminó de aquí (2026-08-03) — las
+# 8 categorías de CATEGORIAS_MODAL ya tienen, cada una, un test dedicado más
+# arriba en este archivo (registrar_medicion, registrar_valores_laboratorio,
+# registrar_actividad, registrar_medicamento, registrar_lactancia,
+# registrar_deposicion, registrar_control_sintomas, registrar_estado_mental)
+# que verifica habilitación/deshabilitación + persistencia real tras
+# guardar — un superset estricto de lo que este smoke test comprobaba (solo
+# que el modal se cerraba al elegir la categoría). Ver CONTEXTO.md para el
+# detalle del análisis de solapamiento.

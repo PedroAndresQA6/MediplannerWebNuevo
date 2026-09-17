@@ -77,8 +77,16 @@ def test_medicamento_registro_de_toma(driver, home_page):
 
     campo_comentario = (AppiumBy.XPATH, "//android.widget.EditText[@hint='Comentarios (Opcional)']")
     home_page.assert_visible(campo_comentario, "No apareció el campo de comentarios de 'Tomado'")
-    home_page.ingresar_texto(campo_comentario, COMENTARIOS_TOMADO[opcion % len(COMENTARIOS_TOMADO)])
-    home_page.ocultar_keyboard()
+    comentario = COMENTARIOS_TOMADO[opcion % len(COMENTARIOS_TOMADO)]
+    home_page.ingresar_texto(campo_comentario, comentario)
+
+    # NO llamar a ocultar_keyboard() aquí: mismo bug confirmado en
+    # test_home_medicamento_no_tomado (ver CONTEXTO.md) — hide_keyboard()
+    # ejecuta 'adb shell input keyevent 111' (KEYCODE_ESCAPE), y el modal de
+    # 'Tomado' trata ESCAPE como CANCELAR, cerrándose solo y descartando el
+    # comentario tecleado sin que el test se diera cuenta hasta buscar
+    # 'Registrar toma' y no encontrarlo. El botón ya está visible sin
+    # necesidad de ocultar el teclado.
 
     btn_registrar = (AppiumBy.XPATH, "//android.widget.Button[contains(@content-desc, 'Registrar')]")
     home_page.assert_visible(btn_registrar, "No apareció el botón 'Registrar toma'")
@@ -88,4 +96,17 @@ def test_medicamento_registro_de_toma(driver, home_page):
     assert home_page.esperar_invisible(campo_comentario, timeout=8), \
         "Tras 'Registrar' el modal no se cerró (posible fallo del registro)"
     home_page.tomar_screenshot("home_tomado_registrado")
-    print("Toma registrada como 'Tomado'")
+
+    # Verificación de persistencia real (no solo que el modal se cerró): tras
+    # 'Registrar toma' la app debe volver a Home con la tarjeta del
+    # medicamento reflejando el registro (mismo patrón confirmado en 'No
+    # Tomado' — ver CONTEXTO.md). Si el backend no persistiera el registro,
+    # ni el comentario ni el emoji aparecerían y este assert lo detecta.
+    registrado = home_page.esta_visible(
+        (AppiumBy.XPATH, f"//*[contains(@content-desc, '{comentario}')]"), timeout=8)
+    assert registrado, (
+        f"Tras registrar 'Tomado', el comentario '{comentario}' no aparece en "
+        "la tarjeta del medicamento en Home — el registro no parece haberse "
+        "persistido"
+    )
+    print(f"Toma registrada como 'Tomado': {comentario} (persistencia verificada)")

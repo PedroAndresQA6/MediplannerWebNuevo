@@ -38,7 +38,7 @@ test.describe('Subir Estudios', () => {
 
     // 4. Seleccionar un paciente aleatorio
     logger.info('Buscando pacientes en la tabla...');
-    const pacientes = page.locator('[role="cell"] a.font-semibold');
+    const pacientes = page.locator('[role="cell"] span.font-semibold');
     const totalPacientes = await pacientes.count();
     logger.info(`Encontrados ${totalPacientes} pacientes`);
 
@@ -76,7 +76,7 @@ test.describe('Subir Estudios', () => {
 
       // 6. Dar clic en "Consultas"
       logger.info('Buscando sección "Consultas"...');
-      const consultasLink = page.locator('a:has-text("Consultas")').first();
+      const consultasLink = page.locator('a:has-text("Consultas"), button:has-text("Consultas")').first();
 
       if (await consultasLink.isVisible({ timeout: 10000 }).catch(() => false)) {
         await consultasLink.click();
@@ -191,7 +191,7 @@ test.describe('Subir Estudios', () => {
                 }
 
                 // Buscar el paciente de nuevo y hacer clic
-                const pacientesNuevos = page.locator('[role="cell"] a.font-semibold');
+                const pacientesNuevos = page.locator('[role="cell"] span.font-semibold');
                 const totalPacientesNuevos = await pacientesNuevos.count();
                 for (let p = 0; p < totalPacientesNuevos; p++) {
                   const textoPaciente = await pacientesNuevos.nth(p).textContent().catch(() => '');

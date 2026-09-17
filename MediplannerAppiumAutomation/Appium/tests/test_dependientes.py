@@ -4,10 +4,16 @@ Selectores por content-desc / posición relativa (resolución-independiente) y
 asserts en cada paso. El drawer de perfil se abre desde el avatar (esquina sup.
 izquierda), NO desde el icono de Perfil (esquina sup. derecha).
 
-NOTA: date picker y desvinculación se re-validan en la corrida final contra la
-nueva versión de la app (pueden requerir ajustar algún selector).
+NOTA (2026-08-03): la desvinculación NO se hace desde el perfil del
+dependiente visto en el drawer del titular (como se asumía antes) — hay que
+cambiar de contexto al dependiente, ir a Perfil -> Compartir, y desvincular
+al TITULAR desde ahí (ver test_dependientes_desvincular). El cambio de
+contexto de vuelta al titular no es instantáneo, y la desvinculación puede
+tardar unos segundos en propagarse — ambos casos ya contemplados con
+reintentos y esperas reales.
 """
 import random
+import time
 from appium.webdriver.common.appiumby import AppiumBy
 from utils.navegacion import volver_inicio
 
@@ -66,10 +72,21 @@ def _llenar_formulario(driver, home_page, nombre, es_hombre, parentesco):
 
     ets = home_page.buscar_elementos((AppiumBy.XPATH, "//android.widget.EditText"), timeout=6)
     assert len(ets) >= 4, f"Se esperaban >=4 campos en el formulario, hay {len(ets)}"
-    ets[0].click(); ets[0].send_keys(nombre)
-    ets[1].click(); ets[1].send_keys("Garcia")
-    ets[2].click(); ets[2].send_keys("Perez")
-    home_page.ocultar_keyboard()
+    # .clear() antes de .send_keys(): confirmado con capturas 1s que, si una
+    # corrida anterior dejó este mismo formulario a medio llenar (el proceso
+    # de la app no se reinicia entre corridas de pytest), el texto viejo NO se
+    # limpiaba solo y se concatenaba con el nuevo (p.ej. 'Pedro'+'Laura' =
+    # 'PedroLaura'), produciendo datos inválidos que nunca habilitaban
+    # 'Continuar' — no era un bug de la app, era este test sin limpiar los
+    # campos antes de escribir (ver CONTEXTO.md).
+    ets[0].click(); ets[0].clear(); ets[0].send_keys(nombre)
+    ets[1].click(); ets[1].clear(); ets[1].send_keys("Garcia")
+    ets[2].click(); ets[2].clear(); ets[2].send_keys("Perez")
+
+    # NO llamar a ocultar_keyboard() aquí: mismo bug confirmado en
+    # test_home.py/test_medicamento.py (ver CONTEXTO.md) — hide_keyboard()
+    # manda KEYCODE_ESCAPE, que puede cerrar el formulario en vez de solo el
+    # teclado. El botón 'Continuar' ya está visible sin necesidad de ocultarlo.
 
     # Fecha de nacimiento (abre el date picker).
     ets_actual = home_page.buscar_elementos((AppiumBy.XPATH, "//android.widget.EditText"), timeout=3)
@@ -120,10 +137,29 @@ def test_dependientes_agregar(driver, home_page):
 
 def test_dependientes_desvincular(driver, home_page):
     """Desvincula un dependiente. Si no hay ninguno, crea uno primero.
-    NOTA: flujo destructivo; validar selectores contra la nueva versión."""
+
+    Flujo real (confirmado por Pedro, 2026-08-03 — 'Desvincular' NO está en
+    el perfil del dependiente visto desde el drawer del titular, como se
+    asumía antes): cambiar de contexto al perfil del dependiente (drawer ->
+    click en el dependiente) -> Perfil -> Compartir, donde el titular
+    aparece como co-titular compartido -> click en su nombre -> pantalla
+    'Compartiendo' con el botón 'Desvincular'. Tras desvincular: volver a
+    Inicio, abrir el drawer, click en el perfil del TITULAR (para volver a
+    su contexto) y confirmar que el dependiente ya no aparece en 'Mis
+    Perfiles'."""
     print("\n=== TEST: Desvincular Dependiente ===")
 
     home_page = _abrir_drawer(driver, home_page)
+
+    # Nombre del titular (fila superior del drawer, 'Mi Perfil') — se necesita
+    # para reconocerlo dentro de 'Compartir' del dependiente y para volver a
+    # su contexto al final.
+    titular_row = home_page.buscar_elementos(
+        (AppiumBy.XPATH, "//*[contains(@content-desc, 'Mi Perfil')]"), timeout=5)
+    assert titular_row, "No se encontró la fila del titular ('Mi Perfil') en el drawer"
+    desc_titular_row = titular_row[0].get_attribute("content-desc") or ""
+    nombre_titular = desc_titular_row.split("\n")[0].strip()
+    print(f"Titular: {nombre_titular!r}")
 
     # Buscar un dependiente en el drawer (botón con parentesco tras el nombre).
     dependientes = home_page.buscar_elementos(
@@ -142,21 +178,96 @@ def test_dependientes_desvincular(driver, home_page):
              "or contains(@content-desc, 'Padre') or contains(@content-desc, 'Madre')]"), timeout=4)
 
     assert dependientes, "No se encontró ningún dependiente para desvincular (ni tras crear uno)"
+    desc_dependiente = dependientes[0].get_attribute("content-desc") or ""
+    nombre_dependiente = desc_dependiente.split("\n")[0].strip()
+    print(f"Dependiente a desvincular: {desc_dependiente!r}")
+
+    # Cambiar de contexto: entrar al perfil del DEPENDIENTE (no el propio).
     dependientes[0].click()
 
-    # Desde el perfil del dependiente: menú (icono top-right) → Desvincular → confirmar.
-    home_page.tap_esquina_sup_derecha("android.widget.ImageView", timeout=6)
-    desvincular = (AppiumBy.XPATH, "//*[contains(@content-desc, 'Desvincular')]")
-    if not home_page.esta_visible(desvincular, timeout=4):
+    # Ya en contexto del dependiente: Perfil -> Compartir.
+    assert home_page.abrir_perfil(), "No se pudo abrir Perfil (en contexto del dependiente)"
+    home_page.abrir_seccion_perfil("Compartir")
+    titulo_compartir = (AppiumBy.XPATH, "//*[@content-desc='Compartir']")
+    home_page.assert_visible(titulo_compartir, "No se abrió Compartir (en contexto del dependiente)")
+
+    # El titular aparece listado como co-titular compartido: click en su nombre.
+    fila_titular = (AppiumBy.XPATH, f"//*[contains(@content-desc, '{nombre_titular}')]")
+    if not home_page.esta_visible(fila_titular, timeout=3):
         for _ in range(4):
             home_page.scroll_abajo()
-            if home_page.esta_visible(desvincular, timeout=1):
+            if home_page.esta_visible(fila_titular, timeout=1):
                 break
-    home_page.assert_visible(desvincular, "No apareció la opción 'Desvincular'")
+    home_page.assert_visible(fila_titular, f"No apareció el titular '{nombre_titular}' en Compartir del dependiente")
+    home_page.hacer_click(fila_titular)
+
+    # Pantalla 'Compartiendo': título + nombre del titular + botón 'Desvincular'.
+    titulo_compartiendo = (AppiumBy.XPATH, "//*[@content-desc='Compartiendo']")
+    home_page.assert_visible(titulo_compartiendo, "No se abrió la pantalla 'Compartiendo'")
+    desvincular = (AppiumBy.XPATH, "//android.widget.Button[@content-desc='Desvincular']")
+    home_page.assert_visible(desvincular, "No apareció el botón 'Desvincular' en la pantalla 'Compartiendo'")
     home_page.hacer_click(desvincular)
 
-    # Confirmación.
+    # Puede haber un popup de confirmación adicional; si aparece, confirmarlo.
     confirm = (AppiumBy.XPATH, "//android.widget.Button[@content-desc='Desvincular']")
-    home_page.assert_visible(confirm, "No apareció la confirmación de 'Desvincular'")
-    home_page.hacer_click(confirm)
-    print("Dependiente desvinculado")
+    if home_page.esta_visible(confirm, timeout=3):
+        home_page.hacer_click(confirm)
+
+    # Verificación de persistencia real: volver a Inicio, abrir el drawer,
+    # click en el TITULAR (para volver a su contexto) y confirmar que el
+    # dependiente ya no aparece en 'Mis Perfiles'. Antes el test asumía éxito
+    # con solo haber clickeado 'Desvincular', sin comprobar que el backend
+    # realmente procesó la desvinculación.
+    home_page = volver_inicio(driver, home_page)
+    home_page = _abrir_drawer(driver, home_page)
+    fila_titular_drawer = (AppiumBy.XPATH, f"//*[contains(@content-desc, '{nombre_titular}') and contains(@content-desc, 'Mi Perfil')]")
+    home_page.assert_visible(fila_titular_drawer, f"No apareció la fila del titular '{nombre_titular}' en el drawer del dependiente")
+    home_page.hacer_click(fila_titular_drawer)
+
+    # El cambio de contexto de vuelta al titular no es instantáneo (confirmado
+    # con capturas cada 1s: aparece un spinner de carga en Home tras el
+    # click) — reintentar abrir el drawer hasta ver la fila 'Mi Perfil' con el
+    # nombre del TITULAR (no la del dependiente), en vez de asumir que ya
+    # cambió tras un solo intento inmediato.
+    cambio_confirmado = False
+    for _ in range(6):
+        home_page = volver_inicio(driver, home_page)
+        home_page = _abrir_drawer(driver, home_page)
+        fila_actual = home_page.buscar_elementos(
+            (AppiumBy.XPATH, "//*[contains(@content-desc, 'Mi Perfil')]"), timeout=2)
+        if fila_actual and nombre_titular in (fila_actual[0].get_attribute("content-desc") or ""):
+            cambio_confirmado = True
+            break
+        home_page.driver.back()  # cerrar el drawer antes de reintentar
+        time.sleep(2)
+    assert cambio_confirmado, (
+        f"Tras clickear al titular '{nombre_titular}' en el drawer, el contexto "
+        "no volvió a él (la fila 'Mi Perfil' sigue mostrando otro perfil) tras "
+        "varios reintentos"
+    )
+
+    # Reintentar con esperas reales antes de concluir que no se persistió: ya
+    # se documentó en el proyecto (CONTEXTO.md, getFilledForm tras Finalizar)
+    # que ciertas actualizaciones tardan en propagarse en el backend — no se
+    # descarta como transitorio sin haber esperado de verdad y reabierto el
+    # drawer, para no repetir el error de reportar un falso bug (ni de
+    # silenciar uno real).
+    sel_dependiente = (AppiumBy.XPATH, f"//*[contains(@content-desc, '{nombre_dependiente}')]")
+    sigue_presente = home_page.esta_visible(sel_dependiente, timeout=3)
+    intentos_espera = [5, 10, 15]
+    for espera in intentos_espera:
+        if not sigue_presente:
+            break
+        print(f"[i] '{nombre_dependiente}' sigue apareciendo; reintentando en {espera}s "
+              "(posible retraso de propagación del backend)")
+        time.sleep(espera)
+        home_page.driver.back()
+        home_page = _abrir_drawer(driver, home_page)
+        sigue_presente = home_page.esta_visible(sel_dependiente, timeout=3)
+
+    assert not sigue_presente, (
+        f"Tras 'Desvincular' y {sum(intentos_espera)}s de reintentos, el "
+        f"dependiente ({desc_dependiente!r}) sigue apareciendo en el drawer "
+        "del titular — la desvinculación no parece haberse persistido"
+    )
+    print(f"Dependiente desvinculado y verificado: {desc_dependiente!r} ya no aparece en el drawer")

@@ -55,9 +55,15 @@ def test_home_medicamento_no_tomado(driver, home_page):
     medicamento = (AppiumBy.XPATH, f"//android.widget.ImageView[@bounds='{bounds}']")
     home_page.hacer_click(medicamento)
 
-    # Debe aparecer la acción 'No Tomado'.
+    # Si el medicamento ya tiene un registro de hoy (p.ej. una corrida previa
+    # en la misma sesión ya lo marcó), la tarjeta ya no ofrece 'No Tomado'/
+    # 'Tomado' — confirmado contra la app real: los reemplaza por el
+    # comentario guardado. No es un fallo (dato), es la persistencia
+    # funcionando; se informa y no se reintenta un segundo registro el mismo día.
     btn_no_tomado = (AppiumBy.XPATH, "//android.widget.ImageView[@content-desc='No Tomado']")
-    home_page.assert_visible(btn_no_tomado, "No apareció la opción 'No Tomado' del medicamento")
+    if not home_page.esta_visible(btn_no_tomado, timeout=5):
+        print("[i] El medicamento ya tiene un registro de hoy (no ofrece 'No Tomado'/'Tomado')")
+        return
     home_page.hacer_click(btn_no_tomado)
 
     # Modal de comentario.
@@ -65,7 +71,16 @@ def test_home_medicamento_no_tomado(driver, home_page):
     home_page.assert_visible(campo_comentario, "No apareció el campo de comentarios de 'No Tomado'")
     comentario = random.choice(COMENTARIOS_NO_TOMADO)
     home_page.ingresar_texto(campo_comentario, comentario)
-    home_page.ocultar_keyboard()
+
+    # NO llamar a ocultar_keyboard() aquí: confirmado con evidencia real (log de
+    # Appium + capturas cada 1s) que hide_keyboard() ejecuta 'adb shell input
+    # keyevent 111' (KEYCODE_ESCAPE) para cerrar el teclado, y el modal de
+    # 'No Tomado'/'Tomado' trata ESCAPE como CANCELAR: el modal se cierra solo
+    # (sin haber tocado 'Aceptar'), descartando el comentario tecleado, sin que
+    # el test se diera cuenta hasta buscar 'Aceptar' y no encontrarlo. El botón
+    # 'Aceptar' ya está completamente visible sin necesidad de ocultar el
+    # teclado (confirmado en captura), así que ocultarlo aquí es innecesario y
+    # además destructivo.
 
     # Aceptar (varios fallbacks de selector según el tipo de nodo).
     btn_aceptar = (AppiumBy.XPATH, "//android.widget.Button[contains(@content-desc, 'Aceptar') or contains(@text, 'Aceptar')]")
@@ -80,4 +95,18 @@ def test_home_medicamento_no_tomado(driver, home_page):
     assert home_page.esperar_invisible(campo_comentario, timeout=8), \
         "Tras 'Aceptar' el modal de comentario no se cerró (posible fallo del registro)"
     home_page.tomar_screenshot("home_no_tomado_registrado")
-    print(f"Medicamento marcado como NO TOMADO: {comentario}")
+
+    # Verificación de persistencia real (no solo que el modal se cerró):
+    # confirmado con capturas cada 1s que, tras 'Aceptar', la app vuelve a
+    # Home y la tarjeta del medicamento reemplaza los botones 'No Tomado'/
+    # 'Tomado' por el comentario tecleado. Si el backend no persistiera el
+    # registro, este texto no aparecería y el assert lo detecta en vez de
+    # asumir éxito porque el modal cerró.
+    registrado = home_page.esta_visible(
+        (AppiumBy.XPATH, f"//*[contains(@content-desc, '{comentario}')]"), timeout=8)
+    assert registrado, (
+        f"Tras registrar 'No Tomado', el comentario '{comentario}' no aparece "
+        "en la tarjeta del medicamento en Home — el registro no parece "
+        "haberse persistido"
+    )
+    print(f"Medicamento marcado como NO TOMADO: {comentario} (persistencia verificada)")

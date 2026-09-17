@@ -1,6 +1,3 @@
-from appium.webdriver.common.appiumby import AppiumBy
-
-
 def test_login(driver, login_page, credenciales):
     """Test basic login flow"""
     print("\n=== TEST: Login ===")
@@ -49,26 +46,7 @@ def test_navegacion_tabs(driver, login_page, home_page, credenciales):
     print("Navegacion completada")
 
 
-def test_doctor_search(driver, login_page, doctors_page, credenciales):
-    """Test doctor search"""
-    print("\n=== TEST: Doctor Search ===")
-
-    # Solo hacer login si no está logueado
-    if not login_page.esta_logueado():
-        login_page.iniciar_sesion(credenciales["email"], credenciales["password"])
-
-    doctors_page.ir_a_medicos()
-    assert doctors_page.esta_en_doctors(), "No se abrió Médicos (campo de búsqueda ausente)"
-
-    # Buscar y verificar que hay resultados ('Dr.') o un indicador de 'sin resultados'
-    doctors_page.buscar_texto("Fernando")
-    resultados = doctors_page.buscar_elementos(
-        (AppiumBy.XPATH,
-         "//*[contains(@content-desc, 'Dr.') or contains(@content-desc, 'No se encontr') "
-         "or contains(@content-desc, 'in resultados')]"),
-        timeout=6)
-    doctors_page.tomar_screenshot("doctors_busqueda")
-
-    assert resultados, "La búsqueda no mostró ni resultados ('Dr.') ni indicador de 'sin resultados'"
-    doctores = [r for r in resultados if "Dr." in (r.get_attribute("content-desc") or "")]
-    print(f"Busqueda completada: {len(doctores)} resultado(s) con 'Dr.'")
+# NOTA: test_doctor_search se eliminó de aquí (2026-08-03) — estaba subsumido
+# por completo por test_medicos_flujo_completo (test_medicos_filtros.py), que
+# cubre lista + filtro de texto + filtro por estado con los mismos asserts.
+# Ver CONTEXTO.md para el detalle del análisis de solapamiento entre tests.

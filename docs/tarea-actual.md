@@ -12,11 +12,12 @@ Dos problemas concretos, medidos sobre el repo:
    (65%) son catorce funciones auxiliares definidas antes del test. El test en
    sí son 364 líneas y ya está bien estructurado en `test.step()`. Cuando algo
    falla, el reporte no dice en qué sección.
-2. Hay **112 `catch(() => {})` silenciosos**: 58 en
-   `tests/consultation.full-flow.spec.js`, 50 en `e2e/utils.js`, 4 en
-   `tests/appointments.create.spec.ts`. Cada uno es un lugar donde una falla
-   real se traga sin ruido — exactamente lo que el punto 5 de `CLAUDE.md`
-   señala como escondite de bugs.
+2. Hay **160 sitios que atrapan excepciones en silencio** (71 en
+   `tests/consultation.full-flow.spec.js`, 85 en `e2e/utils.js`, 4 en
+   `tests/appointments.create.spec.ts`; el conteo original de 112 solo cubría
+   las variantes literales de `catch(() => {})`). Cada uno es un lugar donde
+   una falla real puede tragarse sin ruido — exactamente lo que el punto 5 de
+   `CLAUDE.md` señala como escondite de bugs.
 
 Se atacan juntos porque al mover cada helper hay que leerlo completo de todos
 modos; juzgar su `catch` de paso cuesta casi nada.
@@ -27,7 +28,7 @@ Las etapas son secuenciales. Al terminar cada una, la suite debe correr igual
 que antes: mismo resultado, mismos hallazgos. Si una etapa cambia el resultado
 de un test, eso es un hallazgo y se documenta antes de seguir.
 
-### Etapa 1 — Instrumentar antes de decidir
+### Etapa 1 — Instrumentar antes de decidir ✅ COMPLETA (2026-09-17)
 
 No juzgar los 112 `catch` a mano. Primero convertirlos en dato.
 
@@ -65,21 +66,75 @@ Correr la suite completa tres veces contra dev y volcar el reporte de
 `reporteOpcionales()` al final de cada corrida. El resultado es la lista de qué
 se dispara, cuántas veces, y qué nunca se dispara.
 
-### Etapa 2 — Clasificar con el dato en la mano
+### Etapa 2 — Clasificar por lo que envuelve, no por si se disparó
 
-Con las tres corridas, clasificar cada uno de los 112:
+> **Corregido el 2026-09-17 tras el resultado de la Etapa 1.** La versión
+> anterior de esta etapa decía clasificar según qué se disparara en las tres
+> corridas. Ese criterio es insuficiente y llevaría a borrar las redes
+> equivocadas. Explicación abajo.
 
-| Si el `catch`... | Acción |
-| --- | --- |
-| Envuelve una **aserción** | Quitar siempre. Una aserción atrapada no existe. |
-| Envuelve la espera de una **precondición** (que cargue una pantalla, que aparezca un botón sin el cual el resto no tiene sentido) | Debe fallar. Convertir en espera dura con mensaje claro. |
-| Envuelve un elemento **genuinamente opcional** (aparece a veces) | Se queda como `opcional()`, con un comentario de una línea que diga por qué es opcional. |
-| **Nunca se disparó** en las 3 corridas y no es precondición | Quitar: es una red de seguridad muerta. |
+**Qué mostró la Etapa 1:** de 160 sitios instrumentados, en tres corridas
+limpias de `doctor-consultation` se disparó **una sola etiqueta**
+(`auditarPantalla:elemento-inputvalue`, 3 veces cada corrida).
 
-Documentar la clasificación en `docs/historial/` cuando termine, con la cuenta
-final de cada categoría.
+**Por qué ese dato no alcanza.** Los 160 sitios no son de un solo tipo:
 
-Estimación: de los 112, probablemente unos 20 requieren decisión real.
+```js
+// Familia A — la operación NO lanza. El catch es decorativo.
+if (await opcional(explorarLink.isVisible({ timeout: 3000 }), 'onboarding:link-explorar-visible')) {
+
+// Familia B — la operación SÍ lanza al vencer el timeout.
+await opcional(heading.waitFor({ state: 'visible', timeout: 15000 }), 'sectionContainer:heading-espera-visible');
+```
+
+En la **familia A** el `catch` nunca se dispara porque `isVisible()` y
+`count()` resuelven a `false`/`0` sin lanzar. Pero el riesgo real no es el
+`catch`: es que cuando el elemento no está, **toda la rama `if` se salta en
+silencio**. La instrumentación mide si el `catch` se activó, no si la rama se
+omitió — así que esos sitios aparecen como inofensivos sin que se haya medido
+lo que puede fallar en ellos.
+
+En la **familia B** el `catch` solo se activa cuando algo va mal. Tres corridas
+limpias no prueban nada sobre ellos. El ejemplo de arriba es literalmente el
+patrón que produjo el rastro falso del Hallazgo 1: `sectionContainer` siguiendo
+adelante con un scope roto porque el heading nunca apareció.
+
+**En corto:** la Etapa 1 respondió "cuáles se disparan cuando todo funciona".
+La pregunta que importa es "cuáles ocultarían el problema cuando algo falle".
+
+#### Criterio de clasificación
+
+Es estático: se resuelve leyendo el código, sin correr nada. Clasificar cada
+uno de los 160 por **qué operación envuelve**.
+
+| La operación envuelta | ¿Lanza? | Acción |
+| --- | --- | --- |
+| `isVisible()`, `count()`, `isEnabled()`, `isChecked()` | No | Quitar el `opcional()`: es decoración. La decisión real es si esa rama `if` debería poder saltarse — ver abajo. |
+| `waitFor()`, `waitForSelector()`, `waitForLoadState()`, `waitForFunction()`, `waitForResponse()` | Sí, al vencer timeout | Juzgar uno por uno. Es la lista corta que importa. |
+| `click()`, `fill()`, `selectOption()`, `check()`, `boundingBox()`, `textContent()` | Sí | Juzgar uno por uno. |
+| Cualquier `expect(...)` | Sí | Quitar el `catch` siempre. Una aserción atrapada no existe. |
+
+Para cada sitio de la familia B, y para cada rama `if` de la familia A:
+
+- **Es una precondición** (que cargue una pantalla, que aparezca un botón sin
+  el cual el resto del bloque no tiene sentido, que termine una navegación) →
+  **debe fallar**. Convertir en espera dura con mensaje claro de qué se
+  esperaba y no llegó. Estos son los escondites de bugs del punto 5 de
+  `CLAUDE.md`.
+- **Es genuinamente opcional** (un modal que aparece a veces, un link de
+  onboarding que solo sale la primera vez) → se queda, con un comentario de
+  **una línea** que diga por qué es opcional. Si no se puede escribir ese
+  comentario con convicción, no es opcional: es una precondición disfrazada.
+
+#### Entregable de la etapa
+
+Documentar en `docs/historial/` la clasificación con la cuenta final por
+categoría, separando familia A de familia B. Interesa especialmente saber
+cuántos sitios de familia B resultaron ser precondiciones — esa es la medida
+real de cuántos bugs podían esconderse.
+
+Los sitios que queden como opcionales legítimos conservan `opcional()`, así que
+el helper y su reporte siguen siendo útiles para corridas futuras.
 
 ### Etapa 3 — Extraer los helpers de consulta
 
@@ -121,7 +176,13 @@ e2e/consola.js           setupConsoleMonitor
 Mantener `e2e/utils.js` como fachada que re-exporta todo, para no romper los
 imports existentes de un golpe.
 
-### Etapa 5 — `asegurarCitaDeHoy()`
+### Etapa 5 — `asegurarCitaDeHoy()` — parcialmente adelantada
+
+> **Estado:** `asegurarCitaDeHoy()` ya existe y está en uso en
+> `consultation.full-flow.spec.js` (adelantado en la sesión de la Etapa 1).
+> Quedó en `e2e/utils.js`; al llegar la Etapa 4 se mueve a
+> `e2e/citas/agenda.js`. Falta endurecer `appointments.create.spec.ts` y
+> `appointments.verify.spec.ts`.
 
 Problema reportado por Pedro: a veces `consultation.full-flow` o
 `appointments.create` crean una cita nueva cuando ya hay una activa.
@@ -155,7 +216,8 @@ precondición de la verificación.
 
 - `consultation.full-flow.spec.js` en ~380 líneas o menos, corriendo con el
   mismo resultado que antes de la reorganización.
-- Los 112 `catch` clasificados, con la cuenta de cada categoría documentada.
+- Los 160 sitios clasificados por familia, con la cuenta de cada categoría
+  documentada y, en particular, cuántos de familia B resultaron precondiciones.
 - Ninguna aserción atrapada queda en el código.
 - Ningún `catch` sobre una precondición queda silencioso.
 - `appointments.create.spec.ts` falla si la cita no aparece tras crearla.
