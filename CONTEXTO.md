@@ -5,7 +5,7 @@
 > el detalle histórico vive en `docs/historial/`, los hallazgos con su
 > evidencia en `docs/hallazgos-abiertos.md`.
 >
-> **Última actualización:** 2026-09-17 (tarde)
+> **Última actualización:** 2026-09-17 (noche)
 >
 > **Regla de mantenimiento:** cuando algo se resuelve o se cierra, sale de este
 > archivo y se archiva. Si una entrada crece más de un párrafo, su detalle va a
@@ -47,46 +47,37 @@ iniciativa en curso de reorganización de la suite, descrita en
 `scripts-diagnostico/`, logs a `logs/`) ya está commiteada
 (`74f22cd`).
 
-**Etapa 2 de `docs/tarea-actual.md` (clasificar los 160 `opcional()`) en
-curso, pendiente de que Pedro revise antes de commitear** — detalle completo
-en `docs/historial/2026-09-17-etapa2-clasificacion-catches.md`:
-- Clasificados los 160 sitios por familia (A: no lanza / B: sí lanza) y por
-  precondición vs. opcional legítimo, leyendo código, no por lo que se
-  disparó en las 3 corridas de la Etapa 1.
-- Hallazgo no anticipado: 58 de los 85 sitios de `e2e/utils.js` (68%) vivían
-  en funciones que ningún spec activo llamaba (`fillTabFields`,
-  `detectUnsavedSections`, `auditConsultationIndicators`,
-  `scanResidualIndicators` y sus helpers privados). Decisión de Pedro: borrar
-  — `e2e/utils.js` bajó de 1338 a 879 líneas.
-- Las 15 precondiciones confirmadas (13 en `consultation.full-flow.spec.js`,
-  2 en `e2e/utils.js`) ya están endurecidas (waits/asserts duros con mensaje
-  explícito, en vez de `opcional()`) **y verificadas contra dev**. Quedan
-  pendientes: 6 sitios en zona gris ("hueco de cobertura") y confirmar en vivo
-  `irADiaEnCalendarioDashboard:250` antes de decidir.
-- **Al verificar, el endurecimiento de la precondición de `doctorId` encontró
-  un bug real preexistente** (no de esta sesión): el listener que captura
-  `doctor_id` desde `getProfile` estaba mal ubicado en el código — registrado
-  después de que `getProfile` ya se había llamado — así que `doctorId` quedaba
-  `null` siempre desde que se introdujo (2026-07-30). Corregido. Con
-  `doctorId` real, la verificación post-Finalizar pasó limpia sin
-  reintentos — esto pone en duda la medición de "~100s de retraso de
-  propagación" del hallazgo de `getFilledForm` de abajo, contaminada por este
-  bug. Detalle en `docs/hallazgos-abiertos.md`.
-- Etapa 1 (instrumentar) sigue completa y ya revisada antes de esto:
-- `e2e/opcional.js` (nuevo helper `opcional()`/`reporteOpcionales()`).
-- 160 sitios instrumentados (71 en `consultation.full-flow.spec.js`, 85 en
-  `e2e/utils.js`, 4 en `appointments.create.spec.ts`) — más de los 112
-  estimados originalmente en `docs/tarea-actual.md`, que resultó una
-  subestimación.
-- 3 corridas limpias de `doctor-consultation` contra dev: en todas se disparó
-  **una sola etiqueta** (`auditarPantalla:elemento-inputvalue`, 3x cada vez) —
-  el resto de los 160 nunca se disparó. Dato clave para la Etapa 2: la mayoría
-  de los `.isVisible().catch(() => false)` no tiran excepción nunca (Playwright
-  resuelve a `false` sin error), así que el catch casi no actúa.
+**Etapas 1 y 2 de `docs/tarea-actual.md` completas y commiteadas
+(`5c604d9`)** — detalle completo en
+`docs/historial/2026-09-17-etapa2-clasificacion-catches.md`:
+- Los 160 `opcional()` instrumentados en la Etapa 1 (71 en
+  `consultation.full-flow.spec.js`, 85 en `e2e/utils.js`, 4 en
+  `appointments.create.spec.ts`) quedaron clasificados por familia y por
+  precondición vs. opcional legítimo, leyendo código en vez de guiarse por lo
+  que se disparó en las 3 corridas de la Etapa 1.
+- Borrados 58 sitios que vivían en funciones muertas de `e2e/utils.js`
+  (`fillTabFields`, `detectUnsavedSections`, `auditConsultationIndicators`,
+  `scanResidualIndicators` y sus helpers) — ningún spec activo las llamaba.
+  `e2e/utils.js`: 1338 → 879 líneas.
+- Endurecidas y verificadas contra dev (4 corridas) las 15 precondiciones
+  confirmadas, y cerrados 5 de los 6 "huecos de cobertura" (logs +
+  verificación post-Finalizar nueva para Laboratorios/Procedimientos y Notas
+  del Médico, antes sin ninguna).
+- **Al verificar, se encontró y corrigió un bug real preexistente** (no de
+  esta sesión): el listener que captura `doctor_id` desde `getProfile`
+  estaba mal ubicado — registrado después de la única llamada real a ese
+  endpoint — así que `doctorId` quedaba `null` siempre desde que se introdujo
+  (2026-07-30). Esto pone en duda la medición de "~100s de retraso" del
+  hallazgo de `getFilledForm` de abajo. Detalle en `docs/hallazgos-abiertos.md`.
 - De paso, se adelantó la Etapa 5 para `consultation.full-flow.spec.js`:
   `asegurarCitaDeHoy()` en `e2e/utils.js`, ya en uso — revisa la agenda de hoy
   antes de crear una cita nueva. `appointments.create.spec.ts` sigue creando
   siempre (correcto, es su objetivo).
+- Pendiente antes de pasar a la Etapa 3: confirmar en vivo
+  `irADiaEnCalendarioDashboard:250` y decidir qué hacer con dosis/vía/unidad/
+  frecuencia/duración/tiempo/indicaciones del medicamento (único hueco de
+  cobertura que quedó sin verificación, por no tener confirmado el shape
+  completo de `getTreatments`).
 
 **Credenciales:** desde 2026-09-17, `tests/auth.setup.ts` ya no tiene valores
 por defecto — las toma solo de `.env` y falla con mensaje claro si faltan. La
@@ -116,18 +107,10 @@ Detalle completo en `docs/hallazgos-abiertos.md`.
 
 ## Pendientes de commit
 
-Pendiente de que Pedro revise antes de commitear (Etapa 2, sesión del
-2026-09-17 tarde/noche):
-- `e2e/utils.js`: borrado el código muerto (−459 líneas) + 2 precondiciones
-  endurecidas.
-- `tests/consultation.full-flow.spec.js`: 13 precondiciones endurecidas.
-- `docs/historial/2026-09-17-etapa2-clasificacion-catches.md` (nuevo):
-  clasificación completa de los 160 `opcional()`.
-- Este archivo (`CONTEXTO.md`).
-
-Los tres commits del 2026-09-17 (mañana): `74f22cd` (reorganización de la
-raíz), `7b38f99` (instrumentación Etapa 1 + investigación de
-`getFilledForm`) y `22e0ecf` (credenciales sin default, selectores
-desactualizados de reportes/subir-estudios, y limpieza/endurecimiento de la
-suite Appium — este último revisado y confirmado por Pedro antes de subir, no
-era de esta sesión).
+Nada pendiente por el momento. Los cuatro commits del 2026-09-17: `74f22cd`
+(reorganización de la raíz), `7b38f99` (instrumentación Etapa 1 +
+investigación de `getFilledForm`), `22e0ecf` (credenciales sin default,
+selectores desactualizados de reportes/subir-estudios, y limpieza/
+endurecimiento de la suite Appium — revisado y confirmado por Pedro antes de
+subir, no era de esta sesión) y `5c604d9` (Etapa 2: clasificación,
+endurecimiento y hallazgo de `doctorId`, detalle arriba).
