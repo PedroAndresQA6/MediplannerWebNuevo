@@ -90,7 +90,71 @@ registrada. Eso es comportamiento esperado, no parte del problema.
 ## `getFilledForm` en blanco/404 tras Finalizar
 
 **Estado:** confirmado a nivel API (3/3 corridas limpias, 2026-09-17) — sin
-impacto visible confirmado en la UI real, verificado a fondo la misma fecha
+impacto visible confirmado en la UI real, verificado a fondo la misma fecha.
+**Actualización 2026-09-17 (noche): factor de confusión real encontrado en el
+propio test, sin confirmar aún cuánto explica del hallazgo.**
+
+Al endurecer la precondición de `doctorId` en la Etapa 2 de
+`docs/tarea-actual.md` (dejar de tragar en silencio el fallo de captura), el
+test empezó a fallar con `doctorId=FALTA` en el 100% de las corridas. Causa:
+el listener `page.on('response', ...)` que captura `doctor_id` desde
+`getProfile` se registraba DESPUÉS de que `getProfile` ya se hubiera llamado
+(ocurre solo durante la carga del Dashboard, dentro de
+`iniciarConsultaDelPaciente`, nunca durante la carga de la página de
+Consulta) — con lo cual `doctorId` quedaba SIEMPRE `null` desde que este
+mecanismo se introdujo (`git blame`: commit `4bc4072`, 2026-07-30), y todas
+las llamadas a `getFilledForm` de la verificación post-Finalizar se hicieron
+siempre con `doctor_id: null`.
+
+**Esto es exactamente el escenario que el propio comentario del código ya
+documentaba** ("getFilledForm responde 200 con el formulario VACÍO en
+blanco, sin avisar, si falta doctor_id") — pero nunca se había confirmado que
+`doctorId` realmente estuviera faltando en las corridas reales hasta ahora.
+Se corrigió moviendo el registro del listener a antes de
+`iniciarConsultaDelPaciente()` (ver `tests/consultation.full-flow.spec.js`).
+
+**Lo que falta confirmar antes de tocar este hallazgo:** si las 3 corridas
+limpias de la Etapa 1 (2026-09-17 mañana) y la investigación de 2026-07-30
+(`_investigar_getfilledform_blanco_dev.js`, que concluyó "retraso de
+propagación transitorio, ~100s") corrieron también con `doctor_id: null` —
+de ser así, esa investigación pudo haber estado midiendo el efecto de
+`doctor_id` faltante (que causaría 200-en-blanco de forma consistente, no un
+retraso transitorio) en vez de, o además de, un retraso real del backend. No
+se reescribe la conclusión anterior sin volver a correr con `doctorId`
+realmente capturado y comparar — exactamente lo que pide CLAUDE.md §0.4: no
+racionalizar sin evidencia de la corrida correcta.
+
+**Corrida de confirmación con `doctorId` real (2026-09-17, ya con el listener
+corregido):** con `doctorId=467` correctamente capturado, la propia
+verificación del test (`fetchApi('patients/getFilledForm', ...)`, la que
+tiene reintentos) **resolvió a la primera, sin ningún reintento**, para las
+dos secciones ("Exploracion segmentaria" y "Aparatos y sistemas") — 17 y 31
+elementos respectivamente, todos los valores comparados correctos. Esto
+apoya la hipótesis de arriba: con `doctor_id` correcto, la propia
+verificación ya no necesita esperar nada.
+
+**Pero el hallazgo del 404 sigue reproduciendo, ahora limpio y sin el
+confound de `doctor_id`:** el test igual falló, esta vez por
+`result.failedApiCalls` — la propia app (no el test) dispara **sus dos
+llamadas internas** a `getFilledForm` (parte de su ráfaga normal de refetch
+tras Finalizar) a los +73.56s, y ambas responden **404** ("No se encontró el
+formulario asignado al paciente") a los +75.35s. Esas dos llamadas internas
+de la app usan su propio `doctor_id` de sesión (no el que captura nuestro
+test), así que el bug de captura de arriba no las explica. Confirmado que
+resuelven solas ~3s después: el test vuelve a pedir los mismos formularios a
+los +76.25s y esta vez responden 200 con datos correctos a los +78.09s.
+
+**Conclusión provisoria (con evidencia de ESTA corrida, no de las
+anteriores):** hay dos fenómenos distintos mezclados en las investigaciones
+previas — (1) `doctor_id` faltante en la verificación del propio test
+(bug de test, ya corregido) y (2) un race condition real y propio de la app,
+donde sus llamadas internas a `getFilledForm` piden el formulario antes de
+que el backend haya terminado de propagar los datos recién guardados, y
+resuelve solo en <5s (no ~100s como se documentó en 2026-07-30 con
+evidencia contaminada por (1)). Falta una corrida dedicada, sin el bug de
+`doctor_id` de por medio desde el principio, para remedir cuánto tarda
+realmente (2) — la medición de "~100s" queda en duda, no confirmada ni
+descartada.
 
 `getFilledForm` de "Exploración segmentaria" y "Aparatos y sistemas" devuelve
 **404** ("No se encontró el formulario asignado al paciente") tras Finalizar,

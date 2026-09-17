@@ -93,7 +93,11 @@ async function fillPerimetroCefalico(page, valor) {
 // visibles") de una sección contaminan a las demás.
 async function sectionContainer(page, headingRegex, maxDepth = 10) {
   const heading = page.getByRole('heading', { level: 3, name: headingRegex }).first();
-  await opcional(heading.waitFor({ state: 'visible', timeout: 15000 }), 'sectionContainer:heading-espera-visible');
+  // Precondición, no opcional (Etapa 2 de docs/tarea-actual.md, 2026-09-17):
+  // si el heading nunca aparece, debe reventar acá con un mensaje claro en vez
+  // de caer en silencio a los fallbacks de abajo (que terminarían fallando con
+  // un mensaje genérico que oculta la causa real).
+  await expect(heading, `sectionContainer: el heading "${headingRegex}" nunca apareció`).toBeVisible({ timeout: 15000 });
 
   // Estrategia principal: subir hasta el ancestro con class="card" (el mismo
   // patrón que ya usa con éxito auditConsultationIndicators()/
@@ -133,15 +137,18 @@ async function saltarOnboardingYWizardConfig(page) {
   const explorarLink = page.getByText(/prefiero explorar por mi cuenta/i);
   if (await opcional(explorarLink.isVisible({ timeout: 3000 }), 'onboarding:link-explorar-visible')) {
     console.log('ℹ️ Onboarding detectado — clickeando "Prefiero explorar por mi cuenta"');
-    await opcional(explorarLink.click({ force: true }), 'onboarding:link-explorar-click');
-    await opcional(page.waitForLoadState('load', { timeout: 20000 }), 'onboarding:load-tras-explorar');
+    // Precondición, no opcional (Etapa 2): el link ya se confirmó visible
+    // arriba — si el click o la carga posterior revientan, es una falla real
+    // (overlay que lo tapa, navegación rota), no algo "opcional".
+    await explorarLink.click({ force: true });
+    await page.waitForLoadState('load', { timeout: 20000 });
     await page.waitForTimeout(1500);
   }
   const configurarMasTardeLink = page.getByText(/configurar más tarde/i);
   if (await opcional(configurarMasTardeLink.isVisible({ timeout: 3000 }), 'onboarding:link-configurar-mas-tarde-visible')) {
     console.log('ℹ️ Wizard de "Configuración de tu cuenta" detectado — clickeando "Configurar más tarde"');
-    await opcional(configurarMasTardeLink.click({ force: true }), 'onboarding:link-configurar-mas-tarde-click');
-    await opcional(page.waitForLoadState('load', { timeout: 20000 }), 'onboarding:load-tras-configurar-mas-tarde');
+    await configurarMasTardeLink.click({ force: true });
+    await page.waitForLoadState('load', { timeout: 20000 });
     await page.waitForTimeout(1500);
   }
 }
@@ -149,7 +156,9 @@ async function saltarOnboardingYWizardConfig(page) {
 async function iniciarConsultaDelPaciente(page) {
   console.log('🏠 Yendo a Dashboard a revisar si ya hay una cita de hoy...');
   await page.goto('/Dashboard');
-  await opcional(page.waitForLoadState('load'), 'iniciar-consulta:load-tras-dashboard');
+  // Precondición, no opcional (Etapa 2): sin esta carga, todo lo que sigue
+  // (buscar/crear cita, iniciar consulta) actúa sobre un Dashboard a medio cargar.
+  await page.waitForLoadState('load');
   await page.waitForTimeout(2000);
   await saltarOnboardingYWizardConfig(page);
 
@@ -253,7 +262,10 @@ async function fillChecklistSection(page, headingRegex, nombreLog) {
       { timeout: 15000 }
     ), `${nombreLog}:espera-cargando-checklist`);
     const checkboxes = scope.locator('input[type="checkbox"]:not([disabled])');
-    await opcional(checkboxes.first().waitFor({ state: 'attached', timeout: 8000 }), `${nombreLog}:primer-checkbox-attached`);
+    // Precondición, no opcional (Etapa 2): si ningún checkbox llega a
+    // "attached", el checklist nunca cargó — debe reventar con mensaje claro
+    // en vez de seguir con total=0 reportado como "0/0 marcados" silencioso.
+    await expect(checkboxes.first(), `${nombreLog}: el checklist nunca renderizó ningún checkbox`).toBeAttached({ timeout: 8000 });
     const total = await checkboxes.count();
     console.log(`☑️ ${nombreLog}: ${total} checkboxes encontrados`);
 
@@ -398,12 +410,21 @@ async function fillDiagnosticoSection(page) {
     await page.waitForTimeout(1000);
     const tas = scope.locator('textarea:visible:not([readonly]):not([disabled])');
     const n = await tas.count();
+    // Precondición, no opcional (Etapa 2): estas 3 lecturas deciden si ESTE
+    // textarea es el de "Impresión diagnóstica" (a excluir) o el de
+    // Observaciones (a llenar). Si la lectura del placeholder falla y se
+    // trata como vacía en vez de reventar, el código puede confundir el
+    // textarea de Impresión diagnóstica con el de Observaciones y pisarlo —
+    // la misma familia de contaminación cruzada que motivó el diseño de
+    // sectionContainer() más arriba. Además, "Observaciones del diagnóstico"
+    // no tiene ninguna verificación posterior, así que un fallo acá no
+    // quedaría cubierto por ninguna red de seguridad aguas abajo.
     for (let i = 0; i < n; i++) {
       const ta = tas.nth(i);
-      const ph = (await opcional(ta.getAttribute('placeholder'), 'diagnostico:observaciones-textarea-placeholder')) || '';
-      const val = (await opcional(ta.inputValue(), 'diagnostico:observaciones-textarea-valor-actual')) ?? '';
+      const ph = (await ta.getAttribute('placeholder')) || '';
+      const val = (await ta.inputValue()) ?? '';
       if (ph === 'Impresión diagnóstica' || val.trim()) continue;
-      await opcional(ta.fill(TEXTO_OBSERVACIONES_DIAGNOSTICO), 'diagnostico:observaciones-textarea-fill');
+      await ta.fill(TEXTO_OBSERVACIONES_DIAGNOSTICO);
       console.log('✅ Observaciones del diagnóstico llenadas');
       break;
     }
@@ -455,21 +476,32 @@ async function fillTratamientoSection(page) {
       await opcional(page.waitForLoadState('load'), 'tratamiento:load-tras-elegir-medicamento');
       await page.waitForTimeout(1500);
 
-      const dosisInput = page.locator('input[name="dosis_cantidad"]');
-      if (await opcional(dosisInput.isVisible(), 'tratamiento:dosis-input-visible')) await dosisInput.fill('1');
-      const viaSelect = page.locator('select[name="iViaAdministracionId-0"]');
-      if (await opcional(viaSelect.isVisible(), 'tratamiento:via-select-visible')) await viaSelect.selectOption({ index: 1 });
-      const unidadSelect = page.locator('select[name="unidad_dosis_id-0"]');
-      if (await opcional(unidadSelect.isVisible(), 'tratamiento:unidad-select-visible')) await unidadSelect.selectOption({ index: 1 });
-      const frecuenciaInput = page.locator('input[name="frecuencia_cantidad"]');
-      if (await opcional(frecuenciaInput.isVisible(), 'tratamiento:frecuencia-input-visible')) await frecuenciaInput.fill('8');
-      const duracionInput = page.locator('input[name="tiempo_cantidad"]');
-      if (await opcional(duracionInput.isVisible(), 'tratamiento:duracion-input-visible')) await duracionInput.fill('10');
-      const tiempoSelect = page.locator('select[name="unidad_tiempo_id-0"]');
-      if (await opcional(tiempoSelect.isVisible(), 'tratamiento:tiempo-select-visible')) await tiempoSelect.selectOption({ index: 1 });
-      const indicacionesMedInput = page.locator('input[name="indicaciones-0"]');
-      if (await opcional(indicacionesMedInput.isVisible(), 'tratamiento:indicaciones-med-input-visible')) await indicacionesMedInput.fill('Indicaciones estándar');
-      console.log('✅ Formulario del medicamento llenado');
+      // Etapa 2 de docs/tarea-actual.md (hueco de cobertura, 2026-09-17):
+      // ninguno de estos 7 campos tenía log cuando no se encontraba, y
+      // ninguno se verifica tras Finalizar (solo se verifica que haya ≥1
+      // medicamento vía getTreatments, no que tenga dosis/vía/frecuencia
+      // cargadas) — este log es, por ahora, la única red de seguridad si la
+      // UI cambia. También corrige el mensaje final, que antes decía
+      // "llenado" sin importar cuántos de los 7 campos realmente aparecieron.
+      const camposMedicamento = [
+        { loc: page.locator('input[name="dosis_cantidad"]'), nombre: 'dosis', accion: (l) => l.fill('1') },
+        { loc: page.locator('select[name="iViaAdministracionId-0"]'), nombre: 'vía de administración', accion: (l) => l.selectOption({ index: 1 }) },
+        { loc: page.locator('select[name="unidad_dosis_id-0"]'), nombre: 'unidad de dosis', accion: (l) => l.selectOption({ index: 1 }) },
+        { loc: page.locator('input[name="frecuencia_cantidad"]'), nombre: 'frecuencia', accion: (l) => l.fill('8') },
+        { loc: page.locator('input[name="tiempo_cantidad"]'), nombre: 'duración', accion: (l) => l.fill('10') },
+        { loc: page.locator('select[name="unidad_tiempo_id-0"]'), nombre: 'unidad de tiempo', accion: (l) => l.selectOption({ index: 1 }) },
+        { loc: page.locator('input[name="indicaciones-0"]'), nombre: 'indicaciones del medicamento', accion: (l) => l.fill('Indicaciones estándar') },
+      ];
+      let camposMedLlenados = 0;
+      for (const campo of camposMedicamento) {
+        if (await opcional(campo.loc.isVisible(), `tratamiento:${campo.nombre}-visible`)) {
+          await campo.accion(campo.loc);
+          camposMedLlenados++;
+        } else {
+          console.log(`⚠️ Tratamiento: no se encontró el campo "${campo.nombre}" del medicamento`);
+        }
+      }
+      console.log(`✅ Formulario del medicamento llenado (${camposMedLlenados}/${camposMedicamento.length} campos)`);
     } else {
       console.log('⚠️ No se encontró el buscador de medicamentos en Tratamiento');
     }
@@ -483,19 +515,28 @@ async function fillTratamientoSection(page) {
       await agregarDiferenteBtn.click();
       await page.waitForTimeout(800);
       const tratamientoDiferente = pick(DATOS_CLINICOS.tratamientosDiferentes);
+      // Etapa 2 (hueco de cobertura): "Otros medicamentos" no tiene
+      // verificación downstream tras Finalizar — el log final honesto (en
+      // vez del "llenado" incondicional de antes) es, por ahora, la única
+      // señal si alguno de los 2 inputs deja de aparecer.
+      let otrosMedicamentosCompleto = true;
       const medicamentoDifInput = scope.locator('div.flex:has-text("Medicamento:")').last().locator('input[type="text"]').first();
       if (await opcional(medicamentoDifInput.isVisible({ timeout: 3000 }), 'tratamiento:medicamento-diferente-input-visible')) {
         await medicamentoDifInput.fill(tratamientoDiferente);
       } else {
         console.log('⚠️ No se encontró el input de "Medicamento:" en Otros medicamentos');
+        otrosMedicamentosCompleto = false;
       }
       const indicacionesDifInput = scope.locator('div.flex:has-text("Indicaciones:")').last().locator('input[type="text"]').first();
       if (await opcional(indicacionesDifInput.isVisible({ timeout: 3000 }), 'tratamiento:indicaciones-diferente-input-visible')) {
         await indicacionesDifInput.fill('Tomar según indicación médica, con alimentos.');
       } else {
         console.log('⚠️ No se encontró el input de "Indicaciones:" en Otros medicamentos');
+        otrosMedicamentosCompleto = false;
       }
-      console.log(`✅ "Otros medicamentos" llenado: "${tratamientoDiferente}"`);
+      console.log(otrosMedicamentosCompleto
+        ? `✅ "Otros medicamentos" llenado: "${tratamientoDiferente}"`
+        : `⚠️ "Otros medicamentos" quedó incompleto (buscado: "${tratamientoDiferente}")`);
     } else {
       console.log('⚠️ No se encontró el botón "Agrega tratamiento diferente"');
     }
@@ -545,12 +586,20 @@ async function fillLaboratoriosSection(page) {
       } else {
         console.log('⚠️ Sin opciones de laboratorio');
       }
+    } else {
+      // Etapa 2 (hueco de cobertura): antes no logueaba nada acá, y no hay
+      // verificación downstream de que se haya agregado un laboratorio.
+      console.log('⚠️ No se encontró el selector de laboratorio en Laboratorios y Procedimientos');
     }
 
     const procedimientoInput = scope.locator('textarea[name="procedimiento-0"]');
     if (await opcional(procedimientoInput.isVisible({ timeout: 2000 }), 'laboratorios:procedimiento-input-visible')) {
       await procedimientoInput.fill(TEXTO_PROCEDIMIENTO);
       console.log('✅ Procedimiento llenado');
+    } else {
+      // Etapa 2 (hueco de cobertura): idem arriba — sin log ni verificación
+      // downstream de TEXTO_PROCEDIMIENTO antes de este cambio.
+      console.log('⚠️ No se encontró el campo de procedimiento en Laboratorios y Procedimientos');
     }
 
     console.log('✅ Laboratorios y Procedimientos completado (se guarda con el botón global "Guardar cambios")');
@@ -693,6 +742,43 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
 
   console.log(`🎯 Paciente objetivo: "${PACIENTE_NOMBRE}" — set #${PERCENTIL_RUN} (peso=${MEDIDAS.peso} talla=${MEDIDAS.talla} perímetro=${MEDIDAS.perimetro})`);
 
+  // Token + doctor_id: necesarios para leer datos guardados vía API en la
+  // verificación post-Finalizar (getFilledForm responde 200 con el
+  // formulario VACÍO en blanco, sin avisar, si falta doctor_id — ver
+  // CONTEXTO.md "riesgo de falso negativo al verificar").
+  //
+  // Se registran ANTES de iniciarConsultaDelPaciente() (no después, como
+  // estaba) — hallazgo real de la corrida de verificación de la Etapa 2
+  // (2026-09-17): `/api/profile/getProfile` solo se dispara durante la carga
+  // del Dashboard (dentro de iniciarConsultaDelPaciente), nunca durante la
+  // carga de la página de Consulta. Con el listener registrado después de
+  // ambas, doctorId quedaba SIEMPRE null — precondición endurecida más abajo
+  // que antes fallaba el 100% de las corridas reales, no solo en teoría.
+  let capturedToken = null;
+  let doctorId = null;
+  page.on('request', (req) => {
+    if (req.url().includes('/api/') && !capturedToken) {
+      const h = req.headers();
+      if (h['x-rym-token-app']) capturedToken = h['x-rym-token-app'];
+    }
+  });
+  page.on('response', async (r) => {
+    if (r.url().includes('/api/profile/getProfile')) {
+      // Precondición, no opcional (Etapa 2): un listener de evento no puede
+      // "reventar el test" directamente, pero silenciar el fallo acá es
+      // exactamente el riesgo que el comentario de arriba documenta
+      // (getFilledForm 200 en blanco sin avisar si falta doctor_id) — como
+      // mínimo debe quedar loguido fuerte, y el guard de más abajo (antes de
+      // usar doctorId) es la aserción real.
+      try {
+        const body = await r.json();
+        if (body?.data?.id) doctorId = body.data.id;
+      } catch (e) {
+        console.log(`⚠️ getProfile: no se pudo parsear la respuesta para capturar doctor_id: ${e.message}`);
+      }
+    }
+  });
+
   await test.step('Iniciar consulta y signos vitales', async () => {
     await iniciarConsultaDelPaciente(page);
 
@@ -719,7 +805,14 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     if (await tallaInput.count() > 0) await tallaInput.first().fill(svTalla);
     await fillPerimetroCefalico(page, MEDIDAS.perimetro);
     const presionInput = page.locator('input[placeholder="000/000 mmHg"]');
-    if (await opcional(presionInput.isVisible(), 'signos-vitales:presion-input-visible')) await presionInput.fill(svPresion);
+    // Etapa 2 (hueco de cobertura, prioridad baja): sin log antes; signos
+    // vitales se verifica solo por el status 2xx de registerVitalSigns, no
+    // campo por campo.
+    if (await opcional(presionInput.isVisible(), 'signos-vitales:presion-input-visible')) {
+      await presionInput.fill(svPresion);
+    } else {
+      console.log('⚠️ No se encontró el campo de presión arterial en signos vitales');
+    }
     const tempInput = page.locator('input[name*="temp" i]');
     if (await tempInput.count() > 0) await tempInput.first().fill(svTemp);
     const fcInput = page.locator('input[name*="card" i]');
@@ -763,7 +856,11 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     } catch (e) {
       console.log('⚠️ Timeout, navegando manualmente...');
       await page.goto('/Consulta/ConsultaGeneral');
-      await opcional(page.waitForLoadState('load'), 'consulta:load-tras-navegacion-manual');
+      // Precondición, no opcional (Etapa 2): es la ruta de recuperación tras
+      // el primer intento fallido — si esta segunda carga tampoco resuelve,
+      // no hay ninguna otra confirmación de que se llegó a la consulta antes
+      // de empezar a llenar secciones.
+      await page.waitForLoadState('load');
     }
 
     console.log('⏳ Esperando carga completa de la consulta...');
@@ -783,25 +880,6 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
   let serviciosSinOpciones = false;
   let resultadoExploracion = null;
   let resultadoAparatos = null;
-
-  // Token + doctor_id: necesarios para leer datos guardados vía API en la
-  // verificación post-Finalizar (getFilledForm responde 200 con el
-  // formulario VACÍO en blanco, sin avisar, si falta doctor_id — ver
-  // CONTEXTO.md "riesgo de falso negativo al verificar").
-  let capturedToken = null;
-  let doctorId = null;
-  page.on('request', (req) => {
-    if (req.url().includes('/api/') && !capturedToken) {
-      const h = req.headers();
-      if (h['x-rym-token-app']) capturedToken = h['x-rym-token-app'];
-    }
-  });
-  page.on('response', async (r) => {
-    if (r.url().includes('/api/profile/getProfile')) {
-      const body = await opcional(r.json(), 'consulta:getprofile-response-json');
-      if (body?.data?.id) doctorId = body.data.id;
-    }
-  });
 
   await test.step('Llenar todas las secciones (ya visibles, sin pestañas)', async () => {
     await fillGeneralSection(page);
@@ -838,7 +916,12 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     console.log('\n🏁 === INICIANDO FINALIZACIÓN DE CONSULTA ===');
     const finalizarBtn = await waitForFinalizarButton(page);
     const reqPromise = opcional(page.waitForRequest(r => r.url().includes('/api/consultations/finishConsultation'), { timeout: 15000 }), 'finalizar:espera-request-finishconsultation');
-    const respPromise = opcional(page.waitForResponse(r => r.url().includes('/api/consultations/finishConsultation'), { timeout: 15000 }), 'finalizar:espera-response-finishconsultation');
+    // Precondición, no opcional (Etapa 2): a diferencia del request (arriba,
+    // solo se usa para loguear el payload), esta respuesta es la única
+    // confirmación real de que Finalizar completó. Antes, si nunca se
+    // detectaba, el test solo logueaba "revisar manualmente" y seguía en
+    // verde — exactamente el patrón que CLAUDE.md §0.4 prohíbe.
+    const respPromise = page.waitForResponse(r => r.url().includes('/api/consultations/finishConsultation'), { timeout: 15000 });
     await finalizarBtn.click();
     const [req, resp] = await Promise.all([reqPromise, respPromise]);
     if (req) {
@@ -847,12 +930,8 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
       pacienteId = body.paciente_id ?? null;
       console.log(`ℹ️ finishConsultation body → consulta_id=${consultaId} paciente_id=${pacienteId}`);
     }
-    if (resp) {
-      expect(resp.status(), 'finishConsultation debe responder 2xx').toBeLessThan(300);
-      console.log('✅ Consulta finalizada');
-    } else {
-      console.log('⚠️ No se detectó la llamada finishConsultation (revisar manualmente)');
-    }
+    expect(resp.status(), 'finishConsultation debe responder 2xx').toBeLessThan(300);
+    console.log('✅ Consulta finalizada');
     await page.waitForTimeout(1000);
     const confirmBtn = page.locator('.swal2-confirm:visible, button:has-text("Aceptar"):visible, button:has-text("OK"):visible').first();
     if (await opcional(confirmBtn.isVisible({ timeout: 3000 }), 'finalizar:boton-confirmacion-visible')) {
@@ -866,8 +945,12 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
 
   await test.step('Verificar datos guardados (recon post-Finalizar, misma consulta, antes de salir)', async () => {
     console.log('\n🔎 === VERIFICANDO QUE LO LLENADO SIGUE GUARDADO Y ES CORRECTO ===');
-    if (!consultaId || !pacienteId || !capturedToken) {
-      inconsistencias.push(`No se pudo verificar: faltan datos para llamar a la API (consultaId=${consultaId}, pacienteId=${pacienteId}, token=${capturedToken ? 'OK' : 'FALTA'})`);
+    if (!consultaId || !pacienteId || !capturedToken || !doctorId) {
+      // doctorId sumado al guard (Etapa 2, precondición): sin él,
+      // getFilledForm responde 200 con el formulario vacío SIN avisar (ver
+      // comentario más arriba) — mejor fallar acá con la causa real que
+      // dejar que se lea como "todo quedó en blanco" más abajo.
+      inconsistencias.push(`No se pudo verificar: faltan datos para llamar a la API (consultaId=${consultaId}, pacienteId=${pacienteId}, token=${capturedToken ? 'OK' : 'FALTA'}, doctorId=${doctorId ?? 'FALTA'})`);
       console.log(`⚠️ ${inconsistencias[0]}`);
       return;
     }
@@ -946,6 +1029,30 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     const numMedicamentos = (treatments?.data || []).length;
     if (numMedicamentos === 0) inconsistencias.push('getTreatments: 0 medicamentos guardados');
     console.log(`  ${numMedicamentos > 0 ? '✅' : '❌'} medicamentos guardados: ${numMedicamentos}`);
+
+    // Etapa 2 (cierra 2 de los 6 huecos de cobertura, 2026-09-17): Laboratorios
+    // (selección + campo "procedimiento") y Notas del Médico no tenían NINGUNA
+    // verificación tras Finalizar. Endpoints confirmados en vivo (misma forma
+    // que usa la propia app tras Finalizar, ver consultation.full-flow):
+    // getConsultationProcedures trae {nombre, indicaciones} por procedimiento
+    // agregado; getNotes trae {texto} con la nota (envuelta en <p> por el
+    // editor jodit, por eso se verifica no-vacío y no texto exacto, igual que
+    // indicaciones_general/indicaciones_procedimiento arriba).
+    const procedimientos = await fetchApi('procedures/getConsultationProcedures', { paciente_id: pacienteId, consulta_id: consultaId });
+    const listaProcedimientos = procedimientos?.data || [];
+    if (listaProcedimientos.length === 0) inconsistencias.push('getConsultationProcedures: 0 procedimientos/laboratorios guardados (Laboratorios y Procedimientos)');
+    console.log(`  ${listaProcedimientos.length > 0 ? '✅' : '❌'} laboratorios/procedimientos guardados: ${listaProcedimientos.length}`);
+    if (listaProcedimientos.length > 0 && !listaProcedimientos.some(p => (p.indicaciones || '').includes(TEXTO_PROCEDIMIENTO))) {
+      inconsistencias.push(`getConsultationProcedures: ningún procedimiento tiene el texto esperado ("${TEXTO_PROCEDIMIENTO}")`);
+    }
+
+    // A diferencia de getConsultationProcedures, getNotes exige doctor_id
+    // (confirmado en vivo 2026-09-17: "El campo doctor_id es requerido" sin
+    // él) — mismo dato ya capturado para getFilledForm más abajo.
+    const notas = await fetchApi('consultations/getNotes', { paciente_id: pacienteId, consulta_id: consultaId, doctor_id: doctorId });
+    const notaGuardada = (notas?.data || []).some(n => (n.texto || '').includes(TEXTO_NOTAS_MEDICO));
+    if (!notaGuardada) inconsistencias.push('getNotes: no se encontró la nota del médico esperada tras finalizar');
+    console.log(`  ${notaGuardada ? '✅' : '❌'} notas_medico: ${notaGuardada ? 'encontrada' : 'NO encontrada'}`);
 
     // Checklists (Exploración segmentaria / Aparatos y sistemas): comparar
     // Normal/Anormal + Observaciones EXACTOS contra lo que el llenado dejó
