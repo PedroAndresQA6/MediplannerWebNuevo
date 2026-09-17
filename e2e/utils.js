@@ -1,5 +1,6 @@
 const { expect } = require('@playwright/test');
 const config = require('./config');
+const { opcional } = require('./opcional');
 
 const logger = config.logger;
 
@@ -18,11 +19,11 @@ async function fillTabFields(page, tabName) {
   // Un campo solo se rellena si el formulario lo marca como OBLIGATORIO.
   // Así no inyectamos datos en campos opcionales que deberían quedar vacíos.
   const isRequired = (loc) =>
-    loc.evaluate((el) =>
+    opcional(loc.evaluate((el) =>
       el.required === true ||
       el.getAttribute('aria-required') === 'true' ||
       el.getAttribute('required') !== null
-    ).catch(() => false);
+    ), 'fillTabFields:campo-isrequired-evaluate');
 
   // Número realista según el campo, en vez de un '70' a ciegas que no tiene
   // sentido médico en glucosa/talla/temperatura/etc.
@@ -50,16 +51,16 @@ async function fillTabFields(page, tabName) {
 
   for (let i = 0; i < textareaCount; i++) {
     const textarea = textareas.nth(i);
-    const isVisible = await textarea.isVisible().catch(() => false);
-    const isDisabled = await textarea.isDisabled().catch(() => false);
+    const isVisible = await opcional(textarea.isVisible(), 'fillTabFields:textarea-visible');
+    const isDisabled = await opcional(textarea.isDisabled(), 'fillTabFields:textarea-isdisabled');
     if (!isVisible || isDisabled) continue;
 
-    const currentValue = await textarea.inputValue().catch(() => '');
+    const currentValue = (await opcional(textarea.inputValue(), 'fillTabFields:textarea-valor-actual')) ?? '';
     if (currentValue && currentValue.trim() !== '') continue;
 
     if (!(await isRequired(textarea))) { skippedOptional++; continue; }
 
-    const placeholder = ((await textarea.getAttribute('placeholder').catch(() => '')) || '').toLowerCase();
+    const placeholder = ((await opcional(textarea.getAttribute('placeholder'), 'fillTabFields:textarea-placeholder')) || '').toLowerCase();
     let value;
     if (placeholder.includes('motivo')) {
       value = 'Consulta de control rutinario para evaluación de estado de salud general';
@@ -100,11 +101,11 @@ async function fillTabFields(page, tabName) {
 
     for (let i = 0; i < count; i++) {
       const field = fields.nth(i);
-      const isVisible = await field.isVisible().catch(() => false);
-      const isEnabled = await field.isEnabled().catch(() => false);
+      const isVisible = await opcional(field.isVisible(), 'fillTabFields:input-visible');
+      const isEnabled = await opcional(field.isEnabled(), 'fillTabFields:input-isenabled');
       if (!isVisible || !isEnabled) continue;
 
-      const currentValue = await field.inputValue().catch(() => '');
+      const currentValue = (await opcional(field.inputValue(), 'fillTabFields:input-valor-actual')) ?? '';
       if (currentValue) continue;
 
       if (!(await isRequired(field))) { skippedOptional++; continue; }
@@ -139,13 +140,13 @@ async function fillTabFields(page, tabName) {
   logger.info(`Encontrados ${selectCount} selects`);
   for (let i = 0; i < selectCount; i++) {
     const select = selects.nth(i);
-    const isVisible = await select.isVisible().catch(() => false);
+    const isVisible = await opcional(select.isVisible(), 'fillTabFields:select-visible');
     if (!isVisible) continue;
 
     const options = await select.locator('option').count();
     if (options <= 1) continue;
 
-    const currentValue = await select.inputValue().catch(() => '');
+    const currentValue = (await opcional(select.inputValue(), 'fillTabFields:select-valor-actual')) ?? '';
     const isEmpty = !currentValue || currentValue === '' || currentValue === 'Selecciona...' || currentValue.includes('Seleccione');
     if (!isEmpty) continue;
 
@@ -202,17 +203,17 @@ async function handleModals(page) {
 async function asegurarCalendarioDashboard(page) {
   if (!page.url().includes('/Dashboard')) {
     await page.goto('/Dashboard');
-    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {});
+    await opcional(page.waitForLoadState('load', { timeout: 15000 }), 'asegurarCalendarioDashboard:load-inicial');
   }
   // Esperar a que el calendario esté realmente renderizado antes de tocarlo;
   // sin esto, en dev (flaky, a veces se cuelga en "Cargando...") un loop
   // corre en unos pocos ms y no encuentra ninguna celda porque el widget aún
   // no montó. Reintenta con reload si hace falta.
   for (let intento = 0; intento < 3; intento++) {
-    if (await page.locator('td[data-day]').first().isVisible({ timeout: 8000 }).catch(() => false)) return true;
+    if (await opcional(page.locator('td[data-day]').first().isVisible({ timeout: 8000 }), 'asegurarCalendarioDashboard:celda-visible')) return true;
     logger.warning(`Calendario del Dashboard no renderizó (intento ${intento + 1}/3), recargando...`);
     await page.reload();
-    await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {});
+    await opcional(page.waitForLoadState('load', { timeout: 15000 }), 'asegurarCalendarioDashboard:load-tras-reload');
     await page.waitForTimeout(1500);
   }
   logger.warning('El calendario del Dashboard no llegó a renderizar (td[data-day])');
@@ -229,27 +230,27 @@ async function irADiaEnCalendarioDashboard(page, dateStr) {
   // <button> sin esa clase. Se usa un selector genérico (hay un solo botón
   // por celda) en vez de depender de esa clase.
   let celda = page.locator(`td[data-day="${dateStr}"] button`);
-  for (let avance = 0; avance < 2 && !(await celda.isVisible({ timeout: 1000 }).catch(() => false)); avance++) {
+  for (let avance = 0; avance < 2 && !(await opcional(celda.isVisible({ timeout: 1000 }), 'irADia:celda-visible-loop')); avance++) {
     // Hay 2 botones "rdp-button_next" en el DOM: uno dentro de un
     // <nav class="rdp-nav"> decorativo/no funcional (siempre el primero) y el
     // real dentro del header visible del calendario (el segundo). .first()
     // no avanza de mes; .last() sí.
     const nextBtn = page.locator('button.rdp-button_next').last();
-    if (!(await nextBtn.isVisible({ timeout: 1000 }).catch(() => false))) break;
+    if (!(await opcional(nextBtn.isVisible({ timeout: 1000 }), 'irADia:boton-siguiente-visible'))) break;
     // El header sticky a veces intercepta el click (el botón queda muy cerca
     // del borde superior); force:true evita el reintento de 15s en vano.
     await nextBtn.click({ force: true });
     await page.waitForTimeout(500);
     celda = page.locator(`td[data-day="${dateStr}"] button`);
   }
-  if (!(await celda.isVisible({ timeout: 1000 }).catch(() => false))) {
+  if (!(await opcional(celda.isVisible({ timeout: 1000 }), 'irADia:celda-visible-final'))) {
     logger.warning(`No se encontró la celda del calendario para ${dateStr}`);
     return false;
   }
-  const respPromise = page.waitForResponse(
+  const respPromise = opcional(page.waitForResponse(
     r => /\/api\/appointments\/getFilteredAppointments/.test(r.url()),
     { timeout: 8000 }
-  ).catch(() => null);
+  ), 'irADia:espera-response-getfilteredappointments');
   await celda.click();
   await respPromise;
   await page.waitForTimeout(1000);
@@ -276,7 +277,7 @@ async function checkNextDaysForIniciarButton(page) {
     const count = await iniciarButtons.count();
     let visibleCount = 0;
     for (let i = 0; i < count; i++) {
-      if (await iniciarButtons.nth(i).isVisible().catch(() => false)) visibleCount++;
+      if (await opcional(iniciarButtons.nth(i).isVisible(), 'checkNextDaysForIniciarButton:boton-iniciar-visible')) visibleCount++;
     }
     if (visibleCount > 0) {
       logger.success(`Encontrados ${visibleCount} botones Iniciar visibles en ${dateStr}`);
@@ -315,9 +316,9 @@ async function buscarBotonIniciarDePaciente(page, patientSearch, { maxDiasOffset
     const total = await botones.count();
     for (let i = 0; i < total; i++) {
       const btn = botones.nth(i);
-      if (!(await btn.isVisible().catch(() => false))) continue;
+      if (!(await opcional(btn.isVisible(), 'buscarBotonIniciarDePaciente:boton-visible'))) continue;
       const fila = btn.locator('xpath=ancestor::*[self::div or self::tr][1]');
-      const texto = (await fila.textContent().catch(() => '') || '');
+      const texto = (await opcional(fila.textContent(), 'buscarBotonIniciarDePaciente:fila-textcontent') || '');
       if (texto.toLowerCase().includes(patientSearch.toLowerCase())) {
         logger.success(`Botón Iniciar de "${patientSearch}" encontrado en ${dateStr}`);
         return btn;
@@ -344,7 +345,7 @@ async function createAppointment(page, patientSearch = '') {
     // Si falló, intentar click en "Agendar" en la barra lateral
     logger.info('Navegando desde la barra lateral...');
     const sidebarAgendar = page.locator('a:has-text("Agendar"), a[href*="Citas"], a:has-text("Citas")').first();
-    if (await sidebarAgendar.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (await opcional(sidebarAgendar.isVisible({ timeout: 5000 }), 'createAppointment:sidebar-agendar-visible')) {
       await sidebarAgendar.click();
       await page.waitForLoadState('networkidle');
       await page.waitForTimeout(2000);
@@ -354,10 +355,10 @@ async function createAppointment(page, patientSearch = '') {
   // Abrir Wizard - botón "Agendar cita" en la parte superior derecha
   logger.info('Buscando botón "Agendar cita"...');
   const agendarButton = page.getByRole('button', { name: /agendar cita/i }).first();
-  if (!await agendarButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+  if (!await opcional(agendarButton.isVisible({ timeout: 5000 }), 'createAppointment:boton-agendar-cita-visible')) {
     // Intentar otros selectores
     const altBtn = page.locator('button:has-text("Agendar cita"), button:has-text("Nueva cita")').first();
-    if (await altBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await opcional(altBtn.isVisible({ timeout: 3000 }), 'createAppointment:boton-agendar-cita-alt-visible')) {
       await altBtn.click();
     } else {
       throw new Error('No se encontró el botón "Agendar cita"');
@@ -417,11 +418,11 @@ async function createAppointment(page, patientSearch = '') {
           // ciegas: si el filtro aún no aplicó, la primera sería OTRO paciente).
           let elegido = null;
           for (let k = 0; k < count; k++) {
-            const t = (await opciones.nth(k).textContent().catch(() => '') || '').toLowerCase();
+            const t = (await opcional(opciones.nth(k).textContent(), 'createAppointment:selectReactOption-opcion-textcontent') || '').toLowerCase();
             if (t.includes(searchText.toLowerCase())) { elegido = opciones.nth(k); break; }
           }
           if (elegido) {
-            const txt = (await elegido.textContent().catch(() => '') || '').trim();
+            const txt = (await opcional(elegido.textContent(), 'createAppointment:selectReactOption-elegido-textcontent') || '').trim();
             await elegido.click();
             logger.success(`Opción seleccionada (coincide "${searchText}"): "${txt}"`);
             seleccionada = true;
@@ -498,7 +499,7 @@ async function createAppointment(page, patientSearch = '') {
   }
   await page.waitForTimeout(1000);
   const continueBtn2 = page.getByRole('button', { name: /continuar/i });
-  if (await continueBtn2.isVisible({ timeout: 5000 }).catch(() => false)) {
+  if (await opcional(continueBtn2.isVisible({ timeout: 5000 }), 'createAppointment:boton-continuar2-visible')) {
     await continueBtn2.click();
   }
   
@@ -665,6 +666,36 @@ async function createAppointment(page, patientSearch = '') {
   throw new Error('No se pudo registrar una cita en los próximos 5 días');
 }
 
+// Etapa 5 de docs/tarea-actual.md — problema reportado por Pedro: el flujo de
+// consulta creaba una cita nueva aunque el paciente ya tuviera una agendada
+// para hoy. Para `consultation.full-flow.spec.js` la cita es una
+// PRECONDICIÓN (no el objetivo del test), así que corresponde reutilizar: se
+// revisa primero la agenda de HOY en Inicio (Dashboard) y solo si no hay
+// ninguna cita programada se crea una. Distinto de `appointments.create.spec.ts`,
+// cuyo objetivo ES verificar que crear una cita funciona — ese sigue creando
+// siempre, no usa este helper.
+// Devuelve { reutilizada, iniciarBtn }.
+async function asegurarCitaDeHoy(page, patientSearch) {
+  logger.info(`asegurarCitaDeHoy: revisando si "${patientSearch}" ya tiene una cita de hoy en Inicio...`);
+  let iniciarBtn = await buscarBotonIniciarDePaciente(page, patientSearch, { maxDiasOffset: 0 });
+  if (iniciarBtn) {
+    logger.success(`asegurarCitaDeHoy: "${patientSearch}" ya tiene cita de hoy — se reutiliza, no se crea una nueva.`);
+    return { reutilizada: true, iniciarBtn };
+  }
+
+  logger.info(`asegurarCitaDeHoy: "${patientSearch}" no tiene cita de hoy — creando una nueva.`);
+  await createAppointment(page, patientSearch);
+  await page.goto('/Dashboard');
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(2000);
+  iniciarBtn = await buscarBotonIniciarDePaciente(page, patientSearch);
+  if (!iniciarBtn) {
+    throw new Error(`asegurarCitaDeHoy: no se encontró botón "Iniciar" para "${patientSearch}" tras crear la cita nueva`);
+  }
+  logger.info('asegurarCitaDeHoy: cita nueva creada y localizada.');
+  return { reutilizada: false, iniciarBtn };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSOLE & NETWORK MONITOR — DevTools Protocol integration
 // Captura logs de consola y tráfico de red en tiempo real durante el test.
@@ -764,7 +795,7 @@ function setupConsoleMonitor(page) {
       try {
         const contentType = response.headers()['content-type'] || '';
         if (contentType.includes('application/json')) {
-          const body = await response.json().catch(() => null);
+          const body = await opcional(response.json(), 'setupConsoleMonitor:response-json-preview');
           if (body) bodyPreview = JSON.stringify(body).substring(0, 120);
         }
       } catch (_) {}
@@ -938,18 +969,18 @@ async function detectUnsavedSections(page, opts = {}) {
 
   for (let i = 0; i < total; i++) {
     const icon = icons.nth(i);
-    if (!(await icon.isVisible().catch(() => false))) continue;
+    if (!(await opcional(icon.isVisible(), 'detectUnsavedSections:icono-visible'))) continue;
 
     // El color naranja/amarillo es lo que marca "sin guardar"; un triángulo de
     // otro color (o sin color de alerta) podría ser otra cosa.
-    const cls = (await icon.getAttribute('class').catch(() => '')) || '';
+    const cls = (await opcional(icon.getAttribute('class'), 'detectUnsavedSections:icono-class')) || '';
     if (!/text-(orange|yellow|amber|warning)/i.test(cls)) continue;
 
     // El título de la sección vive en el .card-header que contiene al ícono.
     let section = '(sección desconocida)';
     const header = icon.locator('xpath=ancestor::*[contains(@class,"card-header")][1]');
     if (await header.count() > 0) {
-      const title = await header.locator('.card-title, h1, h2, h3, h4').first().textContent().catch(() => '');
+      const title = await opcional(header.locator('.card-title, h1, h2, h3, h4').first().textContent(), 'detectUnsavedSections:titulo-header-textcontent');
       if (title && title.trim()) section = title.trim();
     }
     flagged.push(section);
@@ -959,7 +990,7 @@ async function detectUnsavedSections(page, opts = {}) {
     logger.warning(`⚠️  ${flagged.length} sección(es) con indicador de NO guardado: ${flagged.join(', ')}`);
     if (opts.screenshot !== false) {
       const path = opts.screenshotPath || 'test-results/unsaved-indicator.png';
-      await page.screenshot({ path, fullPage: true }).catch(() => {});
+      await opcional(page.screenshot({ path, fullPage: true }), 'detectUnsavedSections:screenshot-evidencia');
       logger.info(`📸 Evidencia del indicador guardada en: ${path}`);
     }
   } else if (total > 0) {
@@ -989,11 +1020,11 @@ function escapeRegExp(s) {
 // ¿Hay un triángulo de advertencia (naranja/amarillo) visible dentro de `scope`?
 async function hasWarningTriangle(scope) {
   const icons = scope.locator('svg[data-icon="triangle-exclamation"]');
-  const n = await icons.count().catch(() => 0);
+  const n = (await opcional(icons.count(), 'hasWarningTriangle:icons-count')) ?? 0;
   for (let i = 0; i < n; i++) {
     const icon = icons.nth(i);
-    if (!(await icon.isVisible().catch(() => false))) continue;
-    const cls = (await icon.getAttribute('class').catch(() => '')) || '';
+    if (!(await opcional(icon.isVisible(), 'hasWarningTriangle:icono-visible'))) continue;
+    const cls = (await opcional(icon.getAttribute('class'), 'hasWarningTriangle:icono-class')) || '';
     if (/text-(orange|yellow|amber|warning)/i.test(cls)) return true;
   }
   return false;
@@ -1004,27 +1035,27 @@ async function hasWarningTriangle(scope) {
 async function triggerEdit(card) {
   // 1) textarea / contenteditable
   const ta = card.locator('textarea:visible, [role="textbox"]:visible').first();
-  if ((await ta.count().catch(() => 0)) > 0 && await ta.isEnabled().catch(() => false)) {
-    const cur = await ta.inputValue().catch(() => null);
-    if (cur !== null) {
-      await ta.fill(((cur || '') + ' [audit]').trim()).catch(() => {});
+  if (((await opcional(ta.count(), 'triggerEdit:textarea-count')) ?? 0) > 0 && await opcional(ta.isEnabled(), 'triggerEdit:textarea-isenabled')) {
+    const cur = await opcional(ta.inputValue(), 'triggerEdit:textarea-valor-actual');
+    if (cur !== null && cur !== undefined) {
+      await opcional(ta.fill(((cur || '') + ' [audit]').trim()), 'triggerEdit:textarea-fill');
     } else {
-      await ta.click().catch(() => {});
-      await ta.type(' [audit]').catch(() => {});
+      await opcional(ta.click(), 'triggerEdit:textarea-click');
+      await opcional(ta.type(' [audit]'), 'triggerEdit:textarea-type');
     }
     return 'textarea';
   }
   // 2) input de texto / número
   const inp = card.locator('input[type="text"]:visible, input[type="number"]:visible, input:not([type]):visible').first();
-  if ((await inp.count().catch(() => 0)) > 0 && await inp.isEnabled().catch(() => false)) {
-    const type = await inp.getAttribute('type').catch(() => '');
-    await inp.fill(type === 'number' ? '1' : 'audit').catch(() => {});
+  if (((await opcional(inp.count(), 'triggerEdit:input-count')) ?? 0) > 0 && await opcional(inp.isEnabled(), 'triggerEdit:input-isenabled')) {
+    const type = (await opcional(inp.getAttribute('type'), 'triggerEdit:input-type-atributo')) || '';
+    await opcional(inp.fill(type === 'number' ? '1' : 'audit'), 'triggerEdit:input-fill');
     return 'input';
   }
   // 3) checkbox
   const cb = card.locator('input[type="checkbox"]:visible').first();
-  if ((await cb.count().catch(() => 0)) > 0 && await cb.isEnabled().catch(() => false)) {
-    await cb.click().catch(() => {});
+  if (((await opcional(cb.count(), 'triggerEdit:checkbox-count')) ?? 0) > 0 && await opcional(cb.isEnabled(), 'triggerEdit:checkbox-isenabled')) {
+    await opcional(cb.click(), 'triggerEdit:checkbox-click');
     return 'checkbox';
   }
   return null;
@@ -1032,17 +1063,17 @@ async function triggerEdit(card) {
 
 // ¿El cuerpo del card tiene contenido visible (campo o botón Guardar)?
 async function cardBodyVisible(card) {
-  const save = await card.getByRole('button', { name: /guardar/i }).first().isVisible().catch(() => false);
+  const save = await opcional(card.getByRole('button', { name: /guardar/i }).first().isVisible(), 'cardBodyVisible:boton-guardar-visible');
   if (save) return true;
-  return await card.locator('textarea:visible, input:visible, [role="textbox"]:visible').first().isVisible().catch(() => false);
+  return await opcional(card.locator('textarea:visible, input:visible, [role="textbox"]:visible').first().isVisible(), 'cardBodyVisible:campo-visible');
 }
 
 // Expande el apartado si está colapsado (clic en el chevron del header).
 async function ensureExpanded(page, card) {
   if (await cardBodyVisible(card)) return true;
   const chevron = card.locator('.card-header button:has(svg[data-icon*="chevron"])').first();
-  if ((await chevron.count().catch(() => 0)) > 0) {
-    await chevron.click().catch(() => {});
+  if (((await opcional(chevron.count(), 'ensureExpanded:chevron-count')) ?? 0) > 0) {
+    await opcional(chevron.click(), 'ensureExpanded:chevron-click');
     await page.waitForTimeout(700);
   }
   return await cardBodyVisible(card);
@@ -1058,8 +1089,8 @@ async function findOwnSaveButton(card) {
   ];
   for (const re of candidates) {
     const btn = card.getByRole('button', { name: re }).first();
-    if ((await btn.count().catch(() => 0)) > 0 && await btn.isVisible().catch(() => false)) {
-      const label = ((await btn.textContent().catch(() => '')) || '').trim();
+    if (((await opcional(btn.count(), 'findOwnSaveButton:boton-count')) ?? 0) > 0 && await opcional(btn.isVisible(), 'findOwnSaveButton:boton-visible')) {
+      const label = ((await opcional(btn.textContent(), 'findOwnSaveButton:boton-textcontent')) || '').trim();
       return { btn, label };
     }
   }
@@ -1076,10 +1107,10 @@ async function auditConsultationIndicators(page, opts = {}) {
   let tabNames = opts.tabs;
   if (!tabNames) {
     const tabEls = page.getByRole('tab');
-    const n = await tabEls.count().catch(() => 0);
+    const n = (await opcional(tabEls.count(), 'auditConsultationIndicators:tabs-count')) ?? 0;
     tabNames = [];
     for (let i = 0; i < n; i++) {
-      const t = ((await tabEls.nth(i).textContent().catch(() => '')) || '').trim();
+      const t = ((await opcional(tabEls.nth(i).textContent(), 'auditConsultationIndicators:tab-textcontent')) || '').trim();
       if (t) tabNames.push(t);
     }
     if (tabNames.length === 0) {
@@ -1092,13 +1123,13 @@ async function auditConsultationIndicators(page, opts = {}) {
     // Activar la pestaña
     const reTab = new RegExp(`^\\s*${escapeRegExp(tabName)}\\s*$`, 'i');
     let tab = page.getByRole('tab', { name: reTab }).first();
-    if (!((await tab.count().catch(() => 0)) > 0 && await tab.isVisible().catch(() => false))) {
+    if (!(((await opcional(tab.count(), 'auditConsultationIndicators:tab-role-count')) ?? 0) > 0 && await opcional(tab.isVisible(), 'auditConsultationIndicators:tab-role-visible'))) {
       tab = page.locator(`button:has-text("${tabName}"), a:has-text("${tabName}"), li:has-text("${tabName}")`).first();
     }
-    if ((await tab.count().catch(() => 0)) > 0 && await tab.isVisible().catch(() => false)) {
+    if (((await opcional(tab.count(), 'auditConsultationIndicators:tab-fallback-count')) ?? 0) > 0 && await opcional(tab.isVisible(), 'auditConsultationIndicators:tab-fallback-visible')) {
       await handleModals(page);
-      await tab.click().catch(() => {});
-      await page.waitForLoadState('load').catch(() => {});
+      await opcional(tab.click(), 'auditConsultationIndicators:tab-click');
+      await opcional(page.waitForLoadState('load'), 'auditConsultationIndicators:load-tras-click-tab');
       await page.waitForTimeout(1500);
     } else {
       logger.warning(`Pestaña "${tabName}" no encontrada, saltando`);
@@ -1107,25 +1138,25 @@ async function auditConsultationIndicators(page, opts = {}) {
 
     // DIAGNÓSTICO: listar todos los títulos de card visibles en esta pestaña.
     const titles = page.locator('.card-title');
-    const titleCount = await titles.count().catch(() => 0);
+    const titleCount = (await opcional(titles.count(), 'auditConsultationIndicators:titles-count')) ?? 0;
     const visibleNames = [];
     for (let i = 0; i < titleCount; i++) {
-      if (await titles.nth(i).isVisible().catch(() => false)) {
-        visibleNames.push(((await titles.nth(i).textContent().catch(() => '')) || '').trim());
+      if (await opcional(titles.nth(i).isVisible(), 'auditConsultationIndicators:title-visible')) {
+        visibleNames.push(((await opcional(titles.nth(i).textContent(), 'auditConsultationIndicators:title-textcontent')) || '').trim());
       }
     }
     logger.info(`📑 [${tabName}] apartados visibles (${visibleNames.length}): ${visibleNames.join(' / ') || '—'}`);
 
     for (let i = 0; i < titleCount; i++) {
       const titleEl = titles.nth(i);
-      if (!(await titleEl.isVisible().catch(() => false))) continue;
+      if (!(await opcional(titleEl.isVisible(), 'auditConsultationIndicators:apartado-title-visible'))) continue;
 
-      const name = ((await titleEl.textContent().catch(() => '')) || '').trim() || `(apartado ${i + 1})`;
+      const name = ((await opcional(titleEl.textContent(), 'auditConsultationIndicators:apartado-title-textcontent')) || '').trim() || `(apartado ${i + 1})`;
 
       // Card contenedora del apartado (la más cercana) y su header.
       const card = titleEl.locator('xpath=ancestor::*[contains(concat(" ",normalize-space(@class)," ")," card ")][1]');
       const header = titleEl.locator('xpath=ancestor::*[contains(@class,"card-header")][1]');
-      if ((await card.count().catch(() => 0)) === 0) continue;
+      if (((await opcional(card.count(), 'auditConsultationIndicators:apartado-card-count')) ?? 0) === 0) continue;
 
       let entry = { tab: tabName, apartado: name, status: 'skip', detail: '' };
       try {
@@ -1150,10 +1181,10 @@ async function auditConsultationIndicators(page, opts = {}) {
         }
 
         await page.waitForTimeout(800);
-        const triangleScope = (await header.count().catch(() => 0)) > 0 ? header : card;
+        const triangleScope = ((await opcional(header.count(), 'auditConsultationIndicators:header-count')) ?? 0) > 0 ? header : card;
         const before = await hasWarningTriangle(triangleScope);
 
-        await save.btn.click().catch(() => {});
+        await opcional(save.btn.click(), 'auditConsultationIndicators:boton-guardar-propio-click');
         await page.waitForTimeout(1500);
         await handleModals(page);
         await page.waitForTimeout(500);
@@ -1174,7 +1205,7 @@ async function auditConsultationIndicators(page, opts = {}) {
         if (entry.status === 'bug' && opts.screenshot !== false) {
           const safe = `${tabName}-${name}`.replace(/[^\w]+/g, '-').slice(0, 60);
           entry.screenshot = `test-results/indicador-${safe}.png`;
-          await page.screenshot({ path: entry.screenshot, fullPage: true }).catch(() => {});
+          await opcional(page.screenshot({ path: entry.screenshot, fullPage: true }), 'auditConsultationIndicators:screenshot-bug');
         }
 
         const icon = entry.status === 'ok' ? '✅' : '🐛';
@@ -1221,17 +1252,17 @@ async function auditConsultationIndicators(page, opts = {}) {
 // ─────────────────────────────────────────────────────────────────────────────
 async function collectFlaggedApartados(page) {
   const titles = page.locator('.card-title');
-  const n = await titles.count().catch(() => 0);
+  const n = (await opcional(titles.count(), 'collectFlaggedApartados:titles-count')) ?? 0;
   const flagged = [];
   for (let i = 0; i < n; i++) {
     const t = titles.nth(i);
-    if (!(await t.isVisible().catch(() => false))) continue;
+    if (!(await opcional(t.isVisible(), 'collectFlaggedApartados:title-visible'))) continue;
     const header = t.locator('xpath=ancestor::*[contains(@class,"card-header")][1]');
-    const scope = (await header.count().catch(() => 0)) > 0
+    const scope = ((await opcional(header.count(), 'collectFlaggedApartados:header-count')) ?? 0) > 0
       ? header
       : t.locator('xpath=ancestor::*[contains(concat(" ",normalize-space(@class)," ")," card ")][1]');
     if (await hasWarningTriangle(scope)) {
-      flagged.push(((await t.textContent().catch(() => '')) || '').trim());
+      flagged.push(((await opcional(t.textContent(), 'collectFlaggedApartados:title-textcontent')) || '').trim());
     }
   }
   return flagged;
@@ -1293,7 +1324,7 @@ async function auditarPantalla(page, etiqueta, opts = {}) {
   const inicio = Date.now();
   let vueltas = 0;
   while (Date.now() - inicio < maxWaitMs) {
-    const texto = await page.locator('body').innerText().catch(() => '');
+    const texto = (await opcional(page.locator('body').innerText(), 'auditarPantalla:body-innertext-poll')) ?? '';
     const matches = patronesCarga.flatMap(re => (texto.match(new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g')) || []));
     if (matches.length === 0) break;
     vueltas++;
@@ -1301,7 +1332,7 @@ async function auditarPantalla(page, etiqueta, opts = {}) {
   }
   if (vueltas > 0) reporte.tardoEnResolver = true;
 
-  const textoFinal = await page.locator('body').innerText().catch(() => '');
+  const textoFinal = (await opcional(page.locator('body').innerText(), 'auditarPantalla:body-innertext-final')) ?? '';
   reporte.textoCompleto = textoFinal;
   reporte.cargasPendientes = patronesCarga.flatMap(re => (textoFinal.match(new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g')) || []));
 
@@ -1309,19 +1340,19 @@ async function auditarPantalla(page, etiqueta, opts = {}) {
   // muestra: TODOS, para poder declarar explícitamente qué quedó sin llenar
   // y por qué, en vez de asumir que "ya se probó lo importante".
   const elementos = page.locator('input:visible, select:visible, textarea:visible, button:visible, [role="combobox"]:visible, [contenteditable="true"]:visible');
-  const n = await elementos.count().catch(() => 0);
+  const n = (await opcional(elementos.count(), 'auditarPantalla:elementos-count')) ?? 0;
   for (let i = 0; i < n; i++) {
     const el = elementos.nth(i);
-    const tag = await el.evaluate(e => e.tagName.toLowerCase()).catch(() => '?');
-    const type = await el.getAttribute('type').catch(() => null);
-    const name = await el.getAttribute('name').catch(() => null);
-    const placeholder = await el.getAttribute('placeholder').catch(() => null);
-    const required = await el.evaluate(e => e.required === true || e.getAttribute('aria-required') === 'true').catch(() => false);
+    const tag = (await opcional(el.evaluate(e => e.tagName.toLowerCase()), 'auditarPantalla:elemento-tag')) ?? '?';
+    const type = await opcional(el.getAttribute('type'), 'auditarPantalla:elemento-type');
+    const name = await opcional(el.getAttribute('name'), 'auditarPantalla:elemento-name');
+    const placeholder = await opcional(el.getAttribute('placeholder'), 'auditarPantalla:elemento-placeholder');
+    const required = await opcional(el.evaluate(e => e.required === true || e.getAttribute('aria-required') === 'true'), 'auditarPantalla:elemento-required');
     let value = null;
     if (tag === 'button' || tag === 'a') {
-      value = ((await el.textContent().catch(() => '')) || '').trim().substring(0, 50);
+      value = ((await opcional(el.textContent(), 'auditarPantalla:elemento-textcontent')) || '').trim().substring(0, 50);
     } else {
-      value = await el.inputValue().catch(() => null);
+      value = await opcional(el.inputValue(), 'auditarPantalla:elemento-inputvalue');
     }
     reporte.inventario.push({ i, tag, type, name, placeholder, required, value });
   }
@@ -1335,4 +1366,4 @@ async function auditarPantalla(page, etiqueta, opts = {}) {
   return reporte;
 }
 
-module.exports = { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals, setupConsoleMonitor, detectUnsavedSections, auditConsultationIndicators, scanResidualIndicators, asegurarCalendarioDashboard, irADiaEnCalendarioDashboard, auditarPantalla, buscarBotonIniciarDePaciente };
+module.exports = { fillTabFields, checkNextDaysForIniciarButton, createAppointment, handleModals, setupConsoleMonitor, detectUnsavedSections, auditConsultationIndicators, scanResidualIndicators, asegurarCalendarioDashboard, irADiaEnCalendarioDashboard, auditarPantalla, buscarBotonIniciarDePaciente, asegurarCitaDeHoy };

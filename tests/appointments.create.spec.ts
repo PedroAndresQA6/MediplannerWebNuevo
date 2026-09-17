@@ -1,9 +1,19 @@
 import { test, expect } from '@playwright/test';
 import { createAppointment } from '../e2e/utils.js';
+import { opcional, reporteOpcionales } from '../e2e/opcional.js';
 const config = require('../e2e/config');
 const logger = config.logger;
 
 test.describe('Schedule Appointment Flow', () => {
+
+  // Etapa 1 de docs/tarea-actual.md: volcar qué catch()es opcionales se
+  // dispararon en esta corrida (y cuántas veces), para clasificarlos con
+  // datos reales en la Etapa 2 — no a mano ni por intuición.
+  test.afterAll(() => {
+    const disparosOpcionales = reporteOpcionales();
+    console.log(`\n📋 [OPCIONAL] ${disparosOpcionales.length} etiqueta(s) distinta(s) se dispararon en esta corrida:`);
+    disparosOpcionales.forEach(([etiqueta, n]) => console.log(`   ${n}x — ${etiqueta}`));
+  });
 
   test('Schedule appointment for a patient', async ({ page }) => {
     await createAppointment(page);
@@ -32,7 +42,7 @@ test.describe('Schedule Appointment Flow', () => {
       if (semana > 0) {
         // Dar click en "Semana siguiente" para avanzar
         const nextWeekBtn = page.locator('button.fc-next-button, button[title="Semana siguiente"]');
-        if (await nextWeekBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        if (await opcional(nextWeekBtn.isVisible({ timeout: 3000 }), 'citas:boton-semana-siguiente-visible')) {
           await nextWeekBtn.click();
           logger.info(`Avanzando a semana ${semana + 1}...`);
           await page.waitForTimeout(2000);
@@ -47,7 +57,7 @@ test.describe('Schedule Appointment Flow', () => {
 
       for (const text of possibleTexts) {
         const candidate = page.locator(`text=/${text}/i`).first();
-        if (await candidate.isVisible({ timeout: 3000 }).catch(() => false)) {
+        if (await opcional(candidate.isVisible({ timeout: 3000 }), 'citas:candidato-texto-visible')) {
           logger.success(`Encontrada cita con texto: "${text}" en semana ${semana + 1}`);
           
           // Abrir la cita
@@ -56,12 +66,12 @@ test.describe('Schedule Appointment Flow', () => {
 
           // Esperar bloque emergente
           const modal = page.locator('[role="dialog"], .modal, .bg-white');
-          if (await modal.first().isVisible({ timeout: 5000 }).catch(() => false)) {
+          if (await opcional(modal.first().isVisible({ timeout: 5000 }), 'citas:modal-confirmar-visible')) {
             logger.info('Modal abierto');
             
             // Confirmar directamente la cita
             const confirmButton = page.getByRole('button', { name: /confirmar/i });
-            if (await confirmButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+            if (await opcional(confirmButton.isVisible({ timeout: 5000 }), 'citas:boton-confirmar-visible')) {
               await confirmButton.click();
               logger.success('Cita confirmada exitosamente');
             } else {

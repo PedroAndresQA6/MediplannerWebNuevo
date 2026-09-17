@@ -1,5 +1,6 @@
 const { test, expect } = require('@playwright/test');
-const { createAppointment, handleModals, setupConsoleMonitor, buscarBotonIniciarDePaciente, auditarPantalla } = require('../e2e/utils.js');
+const { handleModals, setupConsoleMonitor, auditarPantalla, asegurarCitaDeHoy } = require('../e2e/utils.js');
+const { opcional, reporteOpcionales } = require('../e2e/opcional.js');
 
 // ─────────────────────────────────────────────────────────────────────────
 // REESCRITO 2026-07-23 tras el rediseño de la pantalla de Consulta: pasó de
@@ -77,7 +78,7 @@ function pick(arr) {
 
 async function fillPerimetroCefalico(page, valor) {
   const perimetroInput = page.locator('input[name*="cefalic" i], input[name*="perimetro" i]').first();
-  if (await perimetroInput.count() > 0 && await perimetroInput.isVisible().catch(() => false)) {
+  if (await perimetroInput.count() > 0 && await opcional(perimetroInput.isVisible(), 'signos-vitales:perimetro-cefalico-visible')) {
     await perimetroInput.fill(valor);
     console.log(`📏 Perímetro cefálico: ${valor}`);
   } else {
@@ -92,7 +93,7 @@ async function fillPerimetroCefalico(page, valor) {
 // visibles") de una sección contaminan a las demás.
 async function sectionContainer(page, headingRegex, maxDepth = 10) {
   const heading = page.getByRole('heading', { level: 3, name: headingRegex }).first();
-  await heading.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+  await opcional(heading.waitFor({ state: 'visible', timeout: 15000 }), 'sectionContainer:heading-espera-visible');
 
   // Estrategia principal: subir hasta el ancestro con class="card" (el mismo
   // patrón que ya usa con éxito auditConsultationIndicators()/
@@ -100,7 +101,7 @@ async function sectionContainer(page, headingRegex, maxDepth = 10) {
   // consulta, "Exploración segmentaria"/"Aparatos y sistemas" incluidos).
   const cardAncestor = heading.locator('xpath=ancestor::*[contains(concat(" ",normalize-space(@class)," ")," card ")][1]');
   if (await cardAncestor.count() > 0) {
-    const box = await cardAncestor.boundingBox().catch(() => null);
+    const box = await opcional(cardAncestor.boundingBox(), 'sectionContainer:card-ancestor-boundingbox');
     if (box && box.height > 50) return cardAncestor;
   }
 
@@ -118,7 +119,7 @@ async function sectionContainer(page, headingRegex, maxDepth = 10) {
   for (let depth = 2; depth <= maxDepth; depth++) {
     const container = heading.locator(`xpath=ancestor::*[${depth}]`);
     if (await container.count() === 0) continue;
-    const box = await container.boundingBox().catch(() => null);
+    const box = await opcional(container.boundingBox(), 'sectionContainer:fallback-ancestor-boundingbox');
     if (box && box.height > 100) return container;
   }
   throw new Error(`sectionContainer: no se pudo acotar "${headingRegex}" ni por .card ni por altura — abortando en vez de arriesgar contaminación cruzada con scope de página completa`);
@@ -130,43 +131,43 @@ async function sectionContainer(page, headingRegex, maxDepth = 10) {
 // Salir de cualquiera de los 2 si aparecen.
 async function saltarOnboardingYWizardConfig(page) {
   const explorarLink = page.getByText(/prefiero explorar por mi cuenta/i);
-  if (await explorarLink.isVisible({ timeout: 3000 }).catch(() => false)) {
+  if (await opcional(explorarLink.isVisible({ timeout: 3000 }), 'onboarding:link-explorar-visible')) {
     console.log('ℹ️ Onboarding detectado — clickeando "Prefiero explorar por mi cuenta"');
-    await explorarLink.click({ force: true }).catch(() => {});
-    await page.waitForLoadState('load', { timeout: 20000 }).catch(() => {});
+    await opcional(explorarLink.click({ force: true }), 'onboarding:link-explorar-click');
+    await opcional(page.waitForLoadState('load', { timeout: 20000 }), 'onboarding:load-tras-explorar');
     await page.waitForTimeout(1500);
   }
   const configurarMasTardeLink = page.getByText(/configurar más tarde/i);
-  if (await configurarMasTardeLink.isVisible({ timeout: 3000 }).catch(() => false)) {
+  if (await opcional(configurarMasTardeLink.isVisible({ timeout: 3000 }), 'onboarding:link-configurar-mas-tarde-visible')) {
     console.log('ℹ️ Wizard de "Configuración de tu cuenta" detectado — clickeando "Configurar más tarde"');
-    await configurarMasTardeLink.click({ force: true }).catch(() => {});
-    await page.waitForLoadState('load', { timeout: 20000 }).catch(() => {});
+    await opcional(configurarMasTardeLink.click({ force: true }), 'onboarding:link-configurar-mas-tarde-click');
+    await opcional(page.waitForLoadState('load', { timeout: 20000 }), 'onboarding:load-tras-configurar-mas-tarde');
     await page.waitForTimeout(1500);
   }
 }
 
 async function iniciarConsultaDelPaciente(page) {
-  console.log(`📅 Creando cita para "${PACIENTE_NOMBRE}"...`);
-  await createAppointment(page, PACIENTE_BUSQUEDA);
-
-  console.log('🏠 Volviendo a Dashboard para iniciar SU cita...');
+  console.log('🏠 Yendo a Dashboard a revisar si ya hay una cita de hoy...');
   await page.goto('/Dashboard');
-  await page.waitForLoadState('load').catch(() => {});
+  await opcional(page.waitForLoadState('load'), 'iniciar-consulta:load-tras-dashboard');
   await page.waitForTimeout(2000);
   await saltarOnboardingYWizardConfig(page);
 
-  // createAppointment toma el PRIMER día de los próximos 5 con horario libre
-  // — no necesariamente hoy (confirmado en vivo 2026-07-31: dev puede tener
-  // la agenda llena los próximos 2-3 días). Buscar el botón "Iniciar" de este
-  // paciente navegando el calendario del Dashboard día por día, no solo en la
-  // vista de "hoy" — si no, nunca se encuentra y el test falla sin más.
-  const iniciarBtn = await buscarBotonIniciarDePaciente(page, PACIENTE_BUSQUEDA);
+  // Etapa 5 de docs/tarea-actual.md: la cita es una PRECONDICIÓN de este test,
+  // no su objetivo — se reutiliza la de hoy si ya existe, en vez de crear una
+  // nueva cada vez (createAppointment toma el PRIMER día de los próximos 5 con
+  // horario libre si hace falta crear, no necesariamente hoy — confirmado en
+  // vivo 2026-07-31 que dev puede tener la agenda llena los próximos 2-3 días).
+  const { reutilizada, iniciarBtn } = await asegurarCitaDeHoy(page, PACIENTE_BUSQUEDA);
+  console.log(reutilizada
+    ? `📅 "${PACIENTE_NOMBRE}" ya tenía una cita de hoy — se reutiliza.`
+    : `📅 No había cita de hoy para "${PACIENTE_NOMBRE}" — se creó una nueva.`);
   if (!iniciarBtn) {
-    throw new Error(`No se encontró botón "Iniciar" para "${PACIENTE_NOMBRE}" tras crear su cita`);
+    throw new Error(`No se encontró botón "Iniciar" para "${PACIENTE_NOMBRE}"`);
   }
 
   const overlay = page.locator('div.fixed.inset-0.bg-black.bg-opacity-50');
-  if (await overlay.count() > 0 && await overlay.first().isVisible().catch(() => false)) {
+  if (await overlay.count() > 0 && await opcional(overlay.first().isVisible(), 'iniciar-consulta:overlay-modal-visible')) {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(1000);
   }
@@ -184,8 +185,8 @@ async function fillGeneralSection(page) {
     // selector viejo (input[name=...]) nunca matcheaba y el campo se saltaba
     // en silencio (no fallaba, solo no se llenaba nunca).
     const motivoInput = page.locator('textarea[name="visitaPaciente"]');
-    if (await motivoInput.isVisible().catch(() => false)) {
-      const cur = await motivoInput.inputValue().catch(() => '');
+    if (await opcional(motivoInput.isVisible(), 'general:motivo-visible')) {
+      const cur = (await opcional(motivoInput.inputValue(), 'general:motivo-valor-actual')) ?? '';
       if (!cur.trim()) {
         await motivoInput.fill(TEXTO_MOTIVO);
         console.log('✅ Motivo de la consulta llenado');
@@ -194,12 +195,12 @@ async function fillGeneralSection(page) {
       console.log('⚠️ No se encontró el campo "Motivo de consulta" (textarea[name="visitaPaciente"])');
     }
     const padecimientoTa = page.locator('textarea[placeholder="¿Qué síntomas señala o presenta el paciente?"]').first();
-    if (await padecimientoTa.isVisible().catch(() => false)) {
+    if (await opcional(padecimientoTa.isVisible(), 'general:padecimiento-visible')) {
       await padecimientoTa.fill(TEXTO_PADECIMIENTO);
       console.log('✅ Padecimiento actual llenado');
     }
     const notasEvolucionTa = page.locator('textarea[placeholder="Notas de evolución"]').first();
-    if (await notasEvolucionTa.isVisible().catch(() => false)) {
+    if (await opcional(notasEvolucionTa.isVisible(), 'general:notas-evolucion-visible')) {
       await notasEvolucionTa.fill(TEXTO_NOTAS_EVOLUCION);
       console.log('✅ Notas de evolución llenadas');
     }
@@ -207,7 +208,7 @@ async function fillGeneralSection(page) {
     // sección incompleta) — confirmado por captura real: input de texto con
     // placeholder "¿Quién refirió al paciente?".
     const nombreReferidoInput = page.locator('input[placeholder="¿Quién refirió al paciente?"], textarea[placeholder="¿Quién refirió al paciente?"]').first();
-    if (await nombreReferidoInput.isVisible().catch(() => false)) {
+    if (await opcional(nombreReferidoInput.isVisible(), 'general:nombre-referido-visible')) {
       await nombreReferidoInput.fill(TEXTO_NOMBRE_REFERIDO);
       console.log('✅ Nombre referido llenado');
     } else {
@@ -223,7 +224,7 @@ async function fillApenrienciaGeneralSection(page) {
   console.log('👤 Llenando Apariencia general...');
   try {
     const ta = page.locator('textarea[placeholder="Describa la apariencia general del paciente"]').first();
-    if (await ta.isVisible().catch(() => false)) {
+    if (await opcional(ta.isVisible(), 'apariencia-general:textarea-visible')) {
       await ta.fill(TEXTO_APARIENCIA);
       console.log('✅ Apariencia general llenada');
     } else {
@@ -246,13 +247,13 @@ async function fillChecklistSection(page, headingRegex, nombreLog) {
     // después de que el heading ya es visible. Esperar explícitamente a que
     // ese texto desaparezca — no solo a que el primer checkbox se "attache"
     // — evita leer el total a mitad de carga.
-    await page.waitForFunction(
+    await opcional(page.waitForFunction(
       (el) => !el || !el.innerText || !el.innerText.toLowerCase().includes('cargando'),
       await scope.elementHandle(),
       { timeout: 15000 }
-    ).catch(() => {});
+    ), `${nombreLog}:espera-cargando-checklist`);
     const checkboxes = scope.locator('input[type="checkbox"]:not([disabled])');
-    await checkboxes.first().waitFor({ state: 'attached', timeout: 8000 }).catch(() => {});
+    await opcional(checkboxes.first().waitFor({ state: 'attached', timeout: 8000 }), `${nombreLog}:primer-checkbox-attached`);
     const total = await checkboxes.count();
     console.log(`☑️ ${nombreLog}: ${total} checkboxes encontrados`);
 
@@ -289,10 +290,10 @@ async function fillChecklistSection(page, headingRegex, nombreLog) {
     // reintento por checkbox para no depender de que el primer click alcance.
     for (let i = 0; i < total; i++) {
       const cb = checkboxes.nth(i);
-      await cb.click({ force: true }).catch(() => {});
+      await opcional(cb.click({ force: true }), `${nombreLog}:checkbox-click-1er-intento`);
       await page.waitForTimeout(150);
-      if (!(await cb.isChecked().catch(() => false))) {
-        await cb.click({ force: true }).catch(() => {});
+      if (!(await opcional(cb.isChecked(), `${nombreLog}:checkbox-ischecked-tras-1er-click`))) {
+        await opcional(cb.click({ force: true }), `${nombreLog}:checkbox-click-reintento`);
         await page.waitForTimeout(200);
       }
     }
@@ -305,8 +306,8 @@ async function fillChecklistSection(page, headingRegex, nombreLog) {
     await page.waitForTimeout(1500);
     const botones = scope.locator('div.simpleSelect label');
     const textareas = scope.locator('textarea:visible');
-    const botonesCount = await botones.count().catch(() => 0);
-    const textareasCount = await textareas.count().catch(() => 0);
+    const botonesCount = (await opcional(botones.count(), `${nombreLog}:botones-normal-anormal-count`)) ?? 0;
+    const textareasCount = (await opcional(textareas.count(), `${nombreLog}:textareas-observaciones-count`)) ?? 0;
     console.log(`${nombreLog}: ${botonesCount} botones Normal/Anormal (esperados ${total * 2}) | ${textareasCount} campos de Observaciones (esperados ${total})`);
 
     const items = [];
@@ -315,7 +316,7 @@ async function fillChecklistSection(page, headingRegex, nombreLog) {
       const elegirAnormal = i % 2 === 1;
       let botonResuelto = false;
       if (botonesCount >= (i + 1) * 2) {
-        await botones.nth(i * 2 + (elegirAnormal ? 1 : 0)).click({ force: true }).catch(() => {});
+        await opcional(botones.nth(i * 2 + (elegirAnormal ? 1 : 0)).click({ force: true }), `${nombreLog}:boton-normal-anormal-click`);
         await page.waitForTimeout(250);
         botonResuelto = true;
       } else {
@@ -328,7 +329,7 @@ async function fillChecklistSection(page, headingRegex, nombreLog) {
         observacionEsperada = elegirAnormal
           ? `${nombreItem}: hallazgo anormal detectado en ${nombreItem.toLowerCase()}, se sugiere valoración adicional (ítem #${i} de ${nombreLog}).`
           : `${nombreItem}: sin alteraciones aparentes en ${nombreItem.toLowerCase()} (ítem #${i} de ${nombreLog}).`;
-        await textareas.nth(i).fill(observacionEsperada).catch(() => {});
+        await opcional(textareas.nth(i).fill(observacionEsperada), `${nombreLog}:textarea-observaciones-fill`);
       } else {
         console.log(`⚠️ ${nombreLog}: "${nombreItem}" (índice ${i}) no tiene campo de Observaciones disponible`);
       }
@@ -342,7 +343,7 @@ async function fillChecklistSection(page, headingRegex, nombreLog) {
     await page.waitForTimeout(500);
 
     const guardarBtn = scope.locator('button:has-text("Guardar Respuestas")').first();
-    if (await guardarBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await opcional(guardarBtn.isVisible({ timeout: 3000 }), `${nombreLog}:boton-guardar-respuestas-visible`)) {
       await guardarBtn.click();
       await page.waitForTimeout(1500);
       await handleModals(page);
@@ -364,7 +365,7 @@ async function fillDiagnosticoSection(page) {
     await page.waitForTimeout(500);
 
     const cie10Input = scope.locator('textarea[role="combobox"]').first();
-    if (await cie10Input.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await opcional(cie10Input.isVisible({ timeout: 3000 }), 'diagnostico:cie10-combobox-visible')) {
       await cie10Input.click();
       await page.waitForTimeout(500);
       const codigoCIE10 = pick(DATOS_CLINICOS.cie10);
@@ -373,7 +374,7 @@ async function fillDiagnosticoSection(page) {
       const options = page.locator('[role="option"]:visible, div[id*="option"]:visible');
       const optionCount = await options.count();
       if (optionCount > 0) {
-        const optionText = (await options.first().textContent().catch(() => '') || '').trim();
+        const optionText = (await opcional(options.first().textContent(), 'diagnostico:cie10-opcion-textcontent') || '').trim();
         await options.first().click();
         console.log(`✅ Diagnóstico CIE-10 seleccionado: "${optionText.substring(0, 40)}..."`);
       } else {
@@ -384,8 +385,8 @@ async function fillDiagnosticoSection(page) {
     }
 
     const impresion = scope.locator('textarea[placeholder="Impresión diagnóstica"]').first();
-    if (await impresion.isVisible({ timeout: 2000 }).catch(() => false)) {
-      const cur = await impresion.inputValue().catch(() => '');
+    if (await opcional(impresion.isVisible({ timeout: 2000 }), 'diagnostico:impresion-visible')) {
+      const cur = (await opcional(impresion.inputValue(), 'diagnostico:impresion-valor-actual')) ?? '';
       if (!cur.trim()) {
         await impresion.fill(TEXTO_IMPRESION_DIAGNOSTICA);
         console.log('✅ Impresión diagnóstica llenada');
@@ -399,10 +400,10 @@ async function fillDiagnosticoSection(page) {
     const n = await tas.count();
     for (let i = 0; i < n; i++) {
       const ta = tas.nth(i);
-      const ph = (await ta.getAttribute('placeholder').catch(() => '')) || '';
-      const val = await ta.inputValue().catch(() => '');
+      const ph = (await opcional(ta.getAttribute('placeholder'), 'diagnostico:observaciones-textarea-placeholder')) || '';
+      const val = (await opcional(ta.inputValue(), 'diagnostico:observaciones-textarea-valor-actual')) ?? '';
       if (ph === 'Impresión diagnóstica' || val.trim()) continue;
-      await ta.fill(TEXTO_OBSERVACIONES_DIAGNOSTICO).catch(() => {});
+      await opcional(ta.fill(TEXTO_OBSERVACIONES_DIAGNOSTICO), 'diagnostico:observaciones-textarea-fill');
       console.log('✅ Observaciones del diagnóstico llenadas');
       break;
     }
@@ -420,7 +421,7 @@ async function fillTratamientoSection(page) {
     await page.waitForTimeout(500);
 
     const indicacionesEditor = scope.locator('div.jodit-wysiwyg').first();
-    if (await indicacionesEditor.isVisible().catch(() => false)) {
+    if (await opcional(indicacionesEditor.isVisible(), 'tratamiento:indicaciones-editor-visible')) {
       await indicacionesEditor.click();
       await page.keyboard.press('Control+A');
       await page.keyboard.type(pick(DATOS_CLINICOS.indicacionesGenerales));
@@ -428,11 +429,11 @@ async function fillTratamientoSection(page) {
     }
 
     const medicamentoInput = scope.locator('#react-select-2-input');
-    if (await medicamentoInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await opcional(medicamentoInput.isVisible({ timeout: 3000 }), 'tratamiento:medicamento-input-visible')) {
       const medicamento = pick(DATOS_CLINICOS.medicamentos);
       await medicamentoInput.click();
       await medicamentoInput.fill(medicamento);
-      await page.waitForSelector('[role="option"]:visible, div[id*="option"]:visible', { timeout: 10000 }).catch(() => null);
+      await opcional(page.waitForSelector('[role="option"]:visible, div[id*="option"]:visible', { timeout: 10000 }), 'tratamiento:medicamento-opciones-espera');
       const options = page.locator('[role="option"]:visible, div[id*="option"]:visible');
       const optionCount = await options.count();
       if (optionCount > 0) {
@@ -442,32 +443,32 @@ async function fillTratamientoSection(page) {
         // medicamento distinto al buscado).
         let elegida = null;
         for (let i = 0; i < optionCount; i++) {
-          const t = (await options.nth(i).textContent().catch(() => '') || '');
+          const t = (await opcional(options.nth(i).textContent(), 'tratamiento:medicamento-opcion-textcontent') || '');
           if (t.toLowerCase().includes(medicamento.toLowerCase())) { elegida = options.nth(i); break; }
         }
         const target = elegida || options.first();
-        const textoReal = (await target.textContent().catch(() => '') || '').trim();
+        const textoReal = (await opcional(target.textContent(), 'tratamiento:medicamento-elegido-textcontent') || '').trim();
         await target.click();
         if (!elegida) console.log(`⚠️ Ninguna opción contenía "${medicamento}" — se tomó la primera disponible`);
         console.log(`✅ Medicamento seleccionado: "${textoReal.substring(0, 60)}" (buscado: "${medicamento}")`);
       }
-      await page.waitForLoadState('load').catch(() => {});
+      await opcional(page.waitForLoadState('load'), 'tratamiento:load-tras-elegir-medicamento');
       await page.waitForTimeout(1500);
 
       const dosisInput = page.locator('input[name="dosis_cantidad"]');
-      if (await dosisInput.isVisible().catch(() => false)) await dosisInput.fill('1');
+      if (await opcional(dosisInput.isVisible(), 'tratamiento:dosis-input-visible')) await dosisInput.fill('1');
       const viaSelect = page.locator('select[name="iViaAdministracionId-0"]');
-      if (await viaSelect.isVisible().catch(() => false)) await viaSelect.selectOption({ index: 1 });
+      if (await opcional(viaSelect.isVisible(), 'tratamiento:via-select-visible')) await viaSelect.selectOption({ index: 1 });
       const unidadSelect = page.locator('select[name="unidad_dosis_id-0"]');
-      if (await unidadSelect.isVisible().catch(() => false)) await unidadSelect.selectOption({ index: 1 });
+      if (await opcional(unidadSelect.isVisible(), 'tratamiento:unidad-select-visible')) await unidadSelect.selectOption({ index: 1 });
       const frecuenciaInput = page.locator('input[name="frecuencia_cantidad"]');
-      if (await frecuenciaInput.isVisible().catch(() => false)) await frecuenciaInput.fill('8');
+      if (await opcional(frecuenciaInput.isVisible(), 'tratamiento:frecuencia-input-visible')) await frecuenciaInput.fill('8');
       const duracionInput = page.locator('input[name="tiempo_cantidad"]');
-      if (await duracionInput.isVisible().catch(() => false)) await duracionInput.fill('10');
+      if (await opcional(duracionInput.isVisible(), 'tratamiento:duracion-input-visible')) await duracionInput.fill('10');
       const tiempoSelect = page.locator('select[name="unidad_tiempo_id-0"]');
-      if (await tiempoSelect.isVisible().catch(() => false)) await tiempoSelect.selectOption({ index: 1 });
+      if (await opcional(tiempoSelect.isVisible(), 'tratamiento:tiempo-select-visible')) await tiempoSelect.selectOption({ index: 1 });
       const indicacionesMedInput = page.locator('input[name="indicaciones-0"]');
-      if (await indicacionesMedInput.isVisible().catch(() => false)) await indicacionesMedInput.fill('Indicaciones estándar');
+      if (await opcional(indicacionesMedInput.isVisible(), 'tratamiento:indicaciones-med-input-visible')) await indicacionesMedInput.fill('Indicaciones estándar');
       console.log('✅ Formulario del medicamento llenado');
     } else {
       console.log('⚠️ No se encontró el buscador de medicamentos en Tratamiento');
@@ -478,18 +479,18 @@ async function fillTratamientoSection(page) {
     // Indicaciones (2 inputs de texto sin name/placeholder, identificados por
     // su <label> propio) — antes se dejaba sin llenar por completo.
     const agregarDiferenteBtn = scope.locator('button:has-text("Agrega tratamiento diferente"), button:has-text("Agrega tratamiendo diferente")').first();
-    if (await agregarDiferenteBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await opcional(agregarDiferenteBtn.isVisible({ timeout: 3000 }), 'tratamiento:boton-agregar-diferente-visible')) {
       await agregarDiferenteBtn.click();
       await page.waitForTimeout(800);
       const tratamientoDiferente = pick(DATOS_CLINICOS.tratamientosDiferentes);
       const medicamentoDifInput = scope.locator('div.flex:has-text("Medicamento:")').last().locator('input[type="text"]').first();
-      if (await medicamentoDifInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+      if (await opcional(medicamentoDifInput.isVisible({ timeout: 3000 }), 'tratamiento:medicamento-diferente-input-visible')) {
         await medicamentoDifInput.fill(tratamientoDiferente);
       } else {
         console.log('⚠️ No se encontró el input de "Medicamento:" en Otros medicamentos');
       }
       const indicacionesDifInput = scope.locator('div.flex:has-text("Indicaciones:")').last().locator('input[type="text"]').first();
-      if (await indicacionesDifInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+      if (await opcional(indicacionesDifInput.isVisible({ timeout: 3000 }), 'tratamiento:indicaciones-diferente-input-visible')) {
         await indicacionesDifInput.fill('Tomar según indicación médica, con alimentos.');
       } else {
         console.log('⚠️ No se encontró el input de "Indicaciones:" en Otros medicamentos');
@@ -512,7 +513,7 @@ async function fillLaboratoriosSection(page) {
     await page.waitForTimeout(500);
 
     const indicacionesEditor = scope.locator('div.jodit-wysiwyg').first();
-    if (await indicacionesEditor.isVisible().catch(() => false)) {
+    if (await opcional(indicacionesEditor.isVisible(), 'laboratorios:indicaciones-editor-visible')) {
       await indicacionesEditor.click();
       await page.keyboard.press('Control+A');
       await page.keyboard.type(TEXTO_INDICACIONES_LAB);
@@ -520,7 +521,7 @@ async function fillLaboratoriosSection(page) {
     }
 
     const labSelect = scope.locator('#react-select-3-input');
-    if (await labSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await opcional(labSelect.isVisible({ timeout: 3000 }), 'laboratorios:lab-select-visible')) {
       const laboratorio = pick(DATOS_CLINICOS.laboratorios);
       await labSelect.click();
       await page.waitForTimeout(300);
@@ -533,11 +534,11 @@ async function fillLaboratoriosSection(page) {
         // asumir que la primera opción corresponde a lo buscado.
         let elegida = null;
         for (let i = 0; i < labOptionCount; i++) {
-          const t = (await labOptions.nth(i).textContent().catch(() => '') || '');
+          const t = (await opcional(labOptions.nth(i).textContent(), 'laboratorios:opcion-textcontent') || '');
           if (t.toLowerCase().includes(laboratorio.toLowerCase())) { elegida = labOptions.nth(i); break; }
         }
         const target = elegida || labOptions.first();
-        const text = (await target.textContent().catch(() => '') || '').trim();
+        const text = (await opcional(target.textContent(), 'laboratorios:opcion-elegida-textcontent') || '').trim();
         await target.click();
         if (!elegida) console.log(`⚠️ Ninguna opción de laboratorio contenía "${laboratorio}" — se tomó la primera disponible`);
         console.log(`✅ Laboratorio seleccionado: "${text.substring(0, 60)}" (buscado: "${laboratorio}")`);
@@ -547,7 +548,7 @@ async function fillLaboratoriosSection(page) {
     }
 
     const procedimientoInput = scope.locator('textarea[name="procedimiento-0"]');
-    if (await procedimientoInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await opcional(procedimientoInput.isVisible({ timeout: 2000 }), 'laboratorios:procedimiento-input-visible')) {
       await procedimientoInput.fill(TEXTO_PROCEDIMIENTO);
       console.log('✅ Procedimiento llenado');
     }
@@ -563,7 +564,7 @@ async function fillNotasMedicoSection(page) {
   try {
     const scope = await sectionContainer(page, /^Notas del Médico/i);
     const editor = scope.locator('div.jodit-wysiwyg').first();
-    if (await editor.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (await opcional(editor.isVisible({ timeout: 5000 }), 'notas-medico:editor-visible')) {
       await editor.click();
       await page.keyboard.press('Control+A');
       await page.keyboard.type(TEXTO_NOTAS_MEDICO);
@@ -598,17 +599,17 @@ async function fillServiciosSection(page) {
 
       if (optionCount === 0) {
         const sinElementos = page.locator('text=/No se encontraron elementos/i');
-        if (await sinElementos.isVisible({ timeout: 1000 }).catch(() => false)) {
+        if (await opcional(sinElementos.isVisible({ timeout: 1000 }), 'servicios:sin-elementos-visible')) {
           sinOpcionesDisponibles = true;
           const shot = 'test-results/servicios-sin-opciones.png';
-          await page.screenshot({ path: shot, fullPage: true }).catch(() => {});
+          await opcional(page.screenshot({ path: shot, fullPage: true }), 'servicios:screenshot-sin-opciones');
           console.log(`🐛 BUG: dropdown "Agregar servicios" sin opciones ("No se encontraron elementos") → ${shot}`);
         }
       } else {
         let elegido = false;
         for (let j = 0; j < optionCount; j++) {
           const option = options.nth(j);
-          const optionText = (await option.textContent().catch(() => '') || '').trim();
+          const optionText = (await opcional(option.textContent(), 'servicios:opcion-textcontent') || '').trim();
           if (optionText.toLowerCase().includes('certificado')) {
             await option.click();
             console.log(`✅ Servicio seleccionado: "${optionText.substring(0, 60)}"`);
@@ -618,7 +619,7 @@ async function fillServiciosSection(page) {
         }
         if (!elegido) {
           const first = options.first();
-          const text = (await first.textContent().catch(() => '') || '').trim();
+          const text = (await opcional(first.textContent(), 'servicios:opcion-primera-textcontent') || '').trim();
           await first.click();
           console.log(`✅ Servicio seleccionado (primera opción): "${text.substring(0, 60)}"`);
         }
@@ -678,7 +679,7 @@ async function waitForFinalizarButton(page) {
   // Servicios) — usar el primero.
   const finalizarBtn = page.getByRole('button', { name: /finalizar consulta/i }).first();
   await expect(finalizarBtn, 'Debe existir el botón "Finalizar Consulta"').toBeVisible({ timeout: 15000 });
-  const habilitado = await finalizarBtn.isEnabled().catch(() => false);
+  const habilitado = await opcional(finalizarBtn.isEnabled(), 'finalizar:boton-isenabled');
   console.log(`✅ Botón de finalizar ${habilitado ? 'encontrado y habilitado' : 'encontrado pero DESHABILITADO'}`);
   return finalizarBtn;
 }
@@ -718,7 +719,7 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     if (await tallaInput.count() > 0) await tallaInput.first().fill(svTalla);
     await fillPerimetroCefalico(page, MEDIDAS.perimetro);
     const presionInput = page.locator('input[placeholder="000/000 mmHg"]');
-    if (await presionInput.isVisible().catch(() => false)) await presionInput.fill(svPresion);
+    if (await opcional(presionInput.isVisible(), 'signos-vitales:presion-input-visible')) await presionInput.fill(svPresion);
     const tempInput = page.locator('input[name*="temp" i]');
     if (await tempInput.count() > 0) await tempInput.first().fill(svTemp);
     const fcInput = page.locator('input[name*="card" i]');
@@ -740,7 +741,7 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
       return btn && !btn.disabled;
     }, { timeout: 10000 });
 
-    const respPromise = page.waitForResponse(r => r.url().includes('/api/consultations/registerVitalSigns'), { timeout: 15000 }).catch(() => null);
+    const respPromise = opcional(page.waitForResponse(r => r.url().includes('/api/consultations/registerVitalSigns'), { timeout: 15000 }), 'signos-vitales:espera-response-registervitalsigns');
     await page.getByRole('button', { name: /^Guardar$/i }).click();
     const resp = await respPromise;
     expect(resp?.status(), 'registerVitalSigns debe responder 2xx').toBeLessThan(300);
@@ -748,7 +749,7 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
 
     await page.waitForTimeout(1000);
     const cerrarButton = page.getByRole('button', { name: /cerrar/i });
-    if (await cerrarButton.isVisible().catch(() => false)) {
+    if (await opcional(cerrarButton.isVisible(), 'signos-vitales:boton-cerrar-visible')) {
       await cerrarButton.click();
       await page.waitForTimeout(1000);
     }
@@ -762,7 +763,7 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     } catch (e) {
       console.log('⚠️ Timeout, navegando manualmente...');
       await page.goto('/Consulta/ConsultaGeneral');
-      await page.waitForLoadState('load').catch(() => {});
+      await opcional(page.waitForLoadState('load'), 'consulta:load-tras-navegacion-manual');
     }
 
     console.log('⏳ Esperando carga completa de la consulta...');
@@ -797,7 +798,7 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
   });
   page.on('response', async (r) => {
     if (r.url().includes('/api/profile/getProfile')) {
-      const body = await r.json().catch(() => null);
+      const body = await opcional(r.json(), 'consulta:getprofile-response-json');
       if (body?.data?.id) doctorId = body.data.id;
     }
   });
@@ -836,8 +837,8 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
   await test.step('Finalizar consulta', async () => {
     console.log('\n🏁 === INICIANDO FINALIZACIÓN DE CONSULTA ===');
     const finalizarBtn = await waitForFinalizarButton(page);
-    const reqPromise = page.waitForRequest(r => r.url().includes('/api/consultations/finishConsultation'), { timeout: 15000 }).catch(() => null);
-    const respPromise = page.waitForResponse(r => r.url().includes('/api/consultations/finishConsultation'), { timeout: 15000 }).catch(() => null);
+    const reqPromise = opcional(page.waitForRequest(r => r.url().includes('/api/consultations/finishConsultation'), { timeout: 15000 }), 'finalizar:espera-request-finishconsultation');
+    const respPromise = opcional(page.waitForResponse(r => r.url().includes('/api/consultations/finishConsultation'), { timeout: 15000 }), 'finalizar:espera-response-finishconsultation');
     await finalizarBtn.click();
     const [req, resp] = await Promise.all([reqPromise, respPromise]);
     if (req) {
@@ -854,7 +855,7 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     }
     await page.waitForTimeout(1000);
     const confirmBtn = page.locator('.swal2-confirm:visible, button:has-text("Aceptar"):visible, button:has-text("OK"):visible').first();
-    if (await confirmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await opcional(confirmBtn.isVisible({ timeout: 3000 }), 'finalizar:boton-confirmacion-visible')) {
       await confirmBtn.click();
       console.log('✅ Confirmación clickeada');
     }
@@ -895,7 +896,7 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
           headers: { 'Content-Type': 'application/json', 'x-rym-token-app': capturedToken },
           data: body,
         });
-        const result = await resp.json().catch(() => null);
+        const result = await opcional(resp.json(), `fetchApi:${endpoint}-response-json`);
         if (result?.status === 'OK') return result;
         if (intento < retries) {
           console.log(`⚠️ ${endpoint} respondió "${result?.status}" (${result?.message || ''}) — reintentando...`);
@@ -1040,6 +1041,13 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
   });
 
   console.log('\n🎉 === CONSULTA COMPLETADA EXITOSAMENTE ===');
+
+  // Etapa 1 de docs/tarea-actual.md: volcar qué catch()es opcionales se
+  // dispararon en esta corrida (y cuántas veces), para clasificarlos con
+  // datos reales en la Etapa 2 — no a mano ni por intuición.
+  const disparosOpcionales = reporteOpcionales();
+  console.log(`\n📋 [OPCIONAL] ${disparosOpcionales.length} etiqueta(s) distinta(s) se dispararon en esta corrida:`);
+  disparosOpcionales.forEach(([etiqueta, n]) => console.log(`   ${n}x — ${etiqueta}`));
 
   const result = monitor.printSummary();
   if (!result.passed) console.log(`⚠️ El test terminó con ${result.errors.length} error(es) y ${result.failedApiCalls.length} API call(s) fallida(s).`);
