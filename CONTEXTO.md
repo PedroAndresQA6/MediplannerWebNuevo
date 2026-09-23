@@ -5,7 +5,7 @@
 > el detalle histórico vive en `docs/historial/`, los hallazgos con su
 > evidencia en `docs/hallazgos-abiertos.md`.
 >
-> **Última actualización:** 2026-09-17 (noche)
+> **Última actualización:** 2026-09-23
 >
 > **Regla de mantenimiento:** cuando algo se resuelve o se cierra, sale de este
 > archivo y se archiva. Si una entrada crece más de un párrafo, su detalle va a
@@ -73,11 +73,23 @@ iniciativa en curso de reorganización de la suite, descrita en
   `asegurarCitaDeHoy()` en `e2e/utils.js`, ya en uso — revisa la agenda de hoy
   antes de crear una cita nueva. `appointments.create.spec.ts` sigue creando
   siempre (correcto, es su objetivo).
-- Pendiente antes de pasar a la Etapa 3: confirmar en vivo
+- Siguen pendientes de la Etapa 2 (no bloquean): confirmar en vivo
   `irADiaEnCalendarioDashboard:250` y decidir qué hacer con dosis/vía/unidad/
   frecuencia/duración/tiempo/indicaciones del medicamento (único hueco de
   cobertura que quedó sin verificación, por no tener confirmado el shape
   completo de `getTreatments`).
+
+**Etapa 3 completa y commiteada (`287ddcb`, 2026-09-23)** — detalle en
+`docs/historial/2026-09-23-etapa3-extraccion-helpers.md`. Los 15 helpers de
+`consultation.full-flow.spec.js` se movieron tal cual a `e2e/consulta/`
+(`navegacion.js`, `secciones.js`, `guardado.js`, más `datos.js` con las
+constantes compartidas y `util.js` con `pick()`). Spec: 1165 → 466 líneas. Se
+conservaron los 52 `opcional()` y las 13 precondiciones. `doctor-consultation`
+contra dev dio el mismo resultado que antes (rojo solo por el 404 de
+`getFilledForm`). Única diferencia observada: 7 `net::ERR_ABORTED` más en
+consola, coincidentes con las recargas del calendario del Dashboard — sin
+aserción asociada, queda como observación abierta. **Siguiente: Etapa 4**
+(partir `e2e/utils.js`).
 
 **Credenciales:** desde 2026-09-17, `tests/auth.setup.ts` ya no tiene valores
 por defecto — las toma solo de `.env` y falla con mensaje claro si faltan. La
@@ -107,7 +119,12 @@ Detalle completo en `docs/hallazgos-abiertos.md`.
 
 ## Pendientes de commit
 
-Nada pendiente por el momento. Los cuatro commits del 2026-09-17: `74f22cd`
+Etapa 3 commiteada el 2026-09-23 en la rama `etapa-3-extract-helpers`
+(`287ddcb` código + commit de docs). Git en esta carpeta de OneDrive falla al
+cambiar de rama/commitear ("unable to append to .git/logs/HEAD") — se resuelve
+por comando con `git -c windows.appendAtomically=false ...`.
+
+Los cuatro commits del 2026-09-17: `74f22cd`
 (reorganización de la raíz), `7b38f99` (instrumentación Etapa 1 +
 investigación de `getFilledForm`), `22e0ecf` (credenciales sin default,
 selectores desactualizados de reportes/subir-estudios, y limpieza/

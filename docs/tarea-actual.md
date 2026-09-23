@@ -2,233 +2,137 @@
 
 > Encargo vigente. Cuando se complete, este archivo se reemplaza por el
 > siguiente encargo y lo hecho se resume en `CONTEXTO.md`.
-> Definido el 2026-09-17.
+> Definido el 2026-09-17 · Actualizado el 2026-09-22 con medidas reales del repo
+> · Actualizado el 2026-09-23 al completar la Etapa 3.
+
+## Estado
+
+| Etapa | Estado |
+| --- | --- |
+| 0. Reorganización de la raíz | ✅ Completa (`74f22cd`) |
+| 1. Instrumentar los `catch` silenciosos | ✅ Completa (`7b38f99`) |
+| 2. Clasificar por lo que envuelve | ✅ Completa (`5c604d9`) |
+| 3. Extraer los helpers de consulta | ✅ Completa (`287ddcb`) |
+| 4. Partir `e2e/utils.js` | ⬅ **Siguiente** |
+| 5. `asegurarCitaDeHoy()` y endurecer los specs de citas | Parcial |
+
+Detalle de la Etapa 2 en `docs/historial/2026-09-17-etapa2-clasificacion-catches.md`.
+Detalle de la Etapa 3 en `docs/historial/2026-09-23-etapa3-extraccion-helpers.md`.
 
 ## Por qué
 
-Dos problemas concretos, medidos sobre el repo:
+El trabajo sobre los `catch` silenciosos (Etapas 1 y 2) ya está hecho: de 160
+sitios instrumentados quedan 77 `opcional()` vivos (52 en el full-flow, 25 en
+`utils.js`), todos clasificados como opcionales legítimos. Las 15
+precondiciones se endurecieron y 58 sitios desaparecieron con el código muerto
+que los contenía.
 
-1. `tests/consultation.full-flow.spec.js` son 1050 líneas, de las cuales 686
-   (65%) son catorce funciones auxiliares definidas antes del test. El test en
-   sí son 364 líneas y ya está bien estructurado en `test.step()`. Cuando algo
-   falla, el reporte no dice en qué sección.
-2. Hay **160 sitios que atrapan excepciones en silencio** (71 en
-   `tests/consultation.full-flow.spec.js`, 85 en `e2e/utils.js`, 4 en
-   `tests/appointments.create.spec.ts`; el conteo original de 112 solo cubría
-   las variantes literales de `catch(() => {})`). Cada uno es un lugar donde
-   una falla real puede tragarse sin ruido — exactamente lo que el punto 5 de
-   `CLAUDE.md` señala como escondite de bugs.
+La Etapa 3 sacó los quince helpers de `tests/consultation.full-flow.spec.js`
+(1165 → 466 líneas). Queda partir `e2e/utils.js` y endurecer los specs de
+citas.
 
-Se atacan juntos porque al mover cada helper hay que leerlo completo de todos
-modos; juzgar su `catch` de paso cuesta casi nada.
+---
 
-## Orden de ejecución
+## Etapa 3 — Extraer los helpers de consulta ✅ COMPLETA (2026-09-23, `287ddcb`)
 
-Las etapas son secuenciales. Al terminar cada una, la suite debe correr igual
-que antes: mismo resultado, mismos hallazgos. Si una etapa cambia el resultado
-de un test, eso es un hallazgo y se documenta antes de seguir.
-
-### Etapa 1 — Instrumentar antes de decidir ✅ COMPLETA (2026-09-17)
-
-No juzgar los 112 `catch` a mano. Primero convertirlos en dato.
-
-Crear en `e2e/opcional.js` un helper compartido:
-
-```js
-// Envuelve una operación que PUEDE fallar legítimamente.
-// Sigue atrapando la excepción, pero deja registro de que se disparó.
-const _disparos = new Map();
-
-async function opcional(promesa, etiqueta) {
-  try {
-    return await promesa;
-  } catch (e) {
-    const n = (_disparos.get(etiqueta) || 0) + 1;
-    _disparos.set(etiqueta, n);
-    console.log(`[OPCIONAL] ${etiqueta} — atrapado (${n}): ${e.message.split('\n')[0]}`);
-    return undefined;
-  }
-}
-
-function reporteOpcionales() {
-  return [..._disparos.entries()].sort((a, b) => b[1] - a[1]);
-}
-
-module.exports = { opcional, reporteOpcionales };
-```
-
-Reemplazar cada `catch(() => {})` por una llamada a `opcional()` con una
-etiqueta única y descriptiva (`'citas:modal-confirmar'`,
-`'consulta:overlay-recuperando'`). **No quitar ninguno todavía** — en esta etapa
-solo se instrumenta.
-
-Correr la suite completa tres veces contra dev y volcar el reporte de
-`reporteOpcionales()` al final de cada corrida. El resultado es la lista de qué
-se dispara, cuántas veces, y qué nunca se dispara.
-
-### Etapa 2 — Clasificar por lo que envuelve, no por si se disparó
-
-> **Corregido el 2026-09-17 tras el resultado de la Etapa 1.** La versión
-> anterior de esta etapa decía clasificar según qué se disparara en las tres
-> corridas. Ese criterio es insuficiente y llevaría a borrar las redes
-> equivocadas. Explicación abajo.
-
-**Qué mostró la Etapa 1:** de 160 sitios instrumentados, en tres corridas
-limpias de `doctor-consultation` se disparó **una sola etiqueta**
-(`auditarPantalla:elemento-inputvalue`, 3 veces cada corrida).
-
-**Por qué ese dato no alcanza.** Los 160 sitios no son de un solo tipo:
-
-```js
-// Familia A — la operación NO lanza. El catch es decorativo.
-if (await opcional(explorarLink.isVisible({ timeout: 3000 }), 'onboarding:link-explorar-visible')) {
-
-// Familia B — la operación SÍ lanza al vencer el timeout.
-await opcional(heading.waitFor({ state: 'visible', timeout: 15000 }), 'sectionContainer:heading-espera-visible');
-```
-
-En la **familia A** el `catch` nunca se dispara porque `isVisible()` y
-`count()` resuelven a `false`/`0` sin lanzar. Pero el riesgo real no es el
-`catch`: es que cuando el elemento no está, **toda la rama `if` se salta en
-silencio**. La instrumentación mide si el `catch` se activó, no si la rama se
-omitió — así que esos sitios aparecen como inofensivos sin que se haya medido
-lo que puede fallar en ellos.
-
-En la **familia B** el `catch` solo se activa cuando algo va mal. Tres corridas
-limpias no prueban nada sobre ellos. El ejemplo de arriba es literalmente el
-patrón que produjo el rastro falso del Hallazgo 1: `sectionContainer` siguiendo
-adelante con un scope roto porque el heading nunca apareció.
-
-**En corto:** la Etapa 1 respondió "cuáles se disparan cuando todo funciona".
-La pregunta que importa es "cuáles ocultarían el problema cuando algo falle".
-
-#### Criterio de clasificación
-
-Es estático: se resuelve leyendo el código, sin correr nada. Clasificar cada
-uno de los 160 por **qué operación envuelve**.
-
-| La operación envuelta | ¿Lanza? | Acción |
-| --- | --- | --- |
-| `isVisible()`, `count()`, `isEnabled()`, `isChecked()` | No | Quitar el `opcional()`: es decoración. La decisión real es si esa rama `if` debería poder saltarse — ver abajo. |
-| `waitFor()`, `waitForSelector()`, `waitForLoadState()`, `waitForFunction()`, `waitForResponse()` | Sí, al vencer timeout | Juzgar uno por uno. Es la lista corta que importa. |
-| `click()`, `fill()`, `selectOption()`, `check()`, `boundingBox()`, `textContent()` | Sí | Juzgar uno por uno. |
-| Cualquier `expect(...)` | Sí | Quitar el `catch` siempre. Una aserción atrapada no existe. |
-
-Para cada sitio de la familia B, y para cada rama `if` de la familia A:
-
-- **Es una precondición** (que cargue una pantalla, que aparezca un botón sin
-  el cual el resto del bloque no tiene sentido, que termine una navegación) →
-  **debe fallar**. Convertir en espera dura con mensaje claro de qué se
-  esperaba y no llegó. Estos son los escondites de bugs del punto 5 de
-  `CLAUDE.md`.
-- **Es genuinamente opcional** (un modal que aparece a veces, un link de
-  onboarding que solo sale la primera vez) → se queda, con un comentario de
-  **una línea** que diga por qué es opcional. Si no se puede escribir ese
-  comentario con convicción, no es opcional: es una precondición disfrazada.
-
-#### Entregable de la etapa
-
-Documentar en `docs/historial/` la clasificación con la cuenta final por
-categoría, separando familia A de familia B. Interesa especialmente saber
-cuántos sitios de familia B resultaron ser precondiciones — esa es la medida
-real de cuántos bugs podían esconderse.
-
-Los sitios que queden como opcionales legítimos conservan `opcional()`, así que
-el helper y su reporte siguen siendo útiles para corridas futuras.
-
-### Etapa 3 — Extraer los helpers de consulta
-
-Mover las catorce funciones de `tests/consultation.full-flow.spec.js`:
+Mudanza tal cual, sin cambios de lógica. El spec quedó en **466 líneas** y los
+helpers en `e2e/consulta/`:
 
 ```
 e2e/consulta/
-  secciones.js     fillGeneralSection, fillApenrienciaGeneralSection,
-                   fillChecklistSection, fillDiagnosticoSection,
-                   fillTratamientoSection, fillLaboratoriosSection,
-                   fillNotasMedicoSection, fillServiciosSection,
-                   fillPerimetroCefalico
   navegacion.js    sectionContainer, saltarOnboardingYWizardConfig,
                    iniciarConsultaDelPaciente
+  secciones.js     fillPerimetroCefalico + las 8 fill*Section
   guardado.js      guardarCambiosGlobal, waitForFinalizarButton
+  datos.js         DATOS_CLINICOS, TEXTO_*, PACIENTE_*, PERCENTIL_*, MEDIDAS
+  util.js          pick()
 ```
 
-El spec debe quedar en ~380 líneas. Conservar los comentarios de contexto que
-ya tiene (el del rediseño de la pantalla de Consulta y el del mecanismo de
-guardado) — moverlos junto al código que describen.
+`datos.js` no estaba en el plan original: las constantes las comparten los
+helpers y la verificación post-Finalizar del spec (aprobado por Pedro). Se
+conservaron los 52 `opcional()`, las 13 precondiciones (ninguna volvió a
+`opcional()`), el regex `/^Exploración segmentar[ií]a\s*$/i` y los comentarios
+de contexto junto a su código. `doctor-consultation` contra dev dio el mismo
+resultado que antes de la mudanza (falla solo por el 404 de `getFilledForm`,
+verificación post-Finalizar limpia).
 
-Preservar el typo real de la app: el regex de "Exploración segmentaria" debe
-seguir siendo `/^Exploración segmentar[ií]a\s*$/i`.
+---
 
-### Etapa 4 — Partir `e2e/utils.js`
+## Etapa 4 — Partir `e2e/utils.js` ⬅ SIGUIENTE
 
-Son 1338 líneas con 16 exports que mezclan responsabilidades distintas:
+`e2e/utils.js` quedó en **893 líneas con 9 exports** tras el borrado del código
+muerto de la Etapa 2 (antes: 1338 líneas, 16 exports). Ya no es el monolito que
+era, pero sigue mezclando responsabilidades:
 
 ```
-e2e/citas/crear.js       createAppointment (342 líneas)
-e2e/citas/agenda.js      asegurarCalendarioDashboard, irADiaEnCalendarioDashboard,
-                         checkNextDaysForIniciarButton, buscarBotonIniciarDePaciente
-e2e/auditoria.js         auditarPantalla, auditConsultationIndicators,
-                         scanResidualIndicators, detectUnsavedSections,
-                         collectFlaggedApartados
-e2e/consola.js           setupConsoleMonitor
+e2e/citas/crear.js       createAppointment (187, ~350 líneas)
+e2e/citas/agenda.js      asegurarCalendarioDashboard (47),
+                         irADiaEnCalendarioDashboard (71),
+                         checkNextDaysForIniciarButton (104),
+                         buscarBotonIniciarDePaciente (148),
+                         asegurarCitaDeHoy (537)
+e2e/consola.js           setupConsoleMonitor (563, ~264 líneas)
+e2e/auditoria.js         auditarPantalla (827)
+e2e/modales.js           handleModals (7)
 ```
+
+Nota: `auditoria.js` queda con una sola función. Las otras cuatro que iban a
+acompañarla (`detectUnsavedSections`, `auditConsultationIndicators`,
+`scanResidualIndicators`, `collectFlaggedApartados`) se borraron en la Etapa 2
+por código muerto. Si `auditarPantalla` y `handleModals` quedan demasiado
+sueltas por sí solas, agruparlas es aceptable — decidirlo al llegar, no antes.
 
 Mantener `e2e/utils.js` como fachada que re-exporta todo, para no romper los
 imports existentes de un golpe.
 
-### Etapa 5 — `asegurarCitaDeHoy()` — parcialmente adelantada
+---
 
-> **Estado:** `asegurarCitaDeHoy()` ya existe y está en uso en
-> `consultation.full-flow.spec.js` (adelantado en la sesión de la Etapa 1).
-> Quedó en `e2e/utils.js`; al llegar la Etapa 4 se mueve a
-> `e2e/citas/agenda.js`. Falta endurecer `appointments.create.spec.ts` y
-> `appointments.verify.spec.ts`.
+## Etapa 5 — Specs de citas
 
-Problema reportado por Pedro: a veces `consultation.full-flow` o
-`appointments.create` crean una cita nueva cuando ya hay una activa.
+> **Parcialmente hecha.** `asegurarCitaDeHoy()` existe y está en uso en
+> `consultation.full-flow.spec.js` (adelantada en la sesión de la Etapa 1).
+> Vive en `e2e/utils.js:537`; al llegar la Etapa 4 se mueve a
+> `e2e/citas/agenda.js`.
 
-Los dos casos se resuelven distinto, y esto importa:
+Lo que falta:
 
-**`consultation.full-flow.spec.js`** necesita una cita como *precondición*, no
-como objetivo. Ahí sí corresponde reutilizar. Crear en `e2e/citas/agenda.js`:
+**`appointments.create.spec.ts`** debe crear siempre —es su objetivo verificar
+que crear una cita funciona— pero debe **fallar** si la cita no aparece
+después. Hoy el test de confirmar cita recorre cuatro semanas y, si no
+encuentra nada, registra `logger.warning` y termina en verde. Ese test pasa
+siempre, encuentre o no encuentre. Endurecerlo con un assert duro.
 
-```js
-// Devuelve { reutilizada: boolean, ... } y lo deja en el log.
-async function asegurarCitaDeHoy(page) { ... }
-```
+**`appointments.verify.spec.ts`**: si no hay cita para verificar, crea una — con
+lo cual dejó de verificar que la creación funcionó y pasó a garantizar que va a
+pasar. Separar la precondición (usar `asegurarCitaDeHoy()`) de la verificación.
 
-Debe revisar primero la agenda de hoy en Inicio; solo si no hay ninguna cita
-programada, crear una. Aprovechar lo que ya existe en
-`buscarBotonIniciarDePaciente` y `checkNextDaysForIniciarButton`.
+---
 
-**`appointments.create.spec.ts`** es el caso opuesto: su trabajo es verificar
-que crear una cita funciona, así que **debe crear siempre**. Y hoy tiene el
-problema inverso — si no encuentra la cita después, registra
-`logger.warning('No se encontraron citas agendadas en 4 semanas')` y **termina
-en verde**. Ese test pasa siempre, encuentre o no encuentre. Hay que endurecerlo
-con un assert duro.
+## Pendientes sueltos de la Etapa 2
 
-Mismo problema en `appointments.verify.spec.ts`: si no hay cita para verificar,
-crea una — con lo cual dejó de verificar que la creación funcionó. Separar la
-precondición de la verificación.
+No bloquean la Etapa 4, pero conviene no perderlos:
 
-## Criterio de aceptación
+- Confirmar en vivo `irADiaEnCalendarioDashboard:250` antes de decidir si es
+  precondición u opcional. Fue el único sitio que quedó marcado "revisar en
+  vivo".
+- Inspeccionar el shape completo (no truncado) de `getTreatments` para poder
+  verificar dosis, vía, unidad, frecuencia, duración, tiempo e indicaciones del
+  medicamento. Es el único hueco de cobertura que quedó sin cerrar de los 6.
+- Decidir si existe algún endpoint de lectura para "Otros medicamentos"
+  (tratamientos libres).
 
-- `consultation.full-flow.spec.js` en ~380 líneas o menos, corriendo con el
-  mismo resultado que antes de la reorganización.
-- Los 160 sitios clasificados por familia, con la cuenta de cada categoría
-  documentada y, en particular, cuántos de familia B resultaron precondiciones.
-- Ninguna aserción atrapada queda en el código.
-- Ningún `catch` sobre una precondición queda silencioso.
+## Criterio de aceptación del encargo completo
+
+- ✅ `consultation.full-flow.spec.js` por debajo de 500 líneas, con los helpers en
+  `e2e/consulta/`, corriendo con el mismo resultado que antes de la mudanza.
+- `e2e/utils.js` convertido en fachada, con los módulos de la Etapa 4 creados.
+- Ninguna de las 15 precondiciones endurecidas vuelve a quedar silenciada.
 - `appointments.create.spec.ts` falla si la cita no aparece tras crearla.
-- `consultation.full-flow.spec.js` reutiliza una cita existente en lugar de
-  crear una nueva cuando ya hay una programada para hoy.
+- `appointments.verify.spec.ts` verifica en lugar de garantizar.
 
 ## Recordatorios de la norma
 
 Aplica el punto 7 de `CLAUDE.md`: auditar antes de correr, no después. Antes de
-ejecutar cualquier spec modificado, revisarlo contra los puntos 2 y 5 de la
-norma.
+ejecutar cualquier spec modificado, revisarlo contra los puntos 2 y 5.
 
-No commitear sin que Pedro revise. Quedan pendientes de commit los fixes de
-selectores del 2026-09-10 y ~15 scripts de diagnóstico sueltos en la raíz.
+No commitear sin que Pedro revise.
