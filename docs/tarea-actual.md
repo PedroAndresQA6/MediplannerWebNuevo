@@ -4,8 +4,7 @@
 > siguiente encargo y lo hecho se resume en `CONTEXTO.md`.
 > Definido el 2026-09-17 · Actualizado el 2026-09-22 con medidas reales del repo
 > · Actualizado el 2026-09-23 al completar la Etapa 3.
-> · Actualizado el 2026-09-24 al completar la Etapa 4 (pendiente de revisión
->   de Pedro, sin commitear).
+> · Actualizado el 2026-09-24 al completar y commitear la Etapa 4 (`227a469`).
 
 ## Estado
 
@@ -15,8 +14,8 @@
 | 1. Instrumentar los `catch` silenciosos | ✅ Completa (`7b38f99`) |
 | 2. Clasificar por lo que envuelve | ✅ Completa (`5c604d9`) |
 | 3. Extraer los helpers de consulta | ✅ Completa (`287ddcb`) |
-| 4. Partir `e2e/utils.js` | ✅ Completa, sin commitear — pendiente de revisión |
-| 5. `asegurarCitaDeHoy()` y endurecer los specs de citas | Parcial |
+| 4. Partir `e2e/utils.js` | ✅ Completa (`227a469`) |
+| 5. `asegurarCitaDeHoy()` y endurecer los specs de citas | ⬅ **Siguiente** |
 
 Detalle de la Etapa 2 en `docs/historial/2026-09-17-etapa2-clasificacion-catches.md`.
 Detalle de la Etapa 3 en `docs/historial/2026-09-23-etapa3-extraccion-helpers.md`.
@@ -61,7 +60,7 @@ verificación post-Finalizar limpia).
 
 ---
 
-## Etapa 4 — Partir `e2e/utils.js` ✅ COMPLETA (2026-09-24, sin commitear)
+## Etapa 4 — Partir `e2e/utils.js` ✅ COMPLETA (2026-09-24, `227a469`)
 
 Mudanza tal cual, sin cambios de lógica. `e2e/utils.js` quedó como fachada de
 **35 líneas**; la lógica se repartió en:
@@ -128,8 +127,7 @@ No bloquean la Etapa 5, pero conviene no perderlos:
 - ✅ `consultation.full-flow.spec.js` por debajo de 500 líneas, con los helpers en
   `e2e/consulta/`, corriendo con el mismo resultado que antes de la mudanza.
 - ✅ `e2e/utils.js` convertido en fachada, con los módulos de la Etapa 4
-  creados, corriendo con el mismo resultado que antes de la mudanza (sin
-  commitear, pendiente de revisión de Pedro).
+  creados, corriendo con el mismo resultado que antes de la mudanza.
 - Ninguna de las 15 precondiciones endurecidas vuelve a quedar silenciada.
 - `appointments.create.spec.ts` falla si la cita no aparece tras crearla.
 - `appointments.verify.spec.ts` verifica en lugar de garantizar.

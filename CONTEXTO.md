@@ -47,8 +47,7 @@ iniciativa en curso de reorganización de la suite, descrita en
 `scripts-diagnostico/`, logs a `logs/`) ya está commiteada
 (`74f22cd`).
 
-**Etapas 1-4 de `docs/tarea-actual.md`: Etapas 1-3 completas y commiteadas,
-Etapa 4 completa pero sin commitear (pendiente de revisión de Pedro).**
+**Etapas 1-4 de `docs/tarea-actual.md` completas y commiteadas.**
 Detalle por etapa en `docs/historial/`:
 - Etapa 1-2 (`5c604d9`): los 160 `opcional()` clasificados; 58 sitios de
   código muerto borrados (`e2e/utils.js`: 1338 → 879 líneas); 15
@@ -61,7 +60,7 @@ Detalle por etapa en `docs/historial/`:
 - Etapa 3 (`287ddcb`, 2026-09-23): los 15 helpers de consulta movidos a
   `e2e/consulta/`. Spec: 1165 → 466 líneas. Mismo resultado contra dev.
   Detalle: `docs/historial/2026-09-23-etapa3-extraccion-helpers.md`.
-- Etapa 4 (2026-09-24, **sin commitear**): `e2e/utils.js` partido en
+- Etapa 4 (`227a469`, 2026-09-24): `e2e/utils.js` partido en
   `e2e/modales.js`, `e2e/consola.js`, `e2e/auditoria.js`,
   `e2e/citas/crear.js`, `e2e/citas/agenda.js` — quedó como fachada de 35
   líneas. Mismo resultado contra dev (verificación limpia, falla solo por el
@@ -71,9 +70,9 @@ Detalle por etapa en `docs/historial/`:
   confirmar en vivo `irADiaEnCalendarioDashboard:250`; decidir qué hacer con
   dosis/vía/unidad/frecuencia/duración/tiempo/indicaciones del medicamento
   (único hueco de cobertura sin cerrar).
-- **Siguiente, tras que Pedro revise y commitee la Etapa 4:** Etapa 5
-  (endurecer `appointments.create.spec.ts`/`appointments.verify.spec.ts`).
-  `asegurarCitaDeHoy()` ya está adelantada y en uso.
+- **Siguiente: Etapa 5** (endurecer `appointments.create.spec.ts`/
+  `appointments.verify.spec.ts`). `asegurarCitaDeHoy()` ya está adelantada y
+  en uso, en `e2e/citas/agenda.js`.
 
 **Limpieza de repo (2026-09-24, commiteada en `Trabajando`/`main`/
 `Normalization`):**
@@ -128,21 +127,14 @@ Detalle completo en `docs/hallazgos-abiertos.md`.
 
 ## Pendientes de commit
 
-**La Etapa 4 (partir `e2e/utils.js`) está completa y verificada contra dev,
-pero sin commitear** — a diferencia de las etapas anteriores, no se pidió
-commitear en esta sesión. Archivos nuevos/tocados:
-`e2e/utils.js` (ahora fachada), `e2e/modales.js`, `e2e/consola.js`,
-`e2e/auditoria.js`, `e2e/citas/crear.js`, `e2e/citas/agenda.js`,
-`docs/historial/2026-09-24-etapa4-split-utils.md`, `docs/tarea-actual.md`,
-este archivo.
+Nada pendiente. Todo commiteado y pusheado a `Trabajando`/`main`/
+`Normalization` (todas sincronizadas en `227a469`): los cuatro commits del
+2026-09-17 (`74f22cd`, `7b38f99`, `22e0ecf`, `5c604d9`), `287ddcb`+`bec5332`
+(Etapa 3, 2026-09-23) y, del 2026-09-24: destrackeo de test-results/logs
+viejos, mudanza de los 9 scripts sueltos a `scripts-diagnostico/`, el fix de
+credenciales hardcodeadas de producción, y `227a469` (Etapa 4, detalle
+arriba).
 
 Nota operativa: git en esta carpeta de OneDrive falla al cambiar de
 rama/commitear ("unable to append to .git/logs/HEAD") — se resuelve por
 comando con `git -c windows.appendAtomically=false ...`.
-
-Ya commiteados y pusheados a `Trabajando`/`main`/`Normalization` (todas
-sincronizadas en el mismo commit): los cuatro commits del 2026-09-17
-(`74f22cd`, `7b38f99`, `22e0ecf`, `5c604d9`), `287ddcb`+`bec5332` (Etapa 3,
-2026-09-23) y, del 2026-09-24: destrackeo de test-results/logs viejos, mudanza
-de los 9 scripts sueltos a `scripts-diagnostico/`, y el fix de credenciales
-hardcodeadas de producción (detalle arriba).
