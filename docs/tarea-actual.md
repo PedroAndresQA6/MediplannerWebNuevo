@@ -4,7 +4,8 @@
 > siguiente encargo y lo hecho se resume en `CONTEXTO.md`.
 > Definido el 2026-09-17 · Actualizado el 2026-09-22 con medidas reales del repo
 > · Actualizado el 2026-09-23 al completar la Etapa 3.
-> · Actualizado el 2026-09-24 al completar y commitear la Etapa 4 (`227a469`).
+> · Actualizado el 2026-09-24 al completar y commitear la Etapa 4 (`227a469`)
+>   y al completar la Etapa 5 (pendiente de commitear).
 
 ## Estado
 
@@ -15,11 +16,12 @@
 | 2. Clasificar por lo que envuelve | ✅ Completa (`5c604d9`) |
 | 3. Extraer los helpers de consulta | ✅ Completa (`287ddcb`) |
 | 4. Partir `e2e/utils.js` | ✅ Completa (`227a469`) |
-| 5. `asegurarCitaDeHoy()` y endurecer los specs de citas | ⬅ **Siguiente** |
+| 5. `asegurarCitaDeHoy()` y endurecer los specs de citas | ✅ Completa, sin commitear — pendiente de revisión |
 
 Detalle de la Etapa 2 en `docs/historial/2026-09-17-etapa2-clasificacion-catches.md`.
 Detalle de la Etapa 3 en `docs/historial/2026-09-23-etapa3-extraccion-helpers.md`.
 Detalle de la Etapa 4 en `docs/historial/2026-09-24-etapa4-split-utils.md`.
+Detalle de la Etapa 5 en `docs/historial/2026-09-24-etapa5-specs-citas.md`.
 
 ## Por qué
 
@@ -30,8 +32,10 @@ precondiciones se endurecieron y 58 sitios desaparecieron con el código muerto
 que los contenía.
 
 La Etapa 3 sacó los quince helpers de `tests/consultation.full-flow.spec.js`
-(1165 → 466 líneas). Queda partir `e2e/utils.js` y endurecer los specs de
-citas.
+(1165 → 466 líneas). La Etapa 4 partió `e2e/utils.js` en módulos por
+responsabilidad. La Etapa 5 endureció los specs de citas. Con esto se
+completan todas las etapas planeadas del encargo — queda pendiente que Pedro
+revise y commitee la Etapa 5, y los pendientes sueltos que no bloquean nada.
 
 ---
 
@@ -89,38 +93,54 @@ mudanza (verificación post-Finalizar limpia, falla solo por el 404 de
 
 ---
 
-## Etapa 5 — Specs de citas
+## Etapa 5 — Specs de citas ✅ COMPLETA (2026-09-24, sin commitear)
 
-> **Parcialmente hecha.** `asegurarCitaDeHoy()` existe y está en uso en
-> `consultation.full-flow.spec.js` (adelantada en la sesión de la Etapa 1).
-> Ya vive en `e2e/citas/agenda.js` (movida en la Etapa 4).
+> Corrección de alcance: el doc original hablaba de un
+> `appointments.verify.spec.ts` que **no existe** — los dos problemas
+> descritos vivían en los dos `test()` de `appointments.create.spec.ts`.
 
-Lo que falta:
+`asegurarCitaDeHoy()` ya vive en `e2e/citas/agenda.js` (movida en la Etapa 4)
+y sigue en uso en `consultation.full-flow.spec.js`.
 
-**`appointments.create.spec.ts`** debe crear siempre —es su objetivo verificar
-que crear una cita funciona— pero debe **fallar** si la cita no aparece
-después. Hoy el test de confirmar cita recorre cuatro semanas y, si no
-encuentra nada, registra `logger.warning` y termina en verde. Ese test pasa
-siempre, encuentre o no encuentre. Endurecerlo con un assert duro.
+**Test "Schedule appointment for a patient"**: ahora usa un paciente fijo
+(`PACIENTE_BUSQUEDA`), revisa primero en Inicio si ya tiene una cita en los
+próximos 5 días (no crea otra si ya hay) y, si crea una, verifica que
+realmente aparece en Inicio antes de terminar.
 
-**`appointments.verify.spec.ts`**: si no hay cita para verificar, crea una — con
-lo cual dejó de verificar que la creación funcionó y pasó a garantizar que va a
-pasar. Separar la precondición (usar `asegurarCitaDeHoy()`) de la verificación.
+**Test "Confirm scheduled appointment from agenda"**: buscaba texto
+`agendada`/`programada` que **nunca aparece** en la vista de Agenda (el
+estado es un badge dentro del modal de detalles, no en la fila) — por eso
+nunca encontraba nada, sin que ningún `expect` lo hiciera fallar. Reescrito
+para buscar la fila por nombre del paciente, abrir el modal y confirmar con
+un `expect` duro sobre "se encontró" y "se confirmó" por separado.
+
+**Hallazgo real al verificar:** `locator.isVisible({ timeout })` no espera en
+esta versión de Playwright (confirmado en vivo con capturas) — el `timeout`
+es un no-op. Corregido acá con `waitFor({ state: 'visible', timeout })` real.
+Es un patrón usado en el resto de la suite; queda pendiente auditarlo en
+otros lugares (detalle y candidatos concretos en
+`docs/historial/2026-09-24-etapa5-specs-citas.md`).
 
 ---
 
-## Pendientes sueltos de la Etapa 2
+## Pendientes sueltos
 
-No bloquean la Etapa 5, pero conviene no perderlos:
+No bloquean la siguiente etapa, pero conviene no perderlos:
 
-- Confirmar en vivo `irADiaEnCalendarioDashboard:250` antes de decidir si es
-  precondición u opcional. Fue el único sitio que quedó marcado "revisar en
-  vivo".
-- Inspeccionar el shape completo (no truncado) de `getTreatments` para poder
-  verificar dosis, vía, unidad, frecuencia, duración, tiempo e indicaciones del
-  medicamento. Es el único hueco de cobertura que quedó sin cerrar de los 6.
-- Decidir si existe algún endpoint de lectura para "Otros medicamentos"
-  (tratamientos libres).
+- De la Etapa 2: confirmar en vivo `irADiaEnCalendarioDashboard:250` antes de
+  decidir si es precondición u opcional. Fue el único sitio que quedó marcado
+  "revisar en vivo".
+- De la Etapa 2: inspeccionar el shape completo (no truncado) de
+  `getTreatments` para poder verificar dosis, vía, unidad, frecuencia,
+  duración, tiempo e indicaciones del medicamento. Es el único hueco de
+  cobertura que quedó sin cerrar de los 6.
+- De la Etapa 2: decidir si existe algún endpoint de lectura para "Otros
+  medicamentos" (tratamientos libres).
+- **De la Etapa 5, nuevo:** `locator.isVisible({ timeout })` no espera en
+  esta versión de Playwright — auditar los demás usos de ese patrón en la
+  suite que dependan de esperar contenido asíncrono (no un chequeo
+  instantáneo legítimo). Detalle y candidatos concretos ya identificados en
+  `docs/historial/2026-09-24-etapa5-specs-citas.md`.
 
 ## Criterio de aceptación del encargo completo
 
@@ -129,8 +149,10 @@ No bloquean la Etapa 5, pero conviene no perderlos:
 - ✅ `e2e/utils.js` convertido en fachada, con los módulos de la Etapa 4
   creados, corriendo con el mismo resultado que antes de la mudanza.
 - Ninguna de las 15 precondiciones endurecidas vuelve a quedar silenciada.
-- `appointments.create.spec.ts` falla si la cita no aparece tras crearla.
-- `appointments.verify.spec.ts` verifica en lugar de garantizar.
+- ✅ `appointments.create.spec.ts` falla si la cita no aparece tras crearla
+  (y ya no crea una duplicada si el paciente de prueba ya tiene una).
+- ✅ El test de confirmar cita (dentro de `appointments.create.spec.ts`, ver
+  nota de alcance de la Etapa 5) verifica en lugar de garantizar.
 
 ## Recordatorios de la norma
 

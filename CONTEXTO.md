@@ -47,7 +47,8 @@ iniciativa en curso de reorganización de la suite, descrita en
 `scripts-diagnostico/`, logs a `logs/`) ya está commiteada
 (`74f22cd`).
 
-**Etapas 1-4 de `docs/tarea-actual.md` completas y commiteadas.**
+**Las 5 etapas de `docs/tarea-actual.md` completas. Etapas 1-4 commiteadas;
+Etapa 5 completa pero sin commitear (pendiente de revisión de Pedro).**
 Detalle por etapa en `docs/historial/`:
 - Etapa 1-2 (`5c604d9`): los 160 `opcional()` clasificados; 58 sitios de
   código muerto borrados (`e2e/utils.js`: 1338 → 879 líneas); 15
@@ -66,13 +67,26 @@ Detalle por etapa en `docs/historial/`:
   líneas. Mismo resultado contra dev (verificación limpia, falla solo por el
   404 de `getFilledForm`). Detalle:
   `docs/historial/2026-09-24-etapa4-split-utils.md`.
+- Etapa 5 (2026-09-24, **sin commitear**): `docs/tarea-actual.md` hablaba de
+  un `appointments.verify.spec.ts` que **no existe** — los dos problemas
+  vivían en los dos tests de `appointments.create.spec.ts`. Corregidos:
+  ahora usa un paciente fijo (`PACIENTE_BUSQUEDA`), no crea una cita
+  duplicada si el paciente ya tiene una en los próximos 5 días, y el test de
+  "confirmar" busca la fila por nombre de paciente en vez de un texto
+  ("agendada"/"programada") que nunca aparece en esa vista — antes nunca
+  encontraba nada y pasaba en verde igual por falta de `expect`. Detalle:
+  `docs/historial/2026-09-24-etapa5-specs-citas.md`.
+- **Hallazgo real de la Etapa 5:** `locator.isVisible({ timeout })` no espera
+  en esta versión de Playwright (el `timeout` es un no-op, confirmado en vivo
+  con capturas) — afecta a más lugares de la suite que solo este archivo,
+  pendiente de auditar (ver "Pendientes sueltos" en `docs/tarea-actual.md`).
 - Pendientes sueltos de la Etapa 2 (no bloquean, ver `docs/tarea-actual.md`):
   confirmar en vivo `irADiaEnCalendarioDashboard:250`; decidir qué hacer con
   dosis/vía/unidad/frecuencia/duración/tiempo/indicaciones del medicamento
   (único hueco de cobertura sin cerrar).
-- **Siguiente: Etapa 5** (endurecer `appointments.create.spec.ts`/
-  `appointments.verify.spec.ts`). `asegurarCitaDeHoy()` ya está adelantada y
-  en uso, en `e2e/citas/agenda.js`.
+- **Con la Etapa 5 completa, terminaron todas las etapas planeadas de
+  `docs/tarea-actual.md`.** Queda pendiente que Pedro revise y commitee la
+  Etapa 5, y decidir el próximo encargo.
 
 **Limpieza de repo (2026-09-24, commiteada en `Trabajando`/`main`/
 `Normalization`):**
@@ -127,13 +141,18 @@ Detalle completo en `docs/hallazgos-abiertos.md`.
 
 ## Pendientes de commit
 
-Nada pendiente. Todo commiteado y pusheado a `Trabajando`/`main`/
-`Normalization` (todas sincronizadas en `227a469`): los cuatro commits del
-2026-09-17 (`74f22cd`, `7b38f99`, `22e0ecf`, `5c604d9`), `287ddcb`+`bec5332`
-(Etapa 3, 2026-09-23) y, del 2026-09-24: destrackeo de test-results/logs
-viejos, mudanza de los 9 scripts sueltos a `scripts-diagnostico/`, el fix de
-credenciales hardcodeadas de producción, y `227a469` (Etapa 4, detalle
-arriba).
+**La Etapa 5 (specs de citas) está completa y verificada contra dev, pero sin
+commitear** — no se pidió commitear en esta sesión. Archivo tocado:
+`tests/appointments.create.spec.ts`; nuevo:
+`docs/historial/2026-09-24-etapa5-specs-citas.md`; más `docs/tarea-actual.md`
+y este archivo.
+
+Ya commiteado y pusheado a `Trabajando`/`main`/`Normalization` (todas
+sincronizadas en `227a469`): los cuatro commits del 2026-09-17 (`74f22cd`,
+`7b38f99`, `22e0ecf`, `5c604d9`), `287ddcb`+`bec5332` (Etapa 3, 2026-09-23) y,
+del 2026-09-24: destrackeo de test-results/logs viejos, mudanza de los 9
+scripts sueltos a `scripts-diagnostico/`, el fix de credenciales hardcodeadas
+de producción, y `227a469` (Etapa 4).
 
 Nota operativa: git en esta carpeta de OneDrive falla al cambiar de
 rama/commitear ("unable to append to .git/logs/HEAD") — se resuelve por
