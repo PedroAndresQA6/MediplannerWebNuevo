@@ -5,7 +5,7 @@
 > el detalle histórico vive en `docs/historial/`, los hallazgos con su
 > evidencia en `docs/hallazgos-abiertos.md`.
 >
-> **Última actualización:** 2026-09-23
+> **Última actualización:** 2026-09-24
 >
 > **Regla de mantenimiento:** cuando algo se resuelve o se cierra, sale de este
 > archivo y se archiva. Si una entrada crece más de un párrafo, su detalle va a
@@ -47,53 +47,56 @@ iniciativa en curso de reorganización de la suite, descrita en
 `scripts-diagnostico/`, logs a `logs/`) ya está commiteada
 (`74f22cd`).
 
-**Etapas 1 y 2 de `docs/tarea-actual.md` completas y commiteadas
-(`5c604d9`)** — detalle completo en
-`docs/historial/2026-09-17-etapa2-clasificacion-catches.md`:
-- Los 160 `opcional()` instrumentados en la Etapa 1 (71 en
-  `consultation.full-flow.spec.js`, 85 en `e2e/utils.js`, 4 en
-  `appointments.create.spec.ts`) quedaron clasificados por familia y por
-  precondición vs. opcional legítimo, leyendo código en vez de guiarse por lo
-  que se disparó en las 3 corridas de la Etapa 1.
-- Borrados 58 sitios que vivían en funciones muertas de `e2e/utils.js`
-  (`fillTabFields`, `detectUnsavedSections`, `auditConsultationIndicators`,
-  `scanResidualIndicators` y sus helpers) — ningún spec activo las llamaba.
-  `e2e/utils.js`: 1338 → 879 líneas.
-- Endurecidas y verificadas contra dev (4 corridas) las 15 precondiciones
-  confirmadas, y cerrados 5 de los 6 "huecos de cobertura" (logs +
-  verificación post-Finalizar nueva para Laboratorios/Procedimientos y Notas
-  del Médico, antes sin ninguna).
-- **Al verificar, se encontró y corrigió un bug real preexistente** (no de
-  esta sesión): el listener que captura `doctor_id` desde `getProfile`
-  estaba mal ubicado — registrado después de la única llamada real a ese
-  endpoint — así que `doctorId` quedaba `null` siempre desde que se introdujo
-  (2026-07-30). Esto pone en duda la medición de "~100s de retraso" del
-  hallazgo de `getFilledForm` de abajo. Detalle en `docs/hallazgos-abiertos.md`.
-- De paso, se adelantó la Etapa 5 para `consultation.full-flow.spec.js`:
-  `asegurarCitaDeHoy()` en `e2e/utils.js`, ya en uso — revisa la agenda de hoy
-  antes de crear una cita nueva. `appointments.create.spec.ts` sigue creando
-  siempre (correcto, es su objetivo).
-- Siguen pendientes de la Etapa 2 (no bloquean): confirmar en vivo
-  `irADiaEnCalendarioDashboard:250` y decidir qué hacer con dosis/vía/unidad/
-  frecuencia/duración/tiempo/indicaciones del medicamento (único hueco de
-  cobertura que quedó sin verificación, por no tener confirmado el shape
-  completo de `getTreatments`).
+**Etapas 1-4 de `docs/tarea-actual.md`: Etapas 1-3 completas y commiteadas,
+Etapa 4 completa pero sin commitear (pendiente de revisión de Pedro).**
+Detalle por etapa en `docs/historial/`:
+- Etapa 1-2 (`5c604d9`): los 160 `opcional()` clasificados; 58 sitios de
+  código muerto borrados (`e2e/utils.js`: 1338 → 879 líneas); 15
+  precondiciones endurecidas y verificadas contra dev; 5/6 huecos de
+  cobertura cerrados. De paso se encontró y corrigió un bug real: el listener
+  de `doctor_id` (desde `getProfile`) estaba mal ubicado desde 2026-07-30 y
+  `doctorId` quedaba siempre `null` — pone en duda la medición de "~100s" del
+  hallazgo de `getFilledForm` de abajo. Detalle:
+  `docs/historial/2026-09-17-etapa2-clasificacion-catches.md`.
+- Etapa 3 (`287ddcb`, 2026-09-23): los 15 helpers de consulta movidos a
+  `e2e/consulta/`. Spec: 1165 → 466 líneas. Mismo resultado contra dev.
+  Detalle: `docs/historial/2026-09-23-etapa3-extraccion-helpers.md`.
+- Etapa 4 (2026-09-24, **sin commitear**): `e2e/utils.js` partido en
+  `e2e/modales.js`, `e2e/consola.js`, `e2e/auditoria.js`,
+  `e2e/citas/crear.js`, `e2e/citas/agenda.js` — quedó como fachada de 35
+  líneas. Mismo resultado contra dev (verificación limpia, falla solo por el
+  404 de `getFilledForm`). Detalle:
+  `docs/historial/2026-09-24-etapa4-split-utils.md`.
+- Pendientes sueltos de la Etapa 2 (no bloquean, ver `docs/tarea-actual.md`):
+  confirmar en vivo `irADiaEnCalendarioDashboard:250`; decidir qué hacer con
+  dosis/vía/unidad/frecuencia/duración/tiempo/indicaciones del medicamento
+  (único hueco de cobertura sin cerrar).
+- **Siguiente, tras que Pedro revise y commitee la Etapa 4:** Etapa 5
+  (endurecer `appointments.create.spec.ts`/`appointments.verify.spec.ts`).
+  `asegurarCitaDeHoy()` ya está adelantada y en uso.
 
-**Etapa 3 completa y commiteada (`287ddcb`, 2026-09-23)** — detalle en
-`docs/historial/2026-09-23-etapa3-extraccion-helpers.md`. Los 15 helpers de
-`consultation.full-flow.spec.js` se movieron tal cual a `e2e/consulta/`
-(`navegacion.js`, `secciones.js`, `guardado.js`, más `datos.js` con las
-constantes compartidas y `util.js` con `pick()`). Spec: 1165 → 466 líneas. Se
-conservaron los 52 `opcional()` y las 13 precondiciones. `doctor-consultation`
-contra dev dio el mismo resultado que antes (rojo solo por el 404 de
-`getFilledForm`). Única diferencia observada: 7 `net::ERR_ABORTED` más en
-consola, coincidentes con las recargas del calendario del Dashboard — sin
-aserción asociada, queda como observación abierta. **Siguiente: Etapa 4**
-(partir `e2e/utils.js`).
+**Limpieza de repo (2026-09-24, commiteada en `Trabajando`/`main`/
+`Normalization`):**
+- Las 3 ramas espejo, que habían quedado desincronizadas (una rama
+  `etapa-3-extract-helpers` local sin pushear, `Trabajando` 10 commits
+  adelante de `origin`), se volvieron a sincronizar al mismo commit.
+- Destrackeados 6 archivos (`Mediplanner produccion/test-results/*`,
+  `logs/test-results-staging-fullflow*.log`) que ya estaban cubiertos por
+  `.gitignore` pero habían quedado trackeados de antes.
+- Movidos 9 scripts sueltos de `Mediplanner Staging/`/`Mediplanner
+  produccion/` a sus `scripts-diagnostico/` (mismo patrón que la raíz de dev).
+- **Hallazgo de seguridad real:** 2 de esos scripts y
+  `Mediplanner produccion/Tests_Produccion/auth.setup.ts` (este último ya
+  commiteado desde antes) tenían el email/password de **producción**
+  hardcodeados. Corregidos para leer de `.env`, mismo criterio que
+  `tests/auth.setup.ts` (dev) desde el 2026-09-17.
+  **La contraseña que quedó en el historial de git NO se rotó** — decisión
+  explícita de Pedro (2026-09-24), no un olvido. Ver "Decisiones abiertas".
 
-**Credenciales:** desde 2026-09-17, `tests/auth.setup.ts` ya no tiene valores
-por defecto — las toma solo de `.env` y falla con mensaje claro si faltan. La
-contraseña anterior quedó en el historial de Git; pendiente rotarla.
+**Credenciales:** desde 2026-09-17, `tests/auth.setup.ts` (dev) y desde
+2026-09-24 `Mediplanner produccion/Tests_Produccion/auth.setup.ts` ya no
+tienen valores por defecto — las toman solo de `.env` y fallan con mensaje
+claro si faltan.
 
 ## Hallazgos abiertos
 
@@ -108,6 +111,12 @@ Detalle completo en `docs/hallazgos-abiertos.md`.
 
 ## Decisiones abiertas
 
+- La contraseña de producción que quedó hardcodeada en el historial de git
+  (`Mediplanner produccion/Tests_Produccion/auth.setup.ts`, ya corregida en
+  el código pero no en el historial) **no se rotó** — decisión explícita de
+  Pedro el 2026-09-24, confirmando que la contraseña era/es real. Revisar
+  este archivo si en algún momento se decide rotarla y reescribir el
+  historial de git.
 - Confirmar el Hallazgo 1 a mano antes de reportarlo formalmente a devs.
 - Re-confirmar el comportamiento real de borrado de dosis en Vacunación con el
   selector ya corregido (`button.btn-clear.text-danger`), para separar qué era
@@ -119,15 +128,21 @@ Detalle completo en `docs/hallazgos-abiertos.md`.
 
 ## Pendientes de commit
 
-Etapa 3 commiteada el 2026-09-23 en la rama `etapa-3-extract-helpers`
-(`287ddcb` código + commit de docs). Git en esta carpeta de OneDrive falla al
-cambiar de rama/commitear ("unable to append to .git/logs/HEAD") — se resuelve
-por comando con `git -c windows.appendAtomically=false ...`.
+**La Etapa 4 (partir `e2e/utils.js`) está completa y verificada contra dev,
+pero sin commitear** — a diferencia de las etapas anteriores, no se pidió
+commitear en esta sesión. Archivos nuevos/tocados:
+`e2e/utils.js` (ahora fachada), `e2e/modales.js`, `e2e/consola.js`,
+`e2e/auditoria.js`, `e2e/citas/crear.js`, `e2e/citas/agenda.js`,
+`docs/historial/2026-09-24-etapa4-split-utils.md`, `docs/tarea-actual.md`,
+este archivo.
 
-Los cuatro commits del 2026-09-17: `74f22cd`
-(reorganización de la raíz), `7b38f99` (instrumentación Etapa 1 +
-investigación de `getFilledForm`), `22e0ecf` (credenciales sin default,
-selectores desactualizados de reportes/subir-estudios, y limpieza/
-endurecimiento de la suite Appium — revisado y confirmado por Pedro antes de
-subir, no era de esta sesión) y `5c604d9` (Etapa 2: clasificación,
-endurecimiento y hallazgo de `doctorId`, detalle arriba).
+Nota operativa: git en esta carpeta de OneDrive falla al cambiar de
+rama/commitear ("unable to append to .git/logs/HEAD") — se resuelve por
+comando con `git -c windows.appendAtomically=false ...`.
+
+Ya commiteados y pusheados a `Trabajando`/`main`/`Normalization` (todas
+sincronizadas en el mismo commit): los cuatro commits del 2026-09-17
+(`74f22cd`, `7b38f99`, `22e0ecf`, `5c604d9`), `287ddcb`+`bec5332` (Etapa 3,
+2026-09-23) y, del 2026-09-24: destrackeo de test-results/logs viejos, mudanza
+de los 9 scripts sueltos a `scripts-diagnostico/`, y el fix de credenciales
+hardcodeadas de producción (detalle arriba).

@@ -4,6 +4,8 @@
 > siguiente encargo y lo hecho se resume en `CONTEXTO.md`.
 > Definido el 2026-09-17 · Actualizado el 2026-09-22 con medidas reales del repo
 > · Actualizado el 2026-09-23 al completar la Etapa 3.
+> · Actualizado el 2026-09-24 al completar la Etapa 4 (pendiente de revisión
+>   de Pedro, sin commitear).
 
 ## Estado
 
@@ -13,11 +15,12 @@
 | 1. Instrumentar los `catch` silenciosos | ✅ Completa (`7b38f99`) |
 | 2. Clasificar por lo que envuelve | ✅ Completa (`5c604d9`) |
 | 3. Extraer los helpers de consulta | ✅ Completa (`287ddcb`) |
-| 4. Partir `e2e/utils.js` | ⬅ **Siguiente** |
+| 4. Partir `e2e/utils.js` | ✅ Completa, sin commitear — pendiente de revisión |
 | 5. `asegurarCitaDeHoy()` y endurecer los specs de citas | Parcial |
 
 Detalle de la Etapa 2 en `docs/historial/2026-09-17-etapa2-clasificacion-catches.md`.
 Detalle de la Etapa 3 en `docs/historial/2026-09-23-etapa3-extraccion-helpers.md`.
+Detalle de la Etapa 4 en `docs/historial/2026-09-24-etapa4-split-utils.md`.
 
 ## Por qué
 
@@ -58,32 +61,32 @@ verificación post-Finalizar limpia).
 
 ---
 
-## Etapa 4 — Partir `e2e/utils.js` ⬅ SIGUIENTE
+## Etapa 4 — Partir `e2e/utils.js` ✅ COMPLETA (2026-09-24, sin commitear)
 
-`e2e/utils.js` quedó en **893 líneas con 9 exports** tras el borrado del código
-muerto de la Etapa 2 (antes: 1338 líneas, 16 exports). Ya no es el monolito que
-era, pero sigue mezclando responsabilidades:
+Mudanza tal cual, sin cambios de lógica. `e2e/utils.js` quedó como fachada de
+**35 líneas**; la lógica se repartió en:
 
 ```
-e2e/citas/crear.js       createAppointment (187, ~350 líneas)
-e2e/citas/agenda.js      asegurarCalendarioDashboard (47),
-                         irADiaEnCalendarioDashboard (71),
-                         checkNextDaysForIniciarButton (104),
-                         buscarBotonIniciarDePaciente (148),
-                         asegurarCitaDeHoy (537)
-e2e/consola.js           setupConsoleMonitor (563, ~264 líneas)
-e2e/auditoria.js         auditarPantalla (827)
-e2e/modales.js           handleModals (7)
+e2e/citas/crear.js       createAppointment (349 líneas)
+e2e/citas/agenda.js      asegurarCalendarioDashboard,
+                         irADiaEnCalendarioDashboard,
+                         checkNextDaysForIniciarButton,
+                         buscarBotonIniciarDePaciente,
+                         asegurarCitaDeHoy (186 líneas)
+e2e/consola.js           setupConsoleMonitor (256 líneas)
+e2e/auditoria.js         auditarPantalla (86 líneas)
+e2e/modales.js           handleModals (42 líneas)
 ```
 
-Nota: `auditoria.js` queda con una sola función. Las otras cuatro que iban a
-acompañarla (`detectUnsavedSections`, `auditConsultationIndicators`,
-`scanResidualIndicators`, `collectFlaggedApartados`) se borraron en la Etapa 2
-por código muerto. Si `auditarPantalla` y `handleModals` quedan demasiado
-sueltas por sí solas, agruparlas es aceptable — decidirlo al llegar, no antes.
+`auditoria.js` y `modales.js` quedaron cada uno con una sola función —
+evaluado al llegar (como decía la nota anterior) y se mantuvieron separados
+por responsabilidad en vez de fusionarlos, ninguno resultó demasiado chico
+para justificarlo.
 
-Mantener `e2e/utils.js` como fachada que re-exporta todo, para no romper los
-imports existentes de un golpe.
+`doctor-consultation` contra dev dio el mismo resultado que antes de la
+mudanza (verificación post-Finalizar limpia, falla solo por el 404 de
+`getFilledForm`). Detalle en
+`docs/historial/2026-09-24-etapa4-split-utils.md`.
 
 ---
 
@@ -91,8 +94,7 @@ imports existentes de un golpe.
 
 > **Parcialmente hecha.** `asegurarCitaDeHoy()` existe y está en uso en
 > `consultation.full-flow.spec.js` (adelantada en la sesión de la Etapa 1).
-> Vive en `e2e/utils.js:537`; al llegar la Etapa 4 se mueve a
-> `e2e/citas/agenda.js`.
+> Ya vive en `e2e/citas/agenda.js` (movida en la Etapa 4).
 
 Lo que falta:
 
@@ -110,7 +112,7 @@ pasar. Separar la precondición (usar `asegurarCitaDeHoy()`) de la verificación
 
 ## Pendientes sueltos de la Etapa 2
 
-No bloquean la Etapa 4, pero conviene no perderlos:
+No bloquean la Etapa 5, pero conviene no perderlos:
 
 - Confirmar en vivo `irADiaEnCalendarioDashboard:250` antes de decidir si es
   precondición u opcional. Fue el único sitio que quedó marcado "revisar en
@@ -125,7 +127,9 @@ No bloquean la Etapa 4, pero conviene no perderlos:
 
 - ✅ `consultation.full-flow.spec.js` por debajo de 500 líneas, con los helpers en
   `e2e/consulta/`, corriendo con el mismo resultado que antes de la mudanza.
-- `e2e/utils.js` convertido en fachada, con los módulos de la Etapa 4 creados.
+- ✅ `e2e/utils.js` convertido en fachada, con los módulos de la Etapa 4
+  creados, corriendo con el mismo resultado que antes de la mudanza (sin
+  commitear, pendiente de revisión de Pedro).
 - Ninguna de las 15 precondiciones endurecidas vuelve a quedar silenciada.
 - `appointments.create.spec.ts` falla si la cita no aparece tras crearla.
 - `appointments.verify.spec.ts` verifica en lugar de garantizar.
