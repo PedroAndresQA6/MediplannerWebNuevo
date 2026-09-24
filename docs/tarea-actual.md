@@ -4,8 +4,8 @@
 > siguiente encargo y lo hecho se resume en `CONTEXTO.md`.
 > Definido el 2026-09-17 · Actualizado el 2026-09-22 con medidas reales del repo
 > · Actualizado el 2026-09-23 al completar la Etapa 3.
-> · Actualizado el 2026-09-24 al completar y commitear la Etapa 4 (`227a469`)
->   y al completar la Etapa 5 (pendiente de commitear).
+> · Actualizado el 2026-09-24 al completar y commitear las Etapas 4 y 5
+>   (`227a469`, `cb12c9b`) — encargo completo.
 
 ## Estado
 
@@ -16,7 +16,7 @@
 | 2. Clasificar por lo que envuelve | ✅ Completa (`5c604d9`) |
 | 3. Extraer los helpers de consulta | ✅ Completa (`287ddcb`) |
 | 4. Partir `e2e/utils.js` | ✅ Completa (`227a469`) |
-| 5. `asegurarCitaDeHoy()` y endurecer los specs de citas | ✅ Completa, sin commitear — pendiente de revisión |
+| 5. `asegurarCitaDeHoy()` y endurecer los specs de citas | ✅ Completa (`cb12c9b`) |
 
 Detalle de la Etapa 2 en `docs/historial/2026-09-17-etapa2-clasificacion-catches.md`.
 Detalle de la Etapa 3 en `docs/historial/2026-09-23-etapa3-extraccion-helpers.md`.
@@ -93,7 +93,7 @@ mudanza (verificación post-Finalizar limpia, falla solo por el 404 de
 
 ---
 
-## Etapa 5 — Specs de citas ✅ COMPLETA (2026-09-24, sin commitear)
+## Etapa 5 — Specs de citas ✅ COMPLETA (2026-09-24, `cb12c9b`)
 
 > Corrección de alcance: el doc original hablaba de un
 > `appointments.verify.spec.ts` que **no existe** — los dos problemas

@@ -47,9 +47,8 @@ iniciativa en curso de reorganización de la suite, descrita en
 `scripts-diagnostico/`, logs a `logs/`) ya está commiteada
 (`74f22cd`).
 
-**Las 5 etapas de `docs/tarea-actual.md` completas. Etapas 1-4 commiteadas;
-Etapa 5 completa pero sin commitear (pendiente de revisión de Pedro).**
-Detalle por etapa en `docs/historial/`:
+**Las 5 etapas de `docs/tarea-actual.md` completas y commiteadas — encargo
+completo.** Detalle por etapa en `docs/historial/`:
 - Etapa 1-2 (`5c604d9`): los 160 `opcional()` clasificados; 58 sitios de
   código muerto borrados (`e2e/utils.js`: 1338 → 879 líneas); 15
   precondiciones endurecidas y verificadas contra dev; 5/6 huecos de
@@ -67,7 +66,7 @@ Detalle por etapa en `docs/historial/`:
   líneas. Mismo resultado contra dev (verificación limpia, falla solo por el
   404 de `getFilledForm`). Detalle:
   `docs/historial/2026-09-24-etapa4-split-utils.md`.
-- Etapa 5 (2026-09-24, **sin commitear**): `docs/tarea-actual.md` hablaba de
+- Etapa 5 (`cb12c9b`, 2026-09-24): `docs/tarea-actual.md` hablaba de
   un `appointments.verify.spec.ts` que **no existe** — los dos problemas
   vivían en los dos tests de `appointments.create.spec.ts`. Corregidos:
   ahora usa un paciente fijo (`PACIENTE_BUSQUEDA`), no crea una cita
@@ -84,9 +83,9 @@ Detalle por etapa en `docs/historial/`:
   confirmar en vivo `irADiaEnCalendarioDashboard:250`; decidir qué hacer con
   dosis/vía/unidad/frecuencia/duración/tiempo/indicaciones del medicamento
   (único hueco de cobertura sin cerrar).
-- **Con la Etapa 5 completa, terminaron todas las etapas planeadas de
-  `docs/tarea-actual.md`.** Queda pendiente que Pedro revise y commitee la
-  Etapa 5, y decidir el próximo encargo.
+- **Con la Etapa 5 commiteada, terminaron todas las etapas planeadas de
+  `docs/tarea-actual.md` — encargo completo.** Queda decidir el próximo
+  encargo.
 
 **Limpieza de repo (2026-09-24, commiteada en `Trabajando`/`main`/
 `Normalization`):**
@@ -141,18 +140,13 @@ Detalle completo en `docs/hallazgos-abiertos.md`.
 
 ## Pendientes de commit
 
-**La Etapa 5 (specs de citas) está completa y verificada contra dev, pero sin
-commitear** — no se pidió commitear en esta sesión. Archivo tocado:
-`tests/appointments.create.spec.ts`; nuevo:
-`docs/historial/2026-09-24-etapa5-specs-citas.md`; más `docs/tarea-actual.md`
-y este archivo.
-
-Ya commiteado y pusheado a `Trabajando`/`main`/`Normalization` (todas
-sincronizadas en `227a469`): los cuatro commits del 2026-09-17 (`74f22cd`,
-`7b38f99`, `22e0ecf`, `5c604d9`), `287ddcb`+`bec5332` (Etapa 3, 2026-09-23) y,
-del 2026-09-24: destrackeo de test-results/logs viejos, mudanza de los 9
-scripts sueltos a `scripts-diagnostico/`, el fix de credenciales hardcodeadas
-de producción, y `227a469` (Etapa 4).
+Nada pendiente. Todo commiteado y pusheado a `Trabajando`/`main`/
+`Normalization` (todas sincronizadas en `cb12c9b`): los cuatro commits del
+2026-09-17 (`74f22cd`, `7b38f99`, `22e0ecf`, `5c604d9`), `287ddcb`+`bec5332`
+(Etapa 3, 2026-09-23) y, del 2026-09-24: destrackeo de test-results/logs
+viejos, mudanza de los 9 scripts sueltos a `scripts-diagnostico/`, el fix de
+credenciales hardcodeadas de producción, `227a469` (Etapa 4) y `cb12c9b`
+(Etapa 5 — encargo de `docs/tarea-actual.md` completo).
 
 Nota operativa: git en esta carpeta de OneDrive falla al cambiar de
 rama/commitear ("unable to append to .git/logs/HEAD") — se resuelve por
