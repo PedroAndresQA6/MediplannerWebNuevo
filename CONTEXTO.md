@@ -5,7 +5,7 @@
 > el detalle histórico vive en `docs/historial/`, los hallazgos con su
 > evidencia en `docs/hallazgos-abiertos.md`.
 >
-> **Última actualización:** 2026-09-24
+> **Última actualización:** 2026-09-24 (Etapa 6 commiteada)
 >
 > **Regla de mantenimiento:** cuando algo se resuelve o se cierra, sale de este
 > archivo y se archiva. Si una entrada crece más de un párrafo, su detalle va a
@@ -77,15 +77,29 @@ completo.** Detalle por etapa en `docs/historial/`:
   `docs/historial/2026-09-24-etapa5-specs-citas.md`.
 - **Hallazgo real de la Etapa 5:** `locator.isVisible({ timeout })` no espera
   en esta versión de Playwright (el `timeout` es un no-op, confirmado en vivo
-  con capturas) — afecta a más lugares de la suite que solo este archivo,
-  pendiente de auditar (ver "Pendientes sueltos" en `docs/tarea-actual.md`).
+  con capturas) — auditado en toda la suite en la Etapa 6 (abajo).
+- Etapa 6 (`8ee24df`, 2026-09-24): los 138 usos de `isVisible({ timeout })`
+  en `e2e/` y `tests/` clasificados y corregidos (~68 esperaban contenido
+  asíncrono real → `waitFor` real; ~65 eran chequeos instantáneos legítimos →
+  se quitó el timeout que no hacía nada). De paso se encontraron y
+  corrigieron 2 bugs reales más que el propio fix dejó ver (antes
+  enmascarados porque el timeout roto volvía todo instantáneo): el selector
+  `td[data-day]` de `asegurarCalendarioDashboard` agarraba una celda oculta
+  del mes anterior en vez del calendario real, y la tabla "Agenda de hoy"
+  perdía el margen de tiempo que antes le daban por accidente los reintentos
+  del bug del selector. También se corrigió `appointments.create.spec.ts`
+  (test "Confirm scheduled appointment") para manejar citas ya confirmadas de
+  corridas anteriores en vez de asumir que la primera fila que matchea es
+  siempre la pendiente. Detalle completo:
+  `docs/historial/2026-09-24-etapa6-auditoria-isvisible-timeout.md`.
+  Verificado contra dev: `doctor-consultation` sigue fallando solo por el 404
+  conocido de `getFilledForm`; `appointments-create` pasa limpio 3/3.
 - Pendientes sueltos de la Etapa 2 (no bloquean, ver `docs/tarea-actual.md`):
   confirmar en vivo `irADiaEnCalendarioDashboard:250`; decidir qué hacer con
   dosis/vía/unidad/frecuencia/duración/tiempo/indicaciones del medicamento
   (único hueco de cobertura sin cerrar).
-- **Con la Etapa 5 commiteada, terminaron todas las etapas planeadas de
-  `docs/tarea-actual.md` — encargo completo.** Queda decidir el próximo
-  encargo.
+- **Con la Etapa 6 commiteada, no hay encargo vigente.** Queda decidir el
+  próximo.
 
 **Limpieza de repo (2026-09-24, commiteada en `Trabajando`/`main`/
 `Normalization`):**
@@ -123,6 +137,10 @@ Detalle completo en `docs/hallazgos-abiertos.md`.
 
 ## Decisiones abiertas
 
+- Quedaron 2 citas de "Percentil Prueba Prueba" hoy (2026-09-24, 11:35 y
+  11:40) en dev, ambas ya "Confirmada" — efecto secundario de la Etapa 6 (ver
+  su historial). No molestan a los tests tal como están escritos, no se
+  limpiaron. Avisar si se prefiere cancelarlas a mano.
 - La contraseña de producción que quedó hardcodeada en el historial de git
   (`Mediplanner produccion/Tests_Produccion/auth.setup.ts`, ya corregida en
   el código pero no en el historial) **no se rotó** — decisión explícita de
@@ -140,13 +158,14 @@ Detalle completo en `docs/hallazgos-abiertos.md`.
 
 ## Pendientes de commit
 
-Nada pendiente. Todo commiteado y pusheado a `Trabajando`/`main`/
-`Normalization` (todas sincronizadas en `cb12c9b`): los cuatro commits del
-2026-09-17 (`74f22cd`, `7b38f99`, `22e0ecf`, `5c604d9`), `287ddcb`+`bec5332`
-(Etapa 3, 2026-09-23) y, del 2026-09-24: destrackeo de test-results/logs
-viejos, mudanza de los 9 scripts sueltos a `scripts-diagnostico/`, el fix de
-credenciales hardcodeadas de producción, `227a469` (Etapa 4) y `cb12c9b`
-(Etapa 5 — encargo de `docs/tarea-actual.md` completo).
+`8ee24df` (Etapa 6) commiteado en `Trabajando` — **falta pushear y
+sincronizar `main`/`Normalization`** a este commit (no se hizo en esta
+sesión). El resto ya estaba sincronizado: los cuatro commits del 2026-09-17
+(`74f22cd`, `7b38f99`, `22e0ecf`, `5c604d9`), `287ddcb`+`bec5332` (Etapa 3,
+2026-09-23) y, del 2026-09-24: destrackeo de test-results/logs viejos,
+mudanza de los 9 scripts sueltos a `scripts-diagnostico/`, el fix de
+credenciales hardcodeadas de producción, `227a469` (Etapa 4), `cb12c9b`
+(Etapa 5) y `aabcd1b`.
 
 Nota operativa: git en esta carpeta de OneDrive falla al cambiar de
 rama/commitear ("unable to append to .git/logs/HEAD") — se resuelve por

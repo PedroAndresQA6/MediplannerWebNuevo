@@ -136,11 +136,10 @@ No bloquean la siguiente etapa, pero conviene no perderlos:
   cobertura que quedó sin cerrar de los 6.
 - De la Etapa 2: decidir si existe algún endpoint de lectura para "Otros
   medicamentos" (tratamientos libres).
-- **De la Etapa 5, nuevo:** `locator.isVisible({ timeout })` no espera en
-  esta versión de Playwright — auditar los demás usos de ese patrón en la
-  suite que dependan de esperar contenido asíncrono (no un chequeo
-  instantáneo legítimo). Detalle y candidatos concretos ya identificados en
-  `docs/historial/2026-09-24-etapa5-specs-citas.md`.
+- ~~De la Etapa 5: `locator.isVisible({ timeout })` no espera en esta versión
+  de Playwright — auditar los demás usos de ese patrón en la suite.~~
+  **Cerrado en la Etapa 6** (`8ee24df`, 2026-09-24, fuera de este documento —
+  ver `docs/historial/2026-09-24-etapa6-auditoria-isvisible-timeout.md`).
 
 ## Criterio de aceptación del encargo completo
 
