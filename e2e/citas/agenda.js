@@ -17,7 +17,18 @@ async function asegurarCalendarioDashboard(page) {
   // corre en unos pocos ms y no encuentra ninguna celda porque el widget aún
   // no montó. Reintenta con reload si hace falta.
   for (let intento = 0; intento < 3; intento++) {
-    if (await opcional(page.locator('td[data-day]').first().isVisible({ timeout: 8000 }), 'asegurarCalendarioDashboard:celda-visible')) return true;
+    // isVisible({timeout}) no espera de verdad en esta versión de Playwright
+    // (confirmado en vivo, Etapa 5) — waitFor real es lo que este comentario
+    // de arriba ya pedía desde el principio.
+    // El waitFor real reveló un segundo bug (Etapa 6, 2026-09-24, confirmado
+    // en vivo con script de diagnóstico): el PRIMER `td[data-day]` en el DOM
+    // es una celda de relleno del mes anterior (ej. "2026-08-31"), oculta
+    // por CSS — nunca se vuelve visible, así que `.first()` sin más colgaba
+    // los 8s completos siempre. Se filtra por `:visible` para agarrar la
+    // primera celda REAL del mes actual (mismo patrón que ya usa
+    // irADiaEnCalendarioDashboard con `.last()` para el botón "mes
+    // siguiente" duplicado).
+    if (await opcional(page.locator('td[data-day]:visible').first().waitFor({ state: 'visible', timeout: 8000 }).then(() => true), 'asegurarCalendarioDashboard:celda-visible')) return true;
     logger.warning(`Calendario del Dashboard no renderizó (intento ${intento + 1}/3), recargando...`);
     await page.reload();
     await opcional(page.waitForLoadState('load', { timeout: 15000 }), 'asegurarCalendarioDashboard:load-tras-reload');
@@ -37,20 +48,25 @@ async function irADiaEnCalendarioDashboard(page, dateStr) {
   // <button> sin esa clase. Se usa un selector genérico (hay un solo botón
   // por celda) en vez de depender de esa clase.
   let celda = page.locator(`td[data-day="${dateStr}"] button`);
-  for (let avance = 0; avance < 2 && !(await opcional(celda.isVisible({ timeout: 1000 }), 'irADia:celda-visible-loop')); avance++) {
+  // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa 5) —
+  // tras avanzar de mes la celda tarda en re-renderizar, por eso waitFor real.
+  for (let avance = 0; avance < 2 && !(await opcional(celda.waitFor({ state: 'visible', timeout: 1000 }).then(() => true), 'irADia:celda-visible-loop')); avance++) {
     // Hay 2 botones "rdp-button_next" en el DOM: uno dentro de un
     // <nav class="rdp-nav"> decorativo/no funcional (siempre el primero) y el
     // real dentro del header visible del calendario (el segundo). .first()
     // no avanza de mes; .last() sí.
     const nextBtn = page.locator('button.rdp-button_next').last();
-    if (!(await opcional(nextBtn.isVisible({ timeout: 1000 }), 'irADia:boton-siguiente-visible'))) break;
+    // El botón "siguiente" ya está montado junto con el resto del widget
+    // (asegurarCalendarioDashboard ya lo confirmó) — chequeo instantáneo,
+    // no depende de ninguna carga nueva.
+    if (!(await opcional(nextBtn.isVisible(), 'irADia:boton-siguiente-visible'))) break;
     // El header sticky a veces intercepta el click (el botón queda muy cerca
     // del borde superior); force:true evita el reintento de 15s en vano.
     await nextBtn.click({ force: true });
     await page.waitForTimeout(500);
     celda = page.locator(`td[data-day="${dateStr}"] button`);
   }
-  if (!(await opcional(celda.isVisible({ timeout: 1000 }), 'irADia:celda-visible-final'))) {
+  if (!(await opcional(celda.waitFor({ state: 'visible', timeout: 1000 }).then(() => true), 'irADia:celda-visible-final'))) {
     logger.warning(`No se encontró la celda del calendario para ${dateStr}`);
     return false;
   }
@@ -111,6 +127,20 @@ async function checkNextDaysForIniciarButton(page) {
 async function buscarBotonIniciarDePaciente(page, patientSearch, { maxDiasOffset = 5 } = {}) {
   logger.info(`Buscando botón Iniciar para "${patientSearch}" en los próximos ${maxDiasOffset} días...`);
   await asegurarCalendarioDashboard(page);
+  // Etapa 6 (2026-09-24), hallazgo en vivo: asegurarCalendarioDashboard solo
+  // confirma que el CALENDARIO renderizó — la tabla "Agenda de hoy" (los
+  // botones "Iniciar" que este helper busca a continuación) es una sección
+  // aparte del Dashboard que puede seguir hidratando. Antes del fix del
+  // selector de arriba (`td[data-day]:visible`), asegurarCalendarioDashboard
+  // SIEMPRE agotaba sus 3 reintentos con reload (el primer td[data-day] era
+  // una celda oculta del mes anterior, nunca visible) — cada reload+wait le
+  // daba, por accidente, tiempo de sobra a la tabla de citas para cargar.
+  // Con el selector corregido, asegurarCalendarioDashboard resuelve casi al
+  // instante y ese margen accidental desaparece: confirmado en vivo que sin
+  // este wait, una cita de "Percentil" ya visible en pantalla no se
+  // encontraba (Pedro lo notó mirando la corrida). Se agrega un wait real
+  // explícito en vez de seguir dependiendo de un efecto secundario.
+  await page.waitForTimeout(2000);
 
   for (let dayOffset = 0; dayOffset <= maxDiasOffset; dayOffset++) {
     const targetDate = new Date();

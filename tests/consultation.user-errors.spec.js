@@ -201,7 +201,7 @@ test.describe('Consulta — errores humanos reales (error guessing)', () => {
     await page.waitForLoadState('load', { timeout: 15000 }).catch(() => null);
     await page.waitForSelector('.rdt_TableRow', { timeout: 20000 });
     const pageSize = page.locator('select').first();
-    if (await pageSize.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await pageSize.isVisible().catch(() => false)) {
       const respPromise = page.waitForResponse(r => r.url().includes('/api/patients/getPatients'), { timeout: 10000 }).catch(() => null);
       await pageSize.selectOption({ label: 'Todos' }).catch(() => {});
       await respPromise;

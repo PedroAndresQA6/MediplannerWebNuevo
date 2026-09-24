@@ -91,14 +91,14 @@ test.describe('Ingresos - Stress Tests', () => {
       const pendiente = pendientes.first();
       const eyeButton = pendiente.locator('svg.fa-eye').locator('..').first();
       
-      if (await eyeButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+      if (await eyeButton.isVisible().catch(() => false)) {
         await eyeButton.click();
         await waitForFullLoading(page);
         
         console.log('📋 Buscando botón Abonar...');
         const btnAbonar = page.getByRole('button', { name: /abonar/i });
         
-        if (await btnAbonar.isVisible({ timeout: 5000 }).catch(() => false)) {
+        if (await btnAbonar.isVisible().catch(() => false)) {
           await btnAbonar.click();
           await waitForFullLoading(page);
           

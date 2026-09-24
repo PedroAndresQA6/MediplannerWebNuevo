@@ -11,12 +11,15 @@ async function captureScreenshot(page: Page, name: string): Promise<void> {
 }
 
 async function handlePopup(page: Page, context: string): Promise<void> {
+  // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa 5) —
+  // se llama justo tras clickGuardar()'s saveBtn.click(), el popup es
+  // resultado de esa acción y puede tardar más que un instante en aparecer.
   const popup = page.locator('[role="dialog"], .modal, [class*="swal"], [class*="popup"]').first();
-  if (await popup.isVisible({ timeout: 500 }).catch(() => false)) {
+  if (await popup.waitFor({ state: 'visible', timeout: 500 }).then(() => true).catch(() => false)) {
     const text = (await popup.textContent().catch(() => ''))?.substring(0, 80) || '';
     console.log(`    🔔 [${context}] Popup: "${text}"`);
     const closeBtn = popup.locator('button:has-text("Aceptar"), button:has-text("OK"), button:has-text("Cerrar"), button:has-text("×")').first();
-    if (await closeBtn.isVisible({ timeout: 300 }).catch(() => false)) {
+    if (await closeBtn.waitFor({ state: 'visible', timeout: 300 }).then(() => true).catch(() => false)) {
       await closeBtn.click();
       await page.waitForTimeout(500);
     } else {
@@ -71,7 +74,7 @@ test.describe('Antecedentes - Stress Test', () => {
     await page.waitForTimeout(1500);
     // Mostrar "Todos" para que el paciente buscado esté en la página (evita paginación).
     const pageSize = page.locator('select').first();
-    if (await pageSize.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await pageSize.isVisible().catch(() => false)) {
       await pageSize.selectOption({ label: 'Todos' }).catch(() => {});
       await page.waitForTimeout(2500);
     }

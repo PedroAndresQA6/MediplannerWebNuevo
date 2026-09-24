@@ -29,7 +29,7 @@ async function cerrarModalSinGuardar(page) {
   // Intenta cerrar cualquier modal/dialog abierto sin confirmar: Escape,
   // luego botones de cierre/cancelar explícitos.
   const cerrarBtn = page.locator('[role="dialog"] button:has-text("Cancelar"), [role="dialog"] button:has-text("Cerrar"), .modal button:has-text("Cancelar"), button[aria-label="Close"], button[aria-label="Cerrar"]').first();
-  if (await cerrarBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+  if (await cerrarBtn.isVisible().catch(() => false)) {
     await cerrarBtn.click().catch(() => {});
     await page.waitForTimeout(500);
     return;
@@ -70,7 +70,7 @@ test('MAPEAR Perfil (pestaña): Editar, Agregar Especialidad, Agregar credencial
   for (const boton of ['Editar', 'Agregar Especialidad', 'Agregar', 'Agregar Hospital de Trabajo']) {
     console.log(`\n### Click en "${boton}" ###`);
     const btn = page.locator(`button:has-text("${boton}"), a:has-text("${boton}")`).first();
-    if (!(await btn.isVisible({ timeout: 3000 }).catch(() => false))) {
+    if (!(await btn.isVisible().catch(() => false))) {
       console.log(`  ⚠️ No visible`);
       continue;
     }
@@ -98,7 +98,7 @@ test('MAPEAR Asistente: Agregar Asistente', async ({ page }) => {
   console.log(`Lista de asistentes visible: ${await lista.count() > 0}`);
 
   const btn = page.locator('button:has-text("Agregar Asistente"), a:has-text("Agregar Asistente")').first();
-  if (await btn.isVisible({ timeout: 3000 }).catch(() => false)) {
+  if (await btn.isVisible().catch(() => false)) {
     await btn.click().catch(() => {});
     await dumpFormAbierto(page, 'Agregar Asistente');
     await page.screenshot({ path: 'test-results/ajustes2-asistente-agregar.png', fullPage: true }).catch(() => {});
@@ -119,7 +119,7 @@ test('MAPEAR Servicios (catálogo): filtro Sólo activos + Nuevo Tipo', async ({
 
   console.log('\n### Toggle "Sólo activos" ###');
   const filtro = page.locator('input[name="filtro"]').first();
-  if (await filtro.isVisible({ timeout: 2000 }).catch(() => false)) {
+  if (await filtro.isVisible().catch(() => false)) {
     const antes = await filtro.isChecked().catch(() => null);
     await filtro.click().catch(() => {});
     await page.waitForTimeout(1000);
@@ -131,7 +131,7 @@ test('MAPEAR Servicios (catálogo): filtro Sólo activos + Nuevo Tipo', async ({
 
   console.log('\n### Click en "Nuevo Tipo" ###');
   const nuevoTipo = page.locator('button:has-text("Nuevo Tipo"), a:has-text("Nuevo Tipo")').first();
-  if (await nuevoTipo.isVisible({ timeout: 3000 }).catch(() => false)) {
+  if (await nuevoTipo.isVisible().catch(() => false)) {
     await nuevoTipo.click().catch(() => {});
     await dumpFormAbierto(page, 'Nuevo Tipo');
     await page.screenshot({ path: 'test-results/ajustes2-servicios-nuevotipo.png', fullPage: true }).catch(() => {});
@@ -148,7 +148,7 @@ test('MAPEAR Notificaciones: tabs Correo/App móvil + checkboxes', async ({ page
 
   for (const subtab of ['Correo', 'App movil', 'App móvil']) {
     const t = page.locator(`button:text-is("${subtab}"), a:text-is("${subtab}")`).first();
-    if (await t.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await t.isVisible().catch(() => false)) {
       console.log(`\n### Sub-tab "${subtab}" ###`);
       await t.click().catch(() => {});
       await page.waitForTimeout(1000);
@@ -160,7 +160,7 @@ test('MAPEAR Notificaciones: tabs Correo/App móvil + checkboxes', async ({ page
 
   console.log('\n### Toggle-y-revertir un checkbox de notificación ###');
   const check = page.locator('input[type="checkbox"]:visible').first();
-  if (await check.isVisible({ timeout: 2000 }).catch(() => false)) {
+  if (await check.isVisible().catch(() => false)) {
     const antes = await check.isChecked().catch(() => null);
     await check.click().catch(() => {});
     await page.waitForTimeout(800);
@@ -182,7 +182,7 @@ test('MAPEAR Finanzas: Métodos de pago + tab Bancos', async ({ page }) => {
   console.log(`Checkboxes de métodos de pago: ${await checks.count()}`);
 
   const bancos = page.locator('button:text-is("Bancos"), a:text-is("Bancos")').first();
-  if (await bancos.isVisible({ timeout: 2000 }).catch(() => false)) {
+  if (await bancos.isVisible().catch(() => false)) {
     await bancos.click().catch(() => {});
     await page.waitForTimeout(1200);
     await page.screenshot({ path: 'test-results/ajustes2-finanzas-bancos.png', fullPage: true }).catch(() => {});
@@ -226,7 +226,7 @@ test('MAPEAR Recetas (plantillas): Nueva plantilla + ver detalle', async ({ page
   const plantillas = page.locator('text=/Receta estándar genérica|Receta Medica Pruebas/i');
   console.log(`Plantillas visibles: ${await plantillas.count()}`);
   const primera = plantillas.first();
-  if (await primera.isVisible({ timeout: 2000 }).catch(() => false)) {
+  if (await primera.isVisible().catch(() => false)) {
     await primera.click().catch(() => {});
     await page.waitForTimeout(1200);
     await page.screenshot({ path: 'test-results/ajustes2-recetas-detalle.png', fullPage: true }).catch(() => {});
@@ -236,7 +236,7 @@ test('MAPEAR Recetas (plantillas): Nueva plantilla + ver detalle', async ({ page
   }
 
   const nueva = page.locator('button:has-text("Nueva plantilla"), a:has-text("Nueva plantilla")').first();
-  if (await nueva.isVisible({ timeout: 2000 }).catch(() => false)) {
+  if (await nueva.isVisible().catch(() => false)) {
     await nueva.click().catch(() => {});
     await dumpFormAbierto(page, 'Nueva plantilla');
     await page.screenshot({ path: 'test-results/ajustes2-recetas-nueva.png', fullPage: true }).catch(() => {});
@@ -252,7 +252,7 @@ test('MAPEAR Facturación (fiscal): SOLO LECTURA de campos, botón Editar sin su
   await page.screenshot({ path: 'test-results/ajustes2-facturacion-00.png', fullPage: true });
 
   const editar = page.locator('button:has-text("Editar")').first();
-  if (await editar.isVisible({ timeout: 2000 }).catch(() => false)) {
+  if (await editar.isVisible().catch(() => false)) {
     await editar.click().catch(() => {});
     await dumpFormAbierto(page, 'Editar perfil fiscal');
     await page.screenshot({ path: 'test-results/ajustes2-facturacion-editar.png', fullPage: true }).catch(() => {});

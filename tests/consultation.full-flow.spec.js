@@ -235,7 +235,10 @@ test('Start a scheduled consultation from Inicio', async ({ page }) => {
     console.log('✅ Consulta finalizada');
     await page.waitForTimeout(1000);
     const confirmBtn = page.locator('.swal2-confirm:visible, button:has-text("Aceptar"):visible, button:has-text("OK"):visible').first();
-    if (await opcional(confirmBtn.isVisible({ timeout: 3000 }), 'finalizar:boton-confirmacion-visible')) {
+    // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa 5)
+    // — el swal de confirmación aparece como resultado de Finalizar y puede
+    // tardar más que un instante en renderizar.
+    if (await opcional(confirmBtn.waitFor({ state: 'visible', timeout: 3000 }).then(() => true), 'finalizar:boton-confirmacion-visible')) {
       await confirmBtn.click();
       console.log('✅ Confirmación clickeada');
     }

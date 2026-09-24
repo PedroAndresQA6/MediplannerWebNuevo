@@ -112,7 +112,7 @@ test('Reportes: cargar KPIs/Top 10, filtrar por rango de fechas y ver "Ingresos 
   await test.step('"Ingresos recientes" → "Ver todos" navega a /reportes/todos con datos paginados', async () => {
     await expect(page.locator('text=Ingresos recientes')).toBeVisible();
     const verTodos = page.locator('a:has-text("Ver todos"), button:has-text("Ver todos")').first();
-    if (!(await verTodos.isVisible({ timeout: 3000 }).catch(() => false))) {
+    if (!(await verTodos.isVisible().catch(() => false))) {
       console.log('   ⚠️ No se encontró el link "Ver todos"');
       return;
     }

@@ -86,7 +86,7 @@ test('Ajustes › Servicios: catálogo carga, filtro "Sólo activos" y alta de u
     await nombreInput.fill(NOMBRE_SERVICIO_QA);
 
     const duracionSelect = page.locator('select[name="duracion_servicio"]');
-    if (await duracionSelect.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await duracionSelect.isVisible().catch(() => false)) {
       await duracionSelect.selectOption({ index: 1 }).catch(() => {});
     }
 
@@ -94,7 +94,7 @@ test('Ajustes › Servicios: catálogo carga, filtro "Sólo activos" y alta de u
     // servicio de QA queda inactivo, no aparece en "Sólo activos" ni en el
     // dropdown de la Consulta.
     const activoCheckbox = page.locator('input[name="activo"]');
-    if (await activoCheckbox.isVisible({ timeout: 1000 }).catch(() => false)) {
+    if (await activoCheckbox.isVisible().catch(() => false)) {
       if (await activoCheckbox.isChecked()) await activoCheckbox.click();
       expect(await activoCheckbox.isChecked(), 'El checkbox "activo" debe quedar sin marcar').toBe(false);
     }

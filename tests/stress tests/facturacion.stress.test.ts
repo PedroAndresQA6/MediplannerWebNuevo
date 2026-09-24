@@ -11,12 +11,14 @@ async function captureScreenshot(page: Page, name: string): Promise<void> {
 }
 
 async function handlePopup(page: Page, context: string): Promise<boolean> {
+  // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa 5) —
+  // se llama tras acciones que pueden disparar el popup (ver clickGuardar).
   const popup = page.locator('[role="dialog"], .modal, [class*="swal"], [class*="popup"]').first();
-  if (await popup.isVisible({ timeout: 500 }).catch(() => false)) {
+  if (await popup.waitFor({ state: 'visible', timeout: 500 }).then(() => true).catch(() => false)) {
     const text = (await popup.textContent().catch(() => ''))?.substring(0, 80) || '';
     console.log(`    🔔 [${context}] Popup: "${text}"`);
     const closeBtn = popup.locator('button:has-text("Aceptar"), button:has-text("OK"), button:has-text("Cerrar"), button:has-text("×")').first();
-    if (await closeBtn.isVisible({ timeout: 300 }).catch(() => false)) {
+    if (await closeBtn.waitFor({ state: 'visible', timeout: 300 }).then(() => true).catch(() => false)) {
       await closeBtn.click();
       await page.waitForTimeout(500);
       return true;
@@ -38,9 +40,9 @@ async function avoidAgendar(page: Page): Promise<void> {
 async function clickGuardar(page: Page, context: string): Promise<{ popup: boolean; error: string; success: string }> {
   // Close any lingering SweetAlert first
   const swal = page.locator('.swal2-container, [class*="swal2"]').first();
-  if (await swal.isVisible({ timeout: 500 }).catch(() => false)) {
+  if (await swal.isVisible().catch(() => false)) {
     const swalBtn = swal.locator('button:has-text("OK"), button:has-text("Aceptar"), button:has-text("Cerrar")').first();
-    if (await swalBtn.isVisible({ timeout: 300 }).catch(() => false)) {
+    if (await swalBtn.isVisible().catch(() => false)) {
       await swalBtn.click();
       await page.waitForTimeout(500);
     } else {
@@ -56,13 +58,15 @@ async function clickGuardar(page: Page, context: string): Promise<{ popup: boole
   await avoidAgendar(page);
 
   // Handle SweetAlert specifically
+  // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa 5) —
+  // este swal es resultado directo del saveBtn.click() de arriba.
   const swalAfter = page.locator('.swal2-container, [class*="swal2"]').first();
   let closed = false;
-  if (await swalAfter.isVisible({ timeout: 1000 }).catch(() => false)) {
+  if (await swalAfter.waitFor({ state: 'visible', timeout: 1000 }).then(() => true).catch(() => false)) {
     const text = (await swalAfter.textContent().catch(() => ''))?.substring(0, 80) || '';
     console.log(`    🔔 [${context}] SweetAlert: "${text}"`);
     const swalOkBtn = swalAfter.locator('button:has-text("OK"), button:has-text("Aceptar"), button:has-text("Cerrar")').first();
-    if (await swalOkBtn.isVisible({ timeout: 300 }).catch(() => false)) {
+    if (await swalOkBtn.waitFor({ state: 'visible', timeout: 300 }).then(() => true).catch(() => false)) {
       await swalOkBtn.click();
       await page.waitForTimeout(500);
       closed = true;
@@ -75,7 +79,7 @@ async function clickGuardar(page: Page, context: string): Promise<{ popup: boole
 
   // Also handle toast
   const toast = page.locator('[class*="toast"]').first();
-  if (await toast.isVisible({ timeout: 500 }).catch(() => false)) {
+  if (await toast.waitFor({ state: 'visible', timeout: 500 }).then(() => true).catch(() => false)) {
     const text = (await toast.textContent().catch(() => ''))?.substring(0, 50) || '';
     console.log(`    🔔 [${context}] Toast: "${text}"`);
     closed = true;
@@ -84,11 +88,11 @@ async function clickGuardar(page: Page, context: string): Promise<{ popup: boole
   await avoidAgendar(page);
 
   const errorSel = page.locator('.text-red-500, .text-danger, [class*="error"], [role="alert"]').first();
-  const error = (await errorSel.isVisible({ timeout: 500 }).catch(() => false))
+  const error = (await errorSel.waitFor({ state: 'visible', timeout: 500 }).then(() => true).catch(() => false))
     ? (await errorSel.textContent().catch(() => ''))?.trim() || '' : '';
 
   const successSel = page.locator('.text-green-500, .text-success, [class*="success"]').first();
-  const success = (await successSel.isVisible({ timeout: 500 }).catch(() => false))
+  const success = (await successSel.waitFor({ state: 'visible', timeout: 500 }).then(() => true).catch(() => false))
     ? (await successSel.textContent().catch(() => ''))?.trim() || '' : '';
 
   return { popup: closed, error, success };
@@ -222,7 +226,7 @@ test.describe('Facturación - Stress Test', () => {
     await page.waitForTimeout(1500);
     // Mostrar "Todos" para que el paciente buscado esté en la página (evita paginación).
     const pageSize = page.locator('select').first();
-    if (await pageSize.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await pageSize.isVisible().catch(() => false)) {
       await pageSize.selectOption({ label: 'Todos' }).catch(() => {});
       await page.waitForTimeout(2500);
     }

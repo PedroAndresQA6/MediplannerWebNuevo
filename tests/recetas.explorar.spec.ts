@@ -19,7 +19,7 @@ async function goToPaciente(page: Page): Promise<void> {
   await page.waitForSelector('span.font-semibold.text-sm.text-gray-900', { timeout: 25000 });
   await page.waitForTimeout(1500);
   const pageSize = page.locator('select').first();
-  if (await pageSize.isVisible({ timeout: 3000 }).catch(() => false)) {
+  if (await pageSize.isVisible().catch(() => false)) {
     await pageSize.selectOption({ label: 'Todos' }).catch(() => {});
     await page.waitForTimeout(2500);
   }
@@ -44,7 +44,7 @@ test('MAPEAR módulo Recetas del paciente', async ({ page }) => {
 
   section('Click en tab "Recetas"');
   const tab = page.locator('button:has-text("Recetas"), a:has-text("Recetas")').first();
-  if (await tab.isVisible({ timeout: 5000 }).catch(() => false)) {
+  if (await tab.isVisible().catch(() => false)) {
     await tab.click().catch(() => {});
     await page.waitForTimeout(3000);
     await page.waitForLoadState('load', { timeout: 10000 }).catch(() => null);
@@ -103,7 +103,7 @@ test('MAPEAR módulo Recetas del paciente', async ({ page }) => {
   section('Panel de detalle tras seleccionar el primer item');
   const firstDate = page.locator('text=/\\d{2}\\/\\d{2}\\/\\d{4}/').first();
   let nombreItem = '';
-  if (await firstDate.isVisible({ timeout: 3000 }).catch(() => false)) {
+  if (await firstDate.isVisible().catch(() => false)) {
     const itemBox = firstDate.locator('xpath=ancestor::*[self::div or self::li or self::tr or self::a or self::button][1]');
     nombreItem = norm(await itemBox.textContent().catch(() => '') || '');
     log(`  Texto del item seleccionado: "${nombreItem}"`);

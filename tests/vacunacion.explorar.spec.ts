@@ -22,7 +22,7 @@ async function goToVacunacion(page: Page): Promise<void> {
   await page.waitForSelector('span.font-semibold.text-sm.text-gray-900', { timeout: 25000 });
   await page.waitForTimeout(1500);
   const pageSize = page.locator('select').first();
-  if (await pageSize.isVisible({ timeout: 3000 }).catch(() => false)) {
+  if (await pageSize.isVisible().catch(() => false)) {
     await pageSize.selectOption({ label: 'Todos' }).catch(() => {});
     await page.waitForTimeout(2500);
   }
@@ -105,7 +105,7 @@ test('MAPEAR v2 Vacunación (date nativo, iconos, otra vacuna)', async ({ page }
 
   section('Click en ícono lápiz (editar) de una dosis — mapear editor de folio/obs');
   const pencil = page.locator(`${TABLE} button.btn-secondary`).first();
-  if (await pencil.isVisible({ timeout: 2000 }).catch(() => false)) {
+  if (await pencil.isVisible().catch(() => false)) {
     await pencil.scrollIntoViewIfNeeded().catch(() => {});
     await pencil.click({ force: true }).catch(() => {});
     await page.waitForTimeout(1500);
@@ -152,7 +152,7 @@ test('MAPEAR v2 Vacunación (date nativo, iconos, otra vacuna)', async ({ page }
   let ctaClicked = false;
   for (const sel of ctaSelectors) {
     const btn = page.locator(sel).filter({ hasNotText: 'cambios' }).first();
-    if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) {
+    if (await btn.isVisible().catch(() => false)) {
       log(`  ✅ CTA encontrado con selector: ${sel}`);
       await btn.scrollIntoViewIfNeeded().catch(() => {});
       await btn.click({ force: true }).catch((e) => log(`  ⚠️ click falló: ${e.message}`));

@@ -106,7 +106,7 @@ async function pagarConceptosPendientes(page: any): Promise<number> {
     const metodoRandom = METODOS_PAGO[Math.floor(Math.random() * METODOS_PAGO.length)];
     console.log(`💳 Concepto[${elegido}] con $${monto} pendiente — método objetivo: "${metodoRandom}"`);
     const metodoBtn = page.getByRole('button', { name: metodoRandom });
-    if (await metodoBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (await metodoBtn.isVisible().catch(() => false)) {
       await metodoBtn.click();
     } else {
       console.log(`⚠️ No se encontró "${metodoRandom}", usando "${METODOS_PAGO[0]}"`);
@@ -227,7 +227,7 @@ test.describe('Módulo de Ingresos', () => {
         // (".locator('..')" antes caía en el <span> intermedio, no el botón).
         const eyeButton = pendiente.locator('svg.fa-eye').locator('xpath=ancestor::button[1]').first();
 
-        if (!await eyeButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+        if (!await eyeButton.isVisible().catch(() => false)) {
           console.log('✅ No se encontró botón "Ver" — no hay más pendientes por procesar');
           return;
         }
@@ -246,7 +246,11 @@ test.describe('Módulo de Ingresos', () => {
         // más de 8s en un caso).
         await test.step('Abrir formulario de pago (todos los conceptos)', async () => {
           const registrarPagoBtn = page.getByRole('button', { name: /registrar pago/i }).first();
-          if (!await registrarPagoBtn.isVisible({ timeout: 12000 }).catch(() => false)) {
+          // isVisible({timeout}) no espera de verdad (confirmado en vivo,
+          // Etapa 5) — y el comentario de arriba ya documentaba exactamente
+          // este riesgo (un timeout corto hace ver "ya pagado" un ingreso que
+          // solo estaba cargando todavía).
+          if (!await registrarPagoBtn.waitFor({ state: 'visible', timeout: 12000 }).then(() => true).catch(() => false)) {
             console.log('⚠️ No se encontró botón "Registrar pago" en el detalle — ingreso ya pagado (o el front crasheó, ver hallazgo de DetallePagos en CONTEXTO.md)');
             procesados++;
             return;

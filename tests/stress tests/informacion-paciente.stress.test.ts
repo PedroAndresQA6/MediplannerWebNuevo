@@ -715,7 +715,7 @@ async function testDiagnosticosSection(page: Page): Promise<void> {
   for (const sel of diagSelectors) {
     try {
       const el = page.locator(sel).first();
-      if (await el.isVisible({ timeout: 1500 }).catch(() => false)) {
+      if (await el.isVisible().catch(() => false)) {
         const text = (await el.textContent().catch(() => ''))?.trim() || '';
         if (text === 'Diagnosticos' || text === 'Diagnósticos') {
           await el.click();
@@ -1354,7 +1354,7 @@ async function testFacturacionSection(page: Page): Promise<void> {
   // Helper: close SweetAlert and click save
   async function guardar(ctx: string): Promise<{ popup: boolean }> {
     const swal = page.locator('.swal2-container').first();
-    if (await swal.isVisible({ timeout: 300 }).catch(() => false)) {
+    if (await swal.isVisible().catch(() => false)) {
       await swal.locator('button:has-text("OK"), button:has-text("Aceptar")').first().click().catch(() => {});
       await page.waitForTimeout(300);
     }
@@ -1363,10 +1363,12 @@ async function testFacturacionSection(page: Page): Promise<void> {
     await saveBtn.click();
     await page.waitForTimeout(2000);
     await avoidAgendarButton(page);
+    // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa 5)
+    // — ambos son resultado directo del saveBtn.click() de arriba.
     const swalAfter = page.locator('.swal2-container').first();
-    const hasSwal = await swalAfter.isVisible({ timeout: 1000 }).catch(() => false);
+    const hasSwal = await swalAfter.waitFor({ state: 'visible', timeout: 1000 }).then(() => true).catch(() => false);
     const toast = page.locator('[class*="toast"]').first();
-    const hasToast = await toast.isVisible({ timeout: 500 }).catch(() => false);
+    const hasToast = await toast.waitFor({ state: 'visible', timeout: 500 }).then(() => true).catch(() => false);
     if (hasSwal) {
       const text = (await swalAfter.textContent().catch(() => ''))?.substring(0, 60) || '';
       console.log(`    🔔 [${ctx}] SweetAlert: "${text}"`);
@@ -1598,8 +1600,11 @@ async function handlePopup(page: Page, sectionName: string, momento: string): Pr
 
   for (const { sel, tipo } of popupSelectors) {
     try {
+      // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa
+      // 5) — handleAllPopups se llama tras guardar/eliminar en muchos sitios
+      // de este archivo.
       const popup = page.locator(sel).first();
-      if (await popup.isVisible({ timeout: 500 }).catch(() => false)) {
+      if (await popup.waitFor({ state: 'visible', timeout: 500 }).then(() => true).catch(() => false)) {
         const texto = (await popup.textContent().catch(() => ''))?.substring(0, 100).trim() || 'Sin texto';
         console.log(`  🔔 [${sectionName}] Popup detectado (${tipo}): "${texto}"`);
 
@@ -1607,7 +1612,7 @@ async function handlePopup(page: Page, sectionName: string, momento: string): Pr
         for (const closeSel of closeSelectors) {
           try {
             const closeBtn = popup.locator(closeSel).first();
-            if (await closeBtn.isVisible({ timeout: 300 }).catch(() => false)) {
+            if (await closeBtn.waitFor({ state: 'visible', timeout: 300 }).then(() => true).catch(() => false)) {
               await closeBtn.click();
               await page.waitForTimeout(500);
               cerrado = true;
@@ -1721,8 +1726,11 @@ async function getErrorMessage(page: Page): Promise<string> {
   ];
   for (const selector of errorSelectors) {
     try {
+      // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa
+      // 5) — esta función se llama tras guardar (ver call sites de
+      // getErrorMessage/getSuccessMessage).
       const el = page.locator(selector).first();
-      if (await el.isVisible({ timeout: 1000 }).catch(() => false)) {
+      if (await el.waitFor({ state: 'visible', timeout: 1000 }).then(() => true).catch(() => false)) {
         const text = await el.textContent().catch(() => '');
         // Filter out single asterisk (required field indicator)
         if (text && text.trim().length > 0 && text.trim() !== '*') return text.trim();
@@ -1741,8 +1749,11 @@ async function getSuccessMessage(page: Page): Promise<string> {
   ];
   for (const selector of successSelectors) {
     try {
+      // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa
+      // 5) — esta función se llama tras guardar (ver call sites de
+      // getErrorMessage/getSuccessMessage).
       const el = page.locator(selector).first();
-      if (await el.isVisible({ timeout: 1000 }).catch(() => false)) {
+      if (await el.waitFor({ state: 'visible', timeout: 1000 }).then(() => true).catch(() => false)) {
         const text = await el.textContent().catch(() => '');
         if (text && text.trim().length > 0) return text.trim();
       }
@@ -1812,7 +1823,7 @@ async function enterEditMode(page: Page, sectionName: string): Promise<boolean> 
   for (const sel of editSelectors) {
     try {
       const btn = page.locator(sel).first();
-      if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) {
+      if (await btn.isVisible().catch(() => false)) {
         // Check the button doesn't navigate to a different section
         const href = await btn.getAttribute('href').catch(() => null);
         if (href && (href.includes('Consulta') || href.includes('consulta'))) {
@@ -1884,8 +1895,10 @@ async function testSaveEmpty(page: Page, sectionName: string): Promise<TestResul
   let guardarBtn = null;
   for (const sel of guardarSelectors) {
     try {
+      // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa
+      // 5) — este botón puede aparecer recién tras enterEditMode().
       const btn = page.locator(sel).first();
-      if (await btn.isVisible({ timeout: 800 }).catch(() => false)) {
+      if (await btn.waitFor({ state: 'visible', timeout: 800 }).then(() => true).catch(() => false)) {
         guardarBtn = btn;
         console.log(`  [${sectionName}] Botón guardar encontrado con: ${sel}`);
         break;
@@ -2043,8 +2056,10 @@ async function testAddVaccine(page: Page): Promise<TestResult> {
   let addBtn: any = null;
   for (const sel of addSelectors) {
     try {
+      // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa
+      // 5) — primer chequeo de esta función, sin evidencia de espera previa.
       const btn = page.locator(sel).first();
-      if (await btn.isVisible({ timeout: 800 }).catch(() => false)) {
+      if (await btn.waitFor({ state: 'visible', timeout: 800 }).then(() => true).catch(() => false)) {
         const btnText = (await btn.textContent().catch(() => ''))?.toLowerCase() || '';
         // Skip Agendar button
         if (btnText.includes('agendar')) continue;
@@ -2245,7 +2260,7 @@ async function testAddVaccine(page: Page): Promise<TestResult> {
   for (const sel of saveSelectors) {
     try {
       const btn = page.locator(sel).first();
-      if (await btn.isVisible({ timeout: 800 }).catch(() => false)) {
+      if (await btn.isVisible().catch(() => false)) {
         const btnText = (await btn.textContent().catch(() => ''))?.toLowerCase() || '';
         // NEVER click Agendar
         if (btnText.includes('agendar')) {
@@ -2838,7 +2853,7 @@ test.describe('Información del Paciente - Stress Tests', () => {
     for (const selector of infoSelectors) {
       try {
         const el = page.locator(selector).first();
-        if (await el.isVisible({ timeout: 2000 }).catch(() => false)) {
+        if (await el.isVisible().catch(() => false)) {
           await el.click();
           foundInfo = true;
           console.log(`📋 Click en "Información" con selector: ${selector}`);
@@ -2868,7 +2883,7 @@ test.describe('Información del Paciente - Stress Tests', () => {
     for (const sel of scrollspySelectors) {
       try {
         const el = page.locator(sel).first();
-        if (await el.isVisible({ timeout: 1500 }).catch(() => false)) {
+        if (await el.isVisible().catch(() => false)) {
           // Verify it's inside the scrollspy sidebar, not some other "General" link
           const parentClass = await el.evaluate(e => {
             let p = e.parentElement;

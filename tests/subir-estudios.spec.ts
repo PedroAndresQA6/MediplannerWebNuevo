@@ -78,7 +78,7 @@ test.describe('Subir Estudios', () => {
       logger.info('Buscando sección "Consultas"...');
       const consultasLink = page.locator('a:has-text("Consultas"), button:has-text("Consultas")').first();
 
-      if (await consultasLink.isVisible({ timeout: 10000 }).catch(() => false)) {
+      if (await consultasLink.isVisible().catch(() => false)) {
         await consultasLink.click();
         logger.success('Click en "Consultas" realizado');
         await page.waitForLoadState('networkidle');
@@ -130,7 +130,7 @@ test.describe('Subir Estudios', () => {
 
           const verConsultaBtn = page.getByRole('button', { name: /ver consulta/i });
 
-          if (await verConsultaBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+          if (await verConsultaBtn.isVisible().catch(() => false)) {
             logger.success(`Botón "Ver consulta" encontrado en consulta ${i + 1}`);
             await verConsultaBtn.click();
             logger.success('Click en "Ver consulta" realizado');
@@ -151,7 +151,7 @@ test.describe('Subir Estudios', () => {
             logger.info('Buscando pestaña "Tratamiento"...');
             const tratamientoTab = page.locator('text=/tratamiento/i').first();
 
-            if (await tratamientoTab.isVisible({ timeout: 10000 }).catch(() => false)) {
+            if (await tratamientoTab.isVisible().catch(() => false)) {
               await tratamientoTab.click();
               logger.success('Click en pestaña "Tratamiento" realizado');
               await page.waitForLoadState('networkidle');
@@ -170,7 +170,7 @@ test.describe('Subir Estudios', () => {
               // 9. Verificar si ya hay estudios subidos
               const estudiosExistentes = page.locator('section:has(span:text-is("Estuidos_ejemplo_mediplanner.pdf"))').first();
 
-              if (await estudiosExistentes.isVisible({ timeout: 3000 }).catch(() => false)) {
+              if (await estudiosExistentes.isVisible().catch(() => false)) {
                 logger.warning(`⚠️ Consulta ${i + 1} ya tiene estudios subidos, regresando al perfil del paciente...`);
                 // Navegar al Dashboard y seleccionar el paciente de nuevo
                 await page.goto('/Dashboard');
@@ -211,7 +211,7 @@ test.describe('Subir Estudios', () => {
               logger.info('Buscando "Cargar resultados de laboratorio"...');
               const cargarResultados = page.locator('text=/cargar resultados de laboratorio/i').first();
 
-              if (await cargarResultados.isVisible({ timeout: 10000 }).catch(() => false)) {
+              if (await cargarResultados.isVisible().catch(() => false)) {
                 await cargarResultados.click();
                 logger.success('Click en "Cargar resultados de laboratorio" realizado');
                 await page.waitForLoadState('networkidle');
@@ -239,7 +239,10 @@ test.describe('Subir Estudios', () => {
                   logger.info('Haciendo clic en el archivo subido...');
                   const archivoSubido = page.locator('section:has(span:text-is("Estuidos_ejemplo_mediplanner.pdf"))').first();
 
-                  if (await archivoSubido.isVisible({ timeout: 5000 }).catch(() => false)) {
+                  // isVisible({timeout}) no espera de verdad (confirmado en
+                  // vivo, Etapa 5) — el archivo recién subido puede tardar
+                  // más que un instante en aparecer en la lista.
+                  if (await archivoSubido.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false)) {
                     await archivoSubido.click();
                     logger.success('Click en archivo subido realizado');
                     await page.waitForTimeout(3000);
@@ -272,7 +275,7 @@ test.describe('Subir Estudios', () => {
                     logger.info('Buscando botón "Guardar Cambios"...');
                     const guardarBtn = page.locator('div.flex.justify-end.space-x-4 button.btn.btn-primary:has-text("Guardar Cambios")').first();
 
-                    if (await guardarBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+                    if (await guardarBtn.isVisible().catch(() => false)) {
                       await guardarBtn.click({ force: true });
                       logger.success('Click en "Guardar Cambios" realizado');
                       await page.waitForTimeout(5000);
@@ -284,7 +287,10 @@ test.describe('Subir Estudios', () => {
                       await page.waitForTimeout(3000);
 
                       const nuevosEstudios = page.locator('h3:has-text("Nuevos estudios")');
-                      if (await nuevosEstudios.isVisible({ timeout: 10000 }).catch(() => false)) {
+                      // isVisible({timeout}) no espera de verdad (confirmado
+                      // en vivo, Etapa 5) — navegación recién hecha al
+                      // Dashboard, sin loop de "Cargando" que la proteja.
+                      if (await nuevosEstudios.waitFor({ state: 'visible', timeout: 10000 }).then(() => true).catch(() => false)) {
                         logger.success('Sección "Nuevos estudios" encontrada');
 
                         const items = page.locator('h3:has-text("Nuevos estudios")').locator('..').locator('..').locator('ul li');

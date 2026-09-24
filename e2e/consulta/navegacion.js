@@ -52,7 +52,10 @@ async function sectionContainer(page, headingRegex, maxDepth = 10) {
 // Salir de cualquiera de los 2 si aparecen.
 async function saltarOnboardingYWizardConfig(page) {
   const explorarLink = page.getByText(/prefiero explorar por mi cuenta/i);
-  if (await opcional(explorarLink.isVisible({ timeout: 3000 }), 'onboarding:link-explorar-visible')) {
+  // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa 5) —
+  // el onboarding es contenido condicional que puede tardar más que un
+  // instante en aparecer tras cargar el Dashboard.
+  if (await opcional(explorarLink.waitFor({ state: 'visible', timeout: 3000 }).then(() => true), 'onboarding:link-explorar-visible')) {
     console.log('ℹ️ Onboarding detectado — clickeando "Prefiero explorar por mi cuenta"');
     // Precondición, no opcional (Etapa 2): el link ya se confirmó visible
     // arriba — si el click o la carga posterior revientan, es una falla real
@@ -62,7 +65,7 @@ async function saltarOnboardingYWizardConfig(page) {
     await page.waitForTimeout(1500);
   }
   const configurarMasTardeLink = page.getByText(/configurar más tarde/i);
-  if (await opcional(configurarMasTardeLink.isVisible({ timeout: 3000 }), 'onboarding:link-configurar-mas-tarde-visible')) {
+  if (await opcional(configurarMasTardeLink.waitFor({ state: 'visible', timeout: 3000 }).then(() => true), 'onboarding:link-configurar-mas-tarde-visible')) {
     console.log('ℹ️ Wizard de "Configuración de tu cuenta" detectado — clickeando "Configurar más tarde"');
     await configurarMasTardeLink.click({ force: true });
     await page.waitForLoadState('load', { timeout: 20000 });

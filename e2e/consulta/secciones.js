@@ -209,7 +209,7 @@ async function fillChecklistSection(page, headingRegex, nombreLog) {
     await page.waitForTimeout(500);
 
     const guardarBtn = scope.locator('button:has-text("Guardar Respuestas")').first();
-    if (await opcional(guardarBtn.isVisible({ timeout: 3000 }), `${nombreLog}:boton-guardar-respuestas-visible`)) {
+    if (await opcional(guardarBtn.isVisible(), `${nombreLog}:boton-guardar-respuestas-visible`)) {
       await guardarBtn.click();
       await page.waitForTimeout(1500);
       await handleModals(page);
@@ -230,8 +230,12 @@ async function fillDiagnosticoSection(page) {
     const scope = await sectionContainer(page, /^Diagnóstico$/i);
     await page.waitForTimeout(500);
 
+    // Sin evidencia de que este campo cargue por separado del heading (a
+    // diferencia de fillChecklistSection, que sí tiene su propio "Cargando
+    // preguntas"): confirmado en vivo contra dev (verificación post-Finalizar
+    // limpia, 2026-09-24) que aparece ya renderizado en este punto.
     const cie10Input = scope.locator('textarea[role="combobox"]').first();
-    if (await opcional(cie10Input.isVisible({ timeout: 3000 }), 'diagnostico:cie10-combobox-visible')) {
+    if (await opcional(cie10Input.isVisible(), 'diagnostico:cie10-combobox-visible')) {
       await cie10Input.click();
       await page.waitForTimeout(500);
       const codigoCIE10 = pick(DATOS_CLINICOS.cie10);
@@ -251,7 +255,7 @@ async function fillDiagnosticoSection(page) {
     }
 
     const impresion = scope.locator('textarea[placeholder="Impresión diagnóstica"]').first();
-    if (await opcional(impresion.isVisible({ timeout: 2000 }), 'diagnostico:impresion-visible')) {
+    if (await opcional(impresion.isVisible(), 'diagnostico:impresion-visible')) {
       const cur = (await opcional(impresion.inputValue(), 'diagnostico:impresion-valor-actual')) ?? '';
       if (!cur.trim()) {
         await impresion.fill(TEXTO_IMPRESION_DIAGNOSTICA);
@@ -303,8 +307,10 @@ async function fillTratamientoSection(page) {
       console.log('✅ Indicaciones generales de tratamiento llenadas');
     }
 
+    // Sin evidencia de carga separada (confirmado en vivo contra dev,
+    // 2026-09-24: verificación post-Finalizar limpia, medicamento guardado).
     const medicamentoInput = scope.locator('#react-select-2-input');
-    if (await opcional(medicamentoInput.isVisible({ timeout: 3000 }), 'tratamiento:medicamento-input-visible')) {
+    if (await opcional(medicamentoInput.isVisible(), 'tratamiento:medicamento-input-visible')) {
       const medicamento = pick(DATOS_CLINICOS.medicamentos);
       await medicamentoInput.click();
       await medicamentoInput.fill(medicamento);
@@ -365,7 +371,7 @@ async function fillTratamientoSection(page) {
     // Indicaciones (2 inputs de texto sin name/placeholder, identificados por
     // su <label> propio) — antes se dejaba sin llenar por completo.
     const agregarDiferenteBtn = scope.locator('button:has-text("Agrega tratamiento diferente"), button:has-text("Agrega tratamiendo diferente")').first();
-    if (await opcional(agregarDiferenteBtn.isVisible({ timeout: 3000 }), 'tratamiento:boton-agregar-diferente-visible')) {
+    if (await opcional(agregarDiferenteBtn.isVisible(), 'tratamiento:boton-agregar-diferente-visible')) {
       await agregarDiferenteBtn.click();
       await page.waitForTimeout(800);
       const tratamientoDiferente = pick(DATOS_CLINICOS.tratamientosDiferentes);
@@ -373,16 +379,19 @@ async function fillTratamientoSection(page) {
       // verificación downstream tras Finalizar — el log final honesto (en
       // vez del "llenado" incondicional de antes) es, por ahora, la única
       // señal si alguno de los 2 inputs deja de aparecer.
+      // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa
+      // 5) — esta fila la crea el click de arriba, así que sí puede tardar
+      // más que un instante en montar.
       let otrosMedicamentosCompleto = true;
       const medicamentoDifInput = scope.locator('div.flex:has-text("Medicamento:")').last().locator('input[type="text"]').first();
-      if (await opcional(medicamentoDifInput.isVisible({ timeout: 3000 }), 'tratamiento:medicamento-diferente-input-visible')) {
+      if (await opcional(medicamentoDifInput.waitFor({ state: 'visible', timeout: 3000 }).then(() => true), 'tratamiento:medicamento-diferente-input-visible')) {
         await medicamentoDifInput.fill(tratamientoDiferente);
       } else {
         console.log('⚠️ No se encontró el input de "Medicamento:" en Otros medicamentos');
         otrosMedicamentosCompleto = false;
       }
       const indicacionesDifInput = scope.locator('div.flex:has-text("Indicaciones:")').last().locator('input[type="text"]').first();
-      if (await opcional(indicacionesDifInput.isVisible({ timeout: 3000 }), 'tratamiento:indicaciones-diferente-input-visible')) {
+      if (await opcional(indicacionesDifInput.waitFor({ state: 'visible', timeout: 3000 }).then(() => true), 'tratamiento:indicaciones-diferente-input-visible')) {
         await indicacionesDifInput.fill('Tomar según indicación médica, con alimentos.');
       } else {
         console.log('⚠️ No se encontró el input de "Indicaciones:" en Otros medicamentos');
@@ -415,8 +424,10 @@ async function fillLaboratoriosSection(page) {
       console.log('✅ Indicaciones de laboratorio llenadas');
     }
 
+    // Sin evidencia de carga separada (confirmado en vivo contra dev,
+    // 2026-09-24: verificación post-Finalizar limpia, laboratorio guardado).
     const labSelect = scope.locator('#react-select-3-input');
-    if (await opcional(labSelect.isVisible({ timeout: 3000 }), 'laboratorios:lab-select-visible')) {
+    if (await opcional(labSelect.isVisible(), 'laboratorios:lab-select-visible')) {
       const laboratorio = pick(DATOS_CLINICOS.laboratorios);
       await labSelect.click();
       await page.waitForTimeout(300);
@@ -447,7 +458,7 @@ async function fillLaboratoriosSection(page) {
     }
 
     const procedimientoInput = scope.locator('textarea[name="procedimiento-0"]');
-    if (await opcional(procedimientoInput.isVisible({ timeout: 2000 }), 'laboratorios:procedimiento-input-visible')) {
+    if (await opcional(procedimientoInput.isVisible(), 'laboratorios:procedimiento-input-visible')) {
       await procedimientoInput.fill(TEXTO_PROCEDIMIENTO);
       console.log('✅ Procedimiento llenado');
     } else {
@@ -466,8 +477,10 @@ async function fillNotasMedicoSection(page) {
   console.log('📋 Llenando Notas del Médico...');
   try {
     const scope = await sectionContainer(page, /^Notas del Médico/i);
+    // Sin evidencia de carga separada (confirmado en vivo contra dev,
+    // 2026-09-24: verificación post-Finalizar limpia, nota guardada).
     const editor = scope.locator('div.jodit-wysiwyg').first();
-    if (await opcional(editor.isVisible({ timeout: 5000 }), 'notas-medico:editor-visible')) {
+    if (await opcional(editor.isVisible(), 'notas-medico:editor-visible')) {
       await editor.click();
       await page.keyboard.press('Control+A');
       await page.keyboard.type(TEXTO_NOTAS_MEDICO);
@@ -502,7 +515,7 @@ async function fillServiciosSection(page) {
 
       if (optionCount === 0) {
         const sinElementos = page.locator('text=/No se encontraron elementos/i');
-        if (await opcional(sinElementos.isVisible({ timeout: 1000 }), 'servicios:sin-elementos-visible')) {
+        if (await opcional(sinElementos.isVisible(), 'servicios:sin-elementos-visible')) {
           sinOpcionesDisponibles = true;
           const shot = 'test-results/servicios-sin-opciones.png';
           await opcional(page.screenshot({ path: shot, fullPage: true }), 'servicios:screenshot-sin-opciones');

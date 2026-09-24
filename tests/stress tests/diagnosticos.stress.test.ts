@@ -78,8 +78,11 @@ async function handlePopup(page: Page, sectionName: string, momento: string): Pr
 
   for (const { sel, tipo } of popupSelectors) {
     try {
+      // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa
+      // 5) — handleAllPopups se llama tras acciones (eliminar, etc.) que
+      // pueden disparar este popup.
       const popup = page.locator(sel).first();
-      if (await popup.isVisible({ timeout: 500 }).catch(() => false)) {
+      if (await popup.waitFor({ state: 'visible', timeout: 500 }).then(() => true).catch(() => false)) {
         const texto = (await popup.textContent().catch(() => ''))?.substring(0, 100).trim() || 'Sin texto';
         console.log(`  🔔 [${sectionName}] Popup detectado (${tipo}): "${texto.substring(0, 50)}"`);
 
@@ -87,7 +90,7 @@ async function handlePopup(page: Page, sectionName: string, momento: string): Pr
         for (const closeSel of closeSelectors) {
           try {
             const closeBtn = popup.locator(closeSel).first();
-            if (await closeBtn.isVisible({ timeout: 300 }).catch(() => false)) {
+            if (await closeBtn.waitFor({ state: 'visible', timeout: 300 }).then(() => true).catch(() => false)) {
               await closeBtn.click();
               await page.waitForTimeout(500);
               cerrado = true;
@@ -141,8 +144,12 @@ async function getErrorMessage(page: Page): Promise<string> {
   ];
   for (const selector of errorSelectors) {
     try {
+      // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa
+      // 5). Nota: esta función no tiene ningún call site activo en este
+      // archivo hoy — queda corregida por consistencia, sin efecto real
+      // hasta que se use.
       const el = page.locator(selector).first();
-      if (await el.isVisible({ timeout: 1000 }).catch(() => false)) {
+      if (await el.waitFor({ state: 'visible', timeout: 1000 }).then(() => true).catch(() => false)) {
         const text = await el.textContent().catch(() => '');
         if (text && text.trim().length > 0 && text.trim() !== '*') return text.trim();
       }
@@ -159,8 +166,12 @@ async function getSuccessMessage(page: Page): Promise<string> {
   ];
   for (const selector of successSelectors) {
     try {
+      // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa
+      // 5). Nota: esta función no tiene ningún call site activo en este
+      // archivo hoy — queda corregida por consistencia, sin efecto real
+      // hasta que se use.
       const el = page.locator(selector).first();
-      if (await el.isVisible({ timeout: 1000 }).catch(() => false)) {
+      if (await el.waitFor({ state: 'visible', timeout: 1000 }).then(() => true).catch(() => false)) {
         const text = await el.textContent().catch(() => '');
         if (text && text.trim().length > 0) return text.trim();
       }
@@ -430,7 +441,7 @@ async function testDiagnosticosSection(page: Page): Promise<void> {
   for (const sel of trashSelectors) {
     try {
       const btn = page.locator(sel).first();
-      if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) {
+      if (await btn.isVisible().catch(() => false)) {
         trashBtn = btn;
         console.log(`    📋 Botón trash encontrado con: ${sel}`);
         break;
@@ -598,7 +609,7 @@ test.describe('Diagnósticos del Paciente - Stress Tests', () => {
     for (const sel of infoSelectors) {
       try {
         const el = page.locator(sel).first();
-        if (await el.isVisible({ timeout: 2000 }).catch(() => false)) {
+        if (await el.isVisible().catch(() => false)) {
           await el.click();
           break;
         }
@@ -619,7 +630,7 @@ test.describe('Diagnósticos del Paciente - Stress Tests', () => {
     for (const sel of diagSelectors) {
       try {
         const el = page.locator(sel).first();
-        if (await el.isVisible({ timeout: 1500 }).catch(() => false)) {
+        if (await el.isVisible().catch(() => false)) {
           const text = (await el.textContent().catch(() => ''))?.trim() || '';
           if (text === 'Diagnosticos' || text === 'Diagnósticos') {
             await el.click();

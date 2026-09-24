@@ -65,7 +65,7 @@ async function testTextInputValidation(
         
         const guardarBtn = page.locator('button:has-text("Guardar cambios"), button:has-text("Guardar"), button:has-text("Guardar y continuar")').first();
         
-        if (await guardarBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        if (await guardarBtn.isVisible().catch(() => false)) {
           await guardarBtn.click();
           await page.waitForTimeout(2000);
           
@@ -81,7 +81,10 @@ async function testTextInputValidation(
             console.log(`    💾 Resultado: ✅ RECHAZADO al guardar - Validación funciona`);
             
             const okBtn = page.locator('button:has-text("OK"), button:has-text("Aceptar"), .swal2-confirm');
-            if (await okBtn.first().isVisible({ timeout: 1000 }).catch(() => false)) {
+            // isVisible({timeout}) no espera de verdad (confirmado en vivo,
+            // Etapa 5) — el swal/alert de error recién apareció como
+            // resultado de este guardado, puede tardar más que un instante.
+            if (await okBtn.first().waitFor({ state: 'visible', timeout: 1000 }).then(() => true).catch(() => false)) {
               await okBtn.first().click();
               await page.waitForTimeout(500);
             }
@@ -163,7 +166,7 @@ async function testRSWEditorValidation(
         
         const guardarBtn = page.locator('button:has-text("Guardar cambios"), button:has-text("Guardar"), button:has-text("Guardar y continuar")').first();
         
-        if (await guardarBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        if (await guardarBtn.isVisible().catch(() => false)) {
           await guardarBtn.click();
           await page.waitForTimeout(2000);
           
@@ -179,7 +182,10 @@ async function testRSWEditorValidation(
             console.log(`    💾 Resultado: ✅ RECHAZADO al guardar - Validación funciona`);
             
             const okBtn = page.locator('button:has-text("OK"), button:has-text("Aceptar"), .swal2-confirm');
-            if (await okBtn.first().isVisible({ timeout: 1000 }).catch(() => false)) {
+            // isVisible({timeout}) no espera de verdad (confirmado en vivo,
+            // Etapa 5) — el swal/alert de error recién apareció como
+            // resultado de este guardado, puede tardar más que un instante.
+            if (await okBtn.first().waitFor({ state: 'visible', timeout: 1000 }).then(() => true).catch(() => false)) {
               await okBtn.first().click();
               await page.waitForTimeout(500);
             }
@@ -468,7 +474,7 @@ async function fillExplorationSection(page: Page): Promise<void> {
       const checkbox = allCheckboxes.nth(i);
       
       try {
-        const isVisible = await checkbox.isVisible({ timeout: 500 });
+        const isVisible = await checkbox.isVisible();
         if (!isVisible) continue;
       } catch (e) {
         continue;
@@ -487,7 +493,11 @@ async function fillExplorationSection(page: Page): Promise<void> {
       
       if (normalBtnCount > 0) {
         const normalBtn = page.locator('button:has-text("Normal")').first();
-        if (await normalBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+        // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa
+        // 5) — este sub-formulario "Normal/Anormal" lo revela el click del
+        // checkbox de arriba y puede tardar en montar (carrera documentada
+        // en e2e/consulta/secciones.js).
+        if (await normalBtn.waitFor({ state: 'visible', timeout: 1000 }).then(() => true).catch(() => false)) {
           await normalBtn.click();
           console.log(`   ✅ Seleccionado "Normal"`);
         }
@@ -585,7 +595,10 @@ async function fillDiagnosticoSection(page: Page): Promise<void> {
     const labelCIE10 = page.locator('label:has-text("CIE"), label:has-text("Código"), label:has-text("diagnóstico")').first();
     let cie10Input: Locator | null = null;
     
-    if (await labelCIE10.isVisible({ timeout: 1000 }).catch(() => false)) {
+    // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa 5)
+    // — inicio de sección recién abierta, sin evidencia de que el contenido
+    // ya esté asentado.
+    if (await labelCIE10.waitFor({ state: 'visible', timeout: 1000 }).then(() => true).catch(() => false)) {
       console.log('✅ Label CIE-10 encontrado');
       cie10Input = labelCIE10.locator('xpath=following::input[1] | xpath=../input | xpath=..//input').first();
     }
@@ -602,7 +615,7 @@ async function fillDiagnosticoSection(page: Page): Promise<void> {
       
       for (const sel of selectors) {
         const input = page.locator(sel).first();
-        if (await input.isVisible({ timeout: 500 }).catch(() => false)) {
+        if (await input.waitFor({ state: 'visible', timeout: 500 }).then(() => true).catch(() => false)) {
           cie10Input = input;
           console.log(`✅ Dropdown encontrado con: ${sel}`);
           break;
@@ -612,7 +625,7 @@ async function fillDiagnosticoSection(page: Page): Promise<void> {
     
     if (cie10Input && await cie10Input.isVisible().catch(() => false)) {
       const svgIcon = page.locator('svg.css-8mmkcg, svg[class*="css-"]').first();
-      if (await svgIcon.isVisible({ timeout: 1000 }).catch(() => false)) {
+      if (await svgIcon.waitFor({ state: 'visible', timeout: 1000 }).then(() => true).catch(() => false)) {
         await svgIcon.click();
         console.log('✅ Click en SVG del dropdown');
       } else {
@@ -678,12 +691,14 @@ async function testMedicacionValidation(page: Page): Promise<void> {
   await page.waitForTimeout(1500);
   
   const medicInput = page.locator('input[placeholder*="medic" i]:visible, input[placeholder*="Medicamento"]:visible, input[autocomplete="off"]:visible').first();
-  const inputVisible = await medicInput.isVisible({ timeout: 3000 }).catch(() => false);
+  // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa 5) —
+  // primer chequeo de la sección Tratamiento recién abierta.
+  const inputVisible = await medicInput.waitFor({ state: 'visible', timeout: 3000 }).then(() => true).catch(() => false);
   
   if (!inputVisible) {
     console.log('⚠️ No hay input de medicamento visible, buscando botón para agregar...');
     const addBtn = page.locator('button:has-text("Agregar"), button:has-text("+ Agregar"), button:has-text("Nuevo"), [class*="agregar"]:visible').first();
-    if (await addBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await addBtn.waitFor({ state: 'visible', timeout: 2000 }).then(() => true).catch(() => false)) {
       await addBtn.click();
       await page.waitForTimeout(1500);
     }
@@ -697,7 +712,9 @@ async function testMedicacionValidation(page: Page): Promise<void> {
     await page.waitForTimeout(1500);
     
     const option = page.locator('[role="option"]:visible').first();
-    if (await option.count() > 0 && await option.isVisible({ timeout: 1000 }).catch(() => false)) {
+    // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa 5)
+    // — las opciones de búsqueda aparecen tras el type() de arriba.
+    if (await option.count() > 0 && await option.waitFor({ state: 'visible', timeout: 1000 }).then(() => true).catch(() => false)) {
       await option.click();
       console.log('✅ Medicamento seleccionado, esperando campos del formulario...\n');
       await page.waitForTimeout(2500);
@@ -901,7 +918,7 @@ async function fillTreatmentSection(page: Page): Promise<void> {
   console.log('📌 Cerrando barra lateral...');
   try {
     const sidebarToggle = page.locator('#sidebar_toggle');
-    if (await sidebarToggle.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await sidebarToggle.isVisible().catch(() => false)) {
       await sidebarToggle.click();
       console.log('✅ Barra lateral cerrada');
       await page.waitForTimeout(500);
@@ -1001,7 +1018,7 @@ async function fillTreatmentSection(page: Page): Promise<void> {
     }
     
     const textareaIndicaciones = page.locator('textarea:visible:not([disabled])').first();
-    if (await textareaIndicaciones.isVisible({ timeout: 1000 }).catch(() => false)) {
+    if (await textareaIndicaciones.isVisible().catch(() => false)) {
       await textareaIndicaciones.fill('Tomar con alimentos. No exceder 3 tabletas al día.');
       console.log('  ✅ Indicaciones填入完成');
     }
@@ -1031,7 +1048,7 @@ async function fillTreatmentSection(page: Page): Promise<void> {
     for (let i = 0; i < guardarCountTrat; i++) {
       const btn = guardarBtnsTratamiento.nth(i);
       try {
-        if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) {
+        if (await btn.isVisible().catch(() => false)) {
           await btn.click({ force: true });
           console.log(`✅ Click en "Guardar cambios" ${i + 1}`);
           await page.waitForTimeout(2000);
@@ -1140,7 +1157,9 @@ async function fillServiciosSection(page: Page): Promise<void> {
     for (const labelText of dropdownLabels) {
       const labelDropdown = page.locator(`label:has-text("${labelText}"), span:has-text("${labelText}"), div:has-text("${labelText}"):not([role])`).first();
       
-      if (await labelDropdown.isVisible({ timeout: 1000 }).catch(() => false)) {
+      // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa
+      // 5) — inicio de sección Servicios recién abierta.
+      if (await labelDropdown.waitFor({ state: 'visible', timeout: 1000 }).then(() => true).catch(() => false)) {
         console.log(`✅ Label "${labelText}" encontrado`);
         
         let dropdownInput = labelDropdown.locator('xpath=following::input[1] | xpath=../input | xpath=..//input | xpath=following-sibling::div//input').first();
@@ -1156,7 +1175,7 @@ async function fillServiciosSection(page: Page): Promise<void> {
           
           for (const sel of selectors) {
             const input = page.locator(sel).first();
-            if (await input.isVisible({ timeout: 500 }).catch(() => false)) {
+            if (await input.waitFor({ state: 'visible', timeout: 500 }).then(() => true).catch(() => false)) {
               dropdownInput = input;
               console.log(`✅ Dropdown encontrado con: ${sel}`);
               break;
@@ -1166,7 +1185,7 @@ async function fillServiciosSection(page: Page): Promise<void> {
         
         if (dropdownInput && await dropdownInput.isVisible().catch(() => false)) {
           const svgIcon = page.locator('svg.css-8mmkcg, svg[class*="css-"]').first();
-          if (await svgIcon.isVisible({ timeout: 1000 }).catch(() => false)) {
+          if (await svgIcon.waitFor({ state: 'visible', timeout: 1000 }).then(() => true).catch(() => false)) {
             await svgIcon.click();
             console.log('✅ Click en SVG del dropdown');
           } else {
@@ -1235,7 +1254,7 @@ async function fillServiciosSection(page: Page): Promise<void> {
 
     for (const selector of guardarServiciosSelectors) {
       try {
-        if (await selector.count() > 0 && await selector.first().isVisible({ timeout: 2000 }).catch(() => false)) {
+        if (await selector.count() > 0 && await selector.first().isVisible().catch(() => false)) {
           await selector.first().click();
           console.log('✅ Click en "Guardar servicios"');
           await page.waitForTimeout(1500);
@@ -1410,8 +1429,10 @@ async function registrarMedicamento(
   console.log('   📅 Ingresando duración: 10...');
   try {
     let duracionInput = page.locator('input[name="tiempo_cantidad"]').first();
-    
-    if (!await duracionInput.isVisible({ timeout: 1000 }).catch(() => false)) {
+
+    // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa 5)
+    // — primer chequeo de este bloque de medicamento recién abierto.
+    if (!await duracionInput.waitFor({ state: 'visible', timeout: 1000 }).then(() => true).catch(() => false)) {
       const numberInputs = page.locator('input[type="number"]:visible:not([disabled])');
       const numCount = await numberInputs.count();
       if (numCount > 2) {
@@ -1419,7 +1440,7 @@ async function registrarMedicamento(
       }
     }
     
-    if (await duracionInput.isVisible({ timeout: 1000 }).catch(() => false)) {
+    if (await duracionInput.waitFor({ state: 'visible', timeout: 1000 }).then(() => true).catch(() => false)) {
       await duracionInput.click({ clickCount: 3 });
       await page.waitForTimeout(100);
       await duracionInput.type('10', { delay: 50 });
@@ -1484,12 +1505,14 @@ async function createAppointment(page: Page): Promise<void> {
     await page.waitForTimeout(2000);
     
     const agendarBtn = page.getByRole('button', { name: /agendar cita/i });
-    if (await agendarBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+    // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa 5)
+    // — primer chequeo tras el goto('/Citas') de este fallback.
+    if (await agendarBtn.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false)) {
       await agendarBtn.click();
       await page.waitForTimeout(3000);
       
       const pacienteInput = page.locator('input[placeholder*="paciente" i], input[name*="paciente" i]').first();
-      if (await pacienteInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+      if (await pacienteInput.waitFor({ state: 'visible', timeout: 3000 }).then(() => true).catch(() => false)) {
         await pacienteInput.click();
         await pacienteInput.type('Paciente', { delay: 50 });
         await page.waitForTimeout(1000);
@@ -1501,7 +1524,7 @@ async function createAppointment(page: Page): Promise<void> {
         }
         
         const guardarBtn = page.locator('button:has-text("Guardar"), button:has-text("Agendar")').first();
-        if (await guardarBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        if (await guardarBtn.waitFor({ state: 'visible', timeout: 3000 }).then(() => true).catch(() => false)) {
           await guardarBtn.click();
           await page.waitForTimeout(2000);
         }
@@ -1895,13 +1918,16 @@ test('Start a scheduled consultation - Stress Test', async ({ page }) => {
       
       for (let i = 0; i < guardarCount; i++) {
         const btn = guardarButtons.nth(i);
-        if (await btn.isVisible({ timeout: 1000 }).catch(() => false)) {
+        if (await btn.isVisible().catch(() => false)) {
           await btn.click({ force: true });
           console.log(`  ✅ Clicked "Guardar" button ${i + 1}`);
           await page.waitForTimeout(1500);
           
           const okBtn = page.locator('button:has-text("OK"), button:has-text("Aceptar"), .swal2-confirm');
-          if (await okBtn.first().isVisible({ timeout: 1000 }).catch(() => false)) {
+          // isVisible({timeout}) no espera de verdad (confirmado en vivo,
+          // Etapa 5) — el swal de confirmación es resultado del click de
+          // Guardar de arriba.
+          if (await okBtn.first().waitFor({ state: 'visible', timeout: 1000 }).then(() => true).catch(() => false)) {
             await okBtn.first().click();
             await page.waitForTimeout(500);
           }

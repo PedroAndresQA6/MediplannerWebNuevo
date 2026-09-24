@@ -45,7 +45,7 @@ async function goToVacunacion(page: Page): Promise<void> {
   await page.waitForSelector('span.font-semibold.text-sm.text-gray-900', { timeout: 25000 });
   await page.waitForTimeout(1500);
   const pageSize = page.locator('select').first();
-  if (await pageSize.isVisible({ timeout: 3000 }).catch(() => false)) {
+  if (await pageSize.isVisible().catch(() => false)) {
     await pageSize.selectOption({ label: 'Todos' }).catch(() => {});
     await page.waitForTimeout(2500);
   }
@@ -108,7 +108,7 @@ async function detectAndCloseErrorModal(page: Page, contexto: string): Promise<b
   }
   // Cerrar el modal (éxito o error) para no bloquear los siguientes pasos.
   const confirm = page.locator('.swal2-confirm:visible, .swal2-close:visible').first();
-  if (await confirm.isVisible({ timeout: 1000 }).catch(() => false)) await confirm.click().catch(() => {});
+  if (await confirm.isVisible().catch(() => false)) await confirm.click().catch(() => {});
   else await page.keyboard.press('Escape').catch(() => {});
   await page.waitForTimeout(300);
   return isError;
@@ -218,7 +218,7 @@ test('Vacunación: ciclo completo borrar-todo → vacío → registrar-todo → 
     const saveBeforeGuardar = saveResponses.length;
     const guardar = page.locator('button:has-text("Guardar cambios"):visible').first();
     let guardarSave200 = 0;
-    if (await guardar.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await guardar.isVisible().catch(() => false)) {
       await expectVaccineSaveOk(page, async () => { await guardar.click().catch(() => {}); }, 'guardar borrado de dosis');
       guardarSave200 = saveResponses.slice(saveBeforeGuardar).filter(s => s.status >= 200 && s.status < 300).length;
     } else {
@@ -261,7 +261,7 @@ test('Vacunación: ciclo completo borrar-todo → vacío → registrar-todo → 
     }
     // Guardar cambios para persistir el borrado (batch, igual que la cartilla).
     const save = page.locator('button:has-text("Guardar cambios"):visible').first();
-    if (clicks > 0 && await save.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (clicks > 0 && await save.isVisible().catch(() => false)) {
       await expectVaccineSaveOk(page, async () => { await save.click().catch(() => {}); }, 'guardar borrado otra-vacuna');
     }
     const restantes = await deleteOtraVacunaButtons(page).count();
@@ -328,7 +328,7 @@ test('Vacunación: ciclo completo borrar-todo → vacío → registrar-todo → 
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(800);
     const cta = page.locator('button:has-text("Vacuna diferente")').first();
-    if (await cta.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await cta.isVisible().catch(() => false)) {
       console.log('   Estado VACÍO → click en "Vacuna diferente" para crear la fila');
       await cta.scrollIntoViewIfNeeded().catch(() => {});
       await cta.click({ force: true }).catch(() => {});
@@ -340,7 +340,9 @@ test('Vacunación: ciclo completo borrar-todo → vacío → registrar-todo → 
     // A partir de aquí la fila debe existir (creada por el CTA o ya presente). Si no hay
     // ni siquiera el input de fecha de la fila, no hay nada que llenar.
     const fechaProbe = page.locator('input[placeholder="Fecha"]').first();
-    if (!(await fechaProbe.isVisible({ timeout: 3000 }).catch(() => false))) {
+    // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa 5)
+    // — esta fila la puede haber creado recién el click en "Vacuna diferente".
+    if (!(await fechaProbe.waitFor({ state: 'visible', timeout: 3000 }).then(() => true).catch(() => false))) {
       note('No hay fila de "otra vacuna" para llenar (ni CTA "Vacuna diferente" ni fila inline)');
       await page.screenshot({ path: 'test-results/vac-ciclo-otra-vacuna-sin-fila.png', fullPage: true });
       return;
@@ -348,7 +350,7 @@ test('Vacunación: ciclo completo borrar-todo → vacío → registrar-todo → 
 
     // select de vacuna (placeholder "Seleccione vacuna...") → primera opción real (índice 1)
     const selVacuna = page.locator('select').filter({ hasText: 'Seleccione vacuna' }).first();
-    if (await selVacuna.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await selVacuna.waitFor({ state: 'visible', timeout: 3000 }).then(() => true).catch(() => false)) {
       const opciones = await selVacuna.locator('option').count();
       if (opciones > 1) {
         await selVacuna.selectOption({ index: 1 }).catch(() => {});
@@ -362,7 +364,7 @@ test('Vacunación: ciclo completo borrar-todo → vacío → registrar-todo → 
 
     // select de dosis (placeholder "Seleccione dosis") → primera opción real si existe
     const selDosis = page.locator('select').filter({ hasText: 'Seleccione dosis' }).first();
-    if (await selDosis.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await selDosis.waitFor({ state: 'visible', timeout: 2000 }).then(() => true).catch(() => false)) {
       const opcionesDosis = await selDosis.locator('option').count();
       if (opcionesDosis > 1) await selDosis.selectOption({ index: 1 }).catch(() => {});
       else note('El select de dosis no tiene opciones reales (solo placeholder)');
@@ -376,7 +378,7 @@ test('Vacunación: ciclo completo borrar-todo → vacío → registrar-todo → 
     if (await com.isVisible().catch(() => false)) await com.fill('Otra vacuna por prueba automatizada').catch(() => {});
 
     const save = page.locator('button:has-text("Guardar cambios"):visible').first();
-    if (await save.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await save.isVisible().catch(() => false)) {
       await expectVaccineSaveOk(page, async () => { await save.click().catch(() => {}); }, 'guardar otra vacuna');
       console.log('➕ Otra vacuna agregada y guardada');
     } else {

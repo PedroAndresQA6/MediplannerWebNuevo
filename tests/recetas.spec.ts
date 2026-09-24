@@ -27,7 +27,7 @@ async function goToPaciente(page: Page): Promise<void> {
   await page.waitForSelector('span.font-semibold.text-sm.text-gray-900', { timeout: 25000 });
   await page.waitForTimeout(1500);
   const pageSize = page.locator('select').first();
-  if (await pageSize.isVisible({ timeout: 3000 }).catch(() => false)) {
+  if (await pageSize.isVisible().catch(() => false)) {
     await pageSize.selectOption({ label: 'Todos' }).catch(() => {});
     await page.waitForTimeout(2500);
   }
@@ -53,7 +53,7 @@ test('Recetas: abrir tab, cargar lista, paginar y ver detalle de un medicamento'
 
   await test.step('Abrir tab "Recetas" y validar carga (getTreatmentsList 200)', async () => {
     const tab = page.locator('button:has-text("Recetas"), a:has-text("Recetas")').first();
-    expect(await tab.isVisible({ timeout: 5000 }).catch(() => false), 'El tab "Recetas" debe estar visible').toBe(true);
+    expect(await tab.isVisible().catch(() => false), 'El tab "Recetas" debe estar visible').toBe(true);
     // HARD: el tab debe disparar getTreatmentsList con 200.
     const respPromise = page.waitForResponse(
       r => /\/api\/treatments\/getTreatmentsList/.test(r.url()) && r.request().method() !== 'GET',
@@ -76,7 +76,7 @@ test('Recetas: abrir tab, cargar lista, paginar y ver detalle de un medicamento'
   await test.step('Verificar lista de recetas + contador "N de TOTAL"', async () => {
     // El contador de paginación tiene forma "1–10 de 70" (OJO: guión largo "–", no "-" ASCII).
     const contador = page.locator('text=/\\d+\\s*[-–]\\s*\\d+\\s+de\\s+\\d+/').first();
-    if (await contador.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await contador.isVisible().catch(() => false)) {
       const txt = (await contador.textContent().catch(() => '') || '').trim();
       const m = txt.match(/de\s+(\d+)/i);
       totalRecetas = m ? parseInt(m[1], 10) : 0;
@@ -87,7 +87,7 @@ test('Recetas: abrir tab, cargar lista, paginar y ver detalle de un medicamento'
 
     // Detalle inicial: debe indicar que no hay receta seleccionada.
     const detalleVacio = page.locator('text=/Sin receta seleccionada|Seleccione un medicamento/i').first();
-    const hayDetalleVacio = await detalleVacio.isVisible({ timeout: 2000 }).catch(() => false);
+    const hayDetalleVacio = await detalleVacio.isVisible().catch(() => false);
     console.log(`📄 Panel de detalle inicial muestra estado vacío: ${hayDetalleVacio}`);
   });
 
@@ -98,7 +98,7 @@ test('Recetas: abrir tab, cargar lista, paginar y ver detalle de un medicamento'
     const fechaItems = page.locator(':is(div,li,tr):has(text=/\\d{2}\\/\\d{2}\\/\\d{4}/)');
     const candidato = page.locator('text=/\\d{2}\\/\\d{2}\\/\\d{4}/').first();
 
-    if (!(await candidato.isVisible({ timeout: 3000 }).catch(() => false))) {
+    if (!(await candidato.isVisible().catch(() => false))) {
       console.log('   ⚠️ Paciente sin recetas en la lista — no hay medicamento que seleccionar');
       return;
     }
@@ -110,7 +110,10 @@ test('Recetas: abrir tab, cargar lista, paginar y ver detalle de un medicamento'
     await page.waitForTimeout(2000);
 
     // HARD: tras seleccionar, el panel ya no debe decir "Sin receta seleccionada".
-    const sigueVacio = await page.locator('text=/Sin receta seleccionada/i').first().isVisible({ timeout: 1500 }).catch(() => false);
+    // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa 5)
+    // — este es el assert duro del test: el panel de detalle tarda en
+    // actualizar tras el click de arriba, no hay otra espera real que lo cubra.
+    const sigueVacio = await page.locator('text=/Sin receta seleccionada/i').first().waitFor({ state: 'hidden', timeout: 1500 }).then(() => false).catch(() => true);
     await page.screenshot({ path: 'test-results/recetas-02-detalle.png', fullPage: true });
     expect(sigueVacio, 'Tras seleccionar un medicamento, el detalle no debe seguir en "Sin receta seleccionada"').toBe(false);
     console.log('✅ Detalle de la receta se cargó tras seleccionar el medicamento');
@@ -118,7 +121,7 @@ test('Recetas: abrir tab, cargar lista, paginar y ver detalle de un medicamento'
 
   await test.step('Paginación: "Siguiente →" avanza la lista (si hay >1 página)', async () => {
     const siguiente = page.locator('button:has-text("Siguiente")').first();
-    if (!(await siguiente.isVisible({ timeout: 2000 }).catch(() => false))) {
+    if (!(await siguiente.isVisible().catch(() => false))) {
       console.log('   ⚠️ Sin botón "Siguiente" (lista de una sola página)');
       return;
     }

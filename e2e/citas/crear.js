@@ -21,7 +21,7 @@ async function createAppointment(page, patientSearch = '') {
     // Si falló, intentar click en "Agendar" en la barra lateral
     logger.info('Navegando desde la barra lateral...');
     const sidebarAgendar = page.locator('a:has-text("Agendar"), a[href*="Citas"], a:has-text("Citas")').first();
-    if (await opcional(sidebarAgendar.isVisible({ timeout: 5000 }), 'createAppointment:sidebar-agendar-visible')) {
+    if (await opcional(sidebarAgendar.isVisible(), 'createAppointment:sidebar-agendar-visible')) {
       await sidebarAgendar.click();
       await page.waitForLoadState('networkidle');
       await page.waitForTimeout(2000);
@@ -31,10 +31,13 @@ async function createAppointment(page, patientSearch = '') {
   // Abrir Wizard - botón "Agendar cita" en la parte superior derecha
   logger.info('Buscando botón "Agendar cita"...');
   const agendarButton = page.getByRole('button', { name: /agendar cita/i }).first();
-  if (!await opcional(agendarButton.isVisible({ timeout: 5000 }), 'createAppointment:boton-agendar-cita-visible')) {
+  // isVisible({timeout}) no espera de verdad en esta versión de Playwright
+  // (confirmado en vivo, Etapa 5 de docs/tarea-actual.md) — este botón puede
+  // tardar en montar tras la navegación, por eso se usa un waitFor real.
+  if (!await opcional(agendarButton.waitFor({ state: 'visible', timeout: 5000 }).then(() => true), 'createAppointment:boton-agendar-cita-visible')) {
     // Intentar otros selectores
     const altBtn = page.locator('button:has-text("Agendar cita"), button:has-text("Nueva cita")').first();
-    if (await opcional(altBtn.isVisible({ timeout: 3000 }), 'createAppointment:boton-agendar-cita-alt-visible')) {
+    if (await opcional(altBtn.waitFor({ state: 'visible', timeout: 3000 }).then(() => true), 'createAppointment:boton-agendar-cita-alt-visible')) {
       await altBtn.click();
     } else {
       throw new Error('No se encontró el botón "Agendar cita"');

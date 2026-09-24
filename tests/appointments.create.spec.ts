@@ -68,15 +68,27 @@ test.describe('Schedule Appointment Flow', () => {
     // semanas — no porque no hubiera citas, sino porque el selector nunca
     // pudo haber matcheado. Se busca ahora la fila por el nombre del
     // paciente, que sí es visible en la tabla.
+    //
+    // Etapa 6 (2026-09-24), hallazgo en vivo: dev puede tener MÁS de una
+    // cita de "Percentil" la misma semana (el test es idempotente respecto a
+    // "reusar si ya hay una", pero corridas repetidas pueden dejar una cita
+    // ya confirmada de una corrida anterior junto a otra pendiente). Tomar
+    // la primera fila que matchea (`.first()`) sin más agarraba a veces la
+    // cita YA "Confirmada" — su modal no tiene botón "Confirmar" (en su
+    // lugar muestra Cancelar/No asistió/Asistió/Editar), y el test fallaba
+    // aunque SÍ había una cita pendiente de confirmar en la fila siguiente.
+    // Ahora se recorren TODAS las filas candidatas de la semana: si una ya
+    // está confirmada (sin botón "Confirmar"), se cierra su modal y se
+    // prueba la siguiente, en vez de rendirse en la primera.
     let citaEncontrada = false;
     let citaConfirmada = false;
     const maxSemanas = 4;
 
-    for (let semana = 0; semana < maxSemanas && !citaEncontrada; semana++) {
+    for (let semana = 0; semana < maxSemanas && !citaConfirmada; semana++) {
       if (semana > 0) {
         // Dar click en "Semana siguiente" para avanzar
         const nextWeekBtn = page.locator('button.fc-next-button, button[title="Semana siguiente"]');
-        if (await opcional(nextWeekBtn.isVisible({ timeout: 3000 }), 'citas:boton-semana-siguiente-visible')) {
+        if (await opcional(nextWeekBtn.isVisible(), 'citas:boton-semana-siguiente-visible')) {
           await nextWeekBtn.click();
           logger.info(`Avanzando a semana ${semana + 1}...`);
           await page.waitForTimeout(2000);
@@ -86,12 +98,21 @@ test.describe('Schedule Appointment Flow', () => {
         }
       }
 
-      const filaCita = page.locator('tr', { hasText: PACIENTE_BUSQUEDA }).first();
-      if (await opcional(filaCita.isVisible({ timeout: 3000 }), 'citas:fila-cita-visible')) {
-        logger.success(`Fila de cita de "${PACIENTE_BUSQUEDA}" encontrada en semana ${semana + 1}`);
-        citaEncontrada = true;
+      const filas = page.locator('tr', { hasText: PACIENTE_BUSQUEDA });
+      // isVisible({timeout}) no espera de verdad (confirmado en vivo, Etapa
+      // 5) — tras avanzar de semana la tabla se recarga por API, así que la
+      // primera fila puede tardar más que un instante en aparecer.
+      const hayFilas = await opcional(filas.first().waitFor({ state: 'visible', timeout: 3000 }).then(() => true), 'citas:fila-cita-visible');
+      if (!hayFilas) {
+        logger.info(`Sin cita de "${PACIENTE_BUSQUEDA}" en semana ${semana + 1}, continuando...`);
+        continue;
+      }
+      citaEncontrada = true;
+      const totalFilas = await filas.count();
+      logger.success(`${totalFilas} fila(s) de "${PACIENTE_BUSQUEDA}" encontrada(s) en semana ${semana + 1}`);
 
-        // Abrir la cita
+      for (let f = 0; f < totalFilas && !citaConfirmada; f++) {
+        const filaCita = filas.nth(f);
         await filaCita.click();
 
         // Esperar el modal "Detalles de la cita" con una espera REAL
@@ -105,35 +126,39 @@ test.describe('Schedule Appointment Flow', () => {
         // abierto en la captura de pantalla de la falla. Se espera ahora por
         // el texto único "Detalles de la cita" del propio modal.
         const modal = page.getByText('Detalles de la cita');
-        let modalAbierto = true;
-        try {
-          await modal.waitFor({ state: 'visible', timeout: 10000 });
-        } catch (e) {
-          modalAbierto = false;
+        const modalAbierto = await modal.waitFor({ state: 'visible', timeout: 10000 }).then(() => true).catch(() => false);
+        if (!modalAbierto) {
+          logger.warning(`Modal no se abrió para la fila ${f + 1}`);
+          continue;
         }
-        if (modalAbierto) {
-          logger.info('Modal abierto');
+        logger.info(`Modal abierto (fila ${f + 1}/${totalFilas})`);
 
-          // Confirmar directamente la cita
-          const confirmButton = page.getByRole('button', { name: /confirmar/i });
-          let botonListo = true;
-          try {
-            await confirmButton.waitFor({ state: 'visible', timeout: 5000 });
-          } catch (e) {
-            botonListo = false;
-          }
-          if (botonListo) {
-            await confirmButton.click();
-            logger.success('Cita confirmada exitosamente');
-            citaConfirmada = true;
-          } else {
-            logger.warning('Botón "confirmar" no encontrado en el modal');
-          }
+        // Confirmar directamente la cita
+        const confirmButton = page.getByRole('button', { name: /confirmar/i });
+        const botonListo = await confirmButton.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false);
+        if (botonListo) {
+          await confirmButton.click();
+          logger.success('Cita confirmada exitosamente');
+          citaConfirmada = true;
         } else {
-          logger.warning('Modal no se abrió');
+          // Sin botón "Confirmar": lo más probable es que esta cita ya
+          // estuviera confirmada de una corrida anterior (el modal muestra
+          // el badge "Confirmada" y otros botones — Cancelar/No asistió/
+          // Asistió/Editar — en su lugar). Cerrar el modal y probar la
+          // siguiente fila candidata en vez de darse por vencido acá.
+          //
+          // Confirmado en vivo (2026-09-24): este modal es un componente
+          // propio que NO escucha Escape (el heading "Detalles de la cita"
+          // seguía presente después de presionarlo, y el backdrop
+          // `div.fixed.inset-0` seguía interceptando los clicks de la
+          // siguiente fila). Hay que clickear el botón × real, que vive
+          // junto al heading dentro del mismo contenedor.
+          logger.info(`Fila ${f + 1} sin botón "Confirmar" (probablemente ya confirmada) — cerrando modal y probando la siguiente`);
+          const heading = page.getByRole('heading', { name: 'Detalles de la cita' });
+          const cerrarBtn = heading.locator('xpath=..').getByRole('button').first();
+          await cerrarBtn.click().catch(() => {});
+          await modal.waitFor({ state: 'hidden', timeout: 5000 });
         }
-      } else {
-        logger.info(`Sin cita de "${PACIENTE_BUSQUEDA}" en semana ${semana + 1}, continuando...`);
       }
     }
 
