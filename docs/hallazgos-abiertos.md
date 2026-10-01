@@ -47,7 +47,11 @@ Finalizar, y no es el CIE-10 de Diagnóstico. Detalle en
 
 ## Hallazgo D — Botón "Quitar fecha" inclickeable en Vacunación
 
-**Severidad:** media/alta · **Estado:** cerrado, listo para reportar
+**Severidad:** media/alta · **Estado:** reportado a devs el 2026-09-25, en trabajo
+
+> Primer hallazgo de la iniciativa de automatización que llega a desarrollo.
+> Pendiente: reverificar con la suite cuando el equipo avise que hay fix, y
+> mover este hallazgo a `docs/historial/` cuando quede confirmado.
 
 En la tabla de Vacunación, el `<input type="date">` de una dosis desborda su
 celda y tapa por completo la caja del botón "Quitar fecha" de la columna

@@ -5,7 +5,7 @@
 > el detalle histórico vive en `docs/historial/`, los hallazgos con su
 > evidencia en `docs/hallazgos-abiertos.md`.
 >
-> **Última actualización:** 2026-09-24 (Etapa 6 commiteada)
+> **Última actualización:** 2026-10-01 (reporter JSON + fix `auditarPantalla`)
 >
 > **Regla de mantenimiento:** cuando algo se resuelve o se cierra, sale de este
 > archivo y se archiva. Si una entrada crece más de un párrafo, su detalle va a
@@ -101,6 +101,35 @@ completo.** Detalle por etapa en `docs/historial/`:
 - **Con la Etapa 6 commiteada, no hay encargo vigente.** Queda decidir el
   próximo.
 
+**Reporter JSON para el generador de PDF (2026-09-25):**
+- `e2e/reporter-qa.js`, registrado como tercer reporter (junto a `html` y
+  `list`): escribe `reportes/corrida.json` (ignorado por git). El "paso
+  fallido" es el step cuyo error es el que hizo fallar la prueba, no el
+  primero con `error` (los `opcional()` dejan steps con error aunque se
+  hayan manejado). Verificado contra dev: cuando el fallo cae dentro de un
+  `test.step` registra el paso exacto (ej. "Finalizar consulta", línea 225).
+- **Decisión abierta:** el 404 de `getFilledForm` se detecta en un `expect`
+  final fuera de todo `test.step` (`consultation.full-flow.spec.js:467`) →
+  `paso: null`. Opciones: envolver las aserciones finales en un step, o que
+  el monitor anote en qué step ocurrió cada respuesta con error.
+- Pendiente acordado: el script puente hacia el generador de PDF (no se tocó).
+
+**Fix `auditarPantalla` (2026-09-25):** `inputValue()` se llamaba también
+sobre `[contenteditable]`/`[role=combobox]` y reventaba siempre (3 disparos
+de `opcional()` por corrida, valor `null` en el inventario). Ahora lee por
+tipo de elemento y loguea los no-formulario — eran los 3 editores Jodit de
+Tratamiento, Laboratorios y Notas del Médico. 0 disparos en 2 corridas.
+
+**Hueco abierto en `e2e/consulta/secciones.js` (2026-09-25, sin corregir):**
+CIE-10 y Laboratorios esperan 1.5s fijos a las opciones de búsqueda; si no
+llegaron, loguean "⚠️ Sin opciones…" y siguen (corrida 2: "A09" respondió
+con resultados 1.7s después, la app bloqueó Finalizar por CIE-10 vacío).
+Además las 9 `fill*Section` están envueltas en un `try/catch` que solo
+loguea "⚠️ Error en …" — un fallo al llenar no rompe el test. Esa corrida
+dejó una consulta de "Percentil Prueba Prueba" iniciada sin finalizar en dev.
+El onboarding/wizard (`saltarOnboardingYWizardConfig`) se deja como está por
+decisión de Pedro.
+
 **Limpieza de repo (2026-09-24, commiteada en `Trabajando`/`main`/
 `Normalization`):**
 - Las 3 ramas espejo, que habían quedado desincronizadas (una rama
@@ -131,7 +160,7 @@ Detalle completo en `docs/hallazgos-abiertos.md`.
 | # | Hallazgo | Estado |
 | --- | --- | --- |
 | 1 | Carrera de datos: escribir en "General"/"Apariencia general" mientras el overlay "Recuperando datos del paciente..." sigue activo pierde lo tipeado | Causa raíz confirmada. Falta confirmación manual de Pedro antes de reportar a devs |
-| D | Botón "Quitar fecha" de Vacunación inclickeable en vacunas de 4+ dosis (11 de 32 botones) | Cerrado y listo para reportar |
+| D | Botón "Quitar fecha" de Vacunación inclickeable en vacunas de 4+ dosis (11 de 32 botones) | **Reportado a devs (2026-09-25). En trabajo por el equipo de desarrollo** |
 | — | `getFilledForm` 404 tras Finalizar pese a `registerAnswers` 200 | Reproducido de nuevo 2026-09-17 noche, ya sin el confound de `doctorId` (ver abajo): 2 llamadas internas de la app en 404, resuelven solas ~3s después. La medición previa de "~100s" queda en duda |
 | — | `saveService`/`getServices`: el bug histórico no reprodujo el 2026-09-10 | En observación, no cerrado |
 
@@ -158,14 +187,9 @@ Detalle completo en `docs/hallazgos-abiertos.md`.
 
 ## Pendientes de commit
 
-`8ee24df` (Etapa 6) commiteado en `Trabajando` — **falta pushear y
-sincronizar `main`/`Normalization`** a este commit (no se hizo en esta
-sesión). El resto ya estaba sincronizado: los cuatro commits del 2026-09-17
-(`74f22cd`, `7b38f99`, `22e0ecf`, `5c604d9`), `287ddcb`+`bec5332` (Etapa 3,
-2026-09-23) y, del 2026-09-24: destrackeo de test-results/logs viejos,
-mudanza de los 9 scripts sueltos a `scripts-diagnostico/`, el fix de
-credenciales hardcodeadas de producción, `227a469` (Etapa 4), `cb12c9b`
-(Etapa 5) y `aabcd1b`.
+Todo commiteado y pusheado en `Trabajando`/`main`/`Normalization`
+(2026-10-01), salvo las carpetas de videos `Vide/` y `Videos/` (sin
+versionar: el repo es público, pendiente de decisión de Pedro).
 
 Nota operativa: git en esta carpeta de OneDrive falla al cambiar de
 rama/commitear ("unable to append to .git/logs/HEAD") — se resuelve por
