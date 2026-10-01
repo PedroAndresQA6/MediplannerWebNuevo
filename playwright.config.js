@@ -12,7 +12,8 @@ module.exports = defineConfig({
   workers: 1,
   reporter: [
     ['html', { open: 'never' }],
-    ['list']
+    ['list'],
+    ['./e2e/reporter-qa.js'],
   ],
   use: {
     baseURL: BASE_URL,

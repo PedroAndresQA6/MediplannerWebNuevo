@@ -19,3 +19,6 @@ logs/
 
 # Artefactos de corridas Appium (crash/ANR por test, se regeneran en cada run)
 MediplannerAppiumAutomation/Appium/reports/monitor/
+
+# JSON de corridas para el generador de reportes PDF (e2e/reporter-qa.js)
+reportes/
