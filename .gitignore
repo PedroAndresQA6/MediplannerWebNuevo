@@ -22,3 +22,7 @@ MediplannerAppiumAutomation/Appium/reports/monitor/
 
 # JSON de corridas para el generador de reportes PDF (e2e/reporter-qa.js)
 reportes/
+
+# Videos de evidencia de bugs: solo locales/OneDrive, el repo es público
+Vide/
+Videos/

@@ -188,8 +188,9 @@ Detalle completo en `docs/hallazgos-abiertos.md`.
 ## Pendientes de commit
 
 Todo commiteado y pusheado en `Trabajando`/`main`/`Normalization`
-(2026-10-01), salvo las carpetas de videos `Vide/` y `Videos/` (sin
-versionar: el repo es público, pendiente de decisión de Pedro).
+(2026-10-01). Las carpetas de videos de bugs `Vide/` y `Videos/` quedan
+fuera de git a propósito (en `.gitignore`, decisión de Pedro 2026-10-01: el
+repo es público) — viven solo en local/OneDrive.
 
 Nota operativa: git en esta carpeta de OneDrive falla al cambiar de
 rama/commitear ("unable to append to .git/logs/HEAD") — se resuelve por
