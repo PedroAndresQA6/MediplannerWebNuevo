@@ -65,20 +65,41 @@ async function auditarPantalla(page, etiqueta, opts = {}) {
     const name = await opcional(el.getAttribute('name'), 'auditarPantalla:elemento-name');
     const placeholder = await opcional(el.getAttribute('placeholder'), 'auditarPantalla:elemento-placeholder');
     const required = await opcional(el.evaluate(e => e.required === true || e.getAttribute('aria-required') === 'true'), 'auditarPantalla:elemento-required');
+    // 2026-09-25: antes todo lo que no era button/a pasaba por inputValue(),
+    // que revienta siempre en [role="combobox"]/[contenteditable] (no son
+    // input/textarea/select) — 3 disparos por corrida tragados por opcional()
+    // y esos elementos (editores de texto enriquecido incluidos) quedaban en
+    // el inventario con value=null. Se elige la lectura por tipo real.
     let value = null;
     if (tag === 'button' || tag === 'a') {
       value = ((await opcional(el.textContent(), 'auditarPantalla:elemento-textcontent')) || '').trim().substring(0, 50);
-    } else {
+    } else if (tag === 'input' || tag === 'textarea' || tag === 'select') {
       value = await opcional(el.inputValue(), 'auditarPantalla:elemento-inputvalue');
+    } else {
+      value = ((await opcional(el.innerText(), 'auditarPantalla:elemento-innertext')) || '').trim();
     }
-    reporte.inventario.push({ i, tag, type, name, placeholder, required, value });
+    const entrada = { i, tag, type, name, placeholder, required, value };
+    if (!['input', 'textarea', 'select', 'button', 'a'].includes(tag)) {
+      entrada.pista = await opcional(el.evaluate(e => ({
+        role: e.getAttribute('role'),
+        contenteditable: e.getAttribute('contenteditable'),
+        ariaLabel: e.getAttribute('aria-label'),
+        clase: (e.className || '').toString().substring(0, 60),
+        seccion: e.closest('.card')?.querySelector('h3')?.innerText?.trim() ?? null,
+      })), 'auditarPantalla:elemento-pista');
+    }
+    reporte.inventario.push(entrada);
   }
+  const noFormulario = reporte.inventario.filter(e => !['input', 'textarea', 'select', 'button', 'a'].includes(e.tag));
 
   const estadoCarga = reporte.cargasPendientes.length > 0
     ? `⚠️ ${reporte.cargasPendientes.length} texto(s) de carga SIN resolver tras ${maxWaitMs}ms: ${JSON.stringify(reporte.cargasPendientes)}`
     : (reporte.tardoEnResolver ? `✅ resolvió, pero tardó (${vueltas * pollMs}ms+)` : '✅ sin textos de carga pendientes');
   console.log(`\n🔍 [auditarPantalla: "${etiqueta}"] ${estadoCarga}`);
   console.log(`   ${reporte.inventario.length} elemento(s) interactivo(s) inventariados.`);
+  for (const e of noFormulario) {
+    console.log(`   · <${e.tag}> ${JSON.stringify(e.pista)} → ${JSON.stringify(e.value.substring(0, 80))}`);
+  }
 
   return reporte;
 }
